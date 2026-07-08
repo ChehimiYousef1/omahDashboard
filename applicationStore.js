@@ -93,6 +93,12 @@ function toJsonRecord(payload, existingId) {
 }
 
 async function init(mongoConnection) {
+  if (process.env.DISABLE_MONGO === 'true' || !process.env.MONGODB_URI) {
+    useMongo = false;
+    console.log('📦 Applications storage: Local JSON File (MongoDB disabled or MONGODB_URI not provided)');
+    return;
+  }
+
   try {
     await mongoConnection.connectToMongoDB();
     useMongo = true;
@@ -100,8 +106,7 @@ async function init(mongoConnection) {
     console.log('✅ Applications storage: MongoDB');
   } catch (error) {
     useMongo = false;
-    console.log('⚠️  MongoDB unavailable — applications will use JSON file storage');
-    console.log('   (Install MongoDB later with: npm run install:mongodb)');
+    console.log('⚠️  MongoDB connection failed — falling back to local JSON file storage');
   }
 }
 

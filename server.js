@@ -30,9 +30,13 @@ const transporter = nodemailer.createTransport({
 const app = express();
 
 // Middleware
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : [];
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || /^http:\/\/localhost:\d+$/.test(origin)) {
+    if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(null, false);
@@ -1220,21 +1224,33 @@ app.get('/api/dev/db-summary', authenticateToken, async (req, res) => {
   }
 });
 
+const path = require('path');
+
+// Serve static assets from the frontend build directory
+app.use(express.static(path.join(__dirname, 'omahconnect-admin/dist')));
+
+// Wildcard handler to serve frontend SPA for any other route
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'omahconnect-admin/dist', 'index.html'));
+});
+
 async function startServer() {
   await applicationStore.init(mongoConnection);
-
-  const sheetUrl = process.env.APPLICANT_SHEET_CSV_URL || DEFAULT_APPLICANT_SHEET_CSV_URL;
-  try {
-    const added = await syncApplicantsFromSheet(sheetUrl);
-    console.log(`📋 Applicant sheet sync: imported ${added} new applicant(s)`);
-  } catch (error) {
-    console.warn('⚠️  Applicant sheet auto-sync skipped:', error.message);
-  }
 
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📦 Applications storage: ${applicationStore.isUsingMongo() ? 'MongoDB' : 'JSON file (data/applications.json)'}`);
+
+    // Sync applicants in the background so it doesn't block server startup
+    const sheetUrl = process.env.APPLICANT_SHEET_CSV_URL || DEFAULT_APPLICANT_SHEET_CSV_URL;
+    syncApplicantsFromSheet(sheetUrl)
+      .then((added) => {
+        console.log(`📋 Applicant sheet sync: imported ${added} new applicant(s)`);
+      })
+      .catch((error) => {
+        console.warn('⚠️  Applicant sheet auto-sync skipped:', error.message);
+      });
   });
 }
 

@@ -2,6 +2,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
+    "build": "npm install --prefix omahconnect-admin && npm run build --prefix omahconnect-admin",
     "install:mongodb": "powershell -ExecutionPolicy Bypass -File scripts/install-mongodb.ps1",
     "mongodb": "powershell -ExecutionPolicy Bypass -File scripts/start-mongodb.ps1",
     "hash-passwords": "node scripts/hash-passwords.js"
