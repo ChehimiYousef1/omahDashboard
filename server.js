@@ -11,6 +11,7 @@ const db = require('./db');
 const mongoConnection = require('./mongoConnection');
 const applicationStore = require('./applicationStore');
 const { authenticateToken } = require('./middleware/auth');
+const requireAdmin = require('./middleware/requireAdmin');
 
 dotenv.config();
 
@@ -348,15 +349,15 @@ app.use(express.static(path.join(__dirname, 'omahconnect-admin/dist')));
 // Wildcard handler to serve frontend SPA for any other route
 /* ---- API routes (extracted into src/routes/) ---- */
 app.use('/api/auth', require('./src/routes/auth.routes')({ JWT_SECRET, authenticateToken, bcrypt, db, jwt }));
-app.use('/api/users', require('./src/routes/users.routes')({ authenticateToken, db }));
+app.use('/api/users', authenticateToken, requireAdmin, require('./src/routes/users.routes')({ authenticateToken, db }));
 app.use('/api/posts', require('./src/routes/posts.routes')({ db }));
-app.use('/api/emails', require('./src/routes/emails.routes')({ applicationStore, authenticateToken, db, transporter }));
-app.use('/api/calls', require('./src/routes/calls.routes')({ authenticateToken, db }));
-app.use('/api/notifications', require('./src/routes/notifications.routes')({ authenticateToken, db }));
-app.use('/api/messages', require('./src/routes/messages.routes')({ authenticateToken, db }));
-app.use('/api/companies', require('./src/routes/companies.routes')({ authenticateToken, db }));
-app.use('/api/applications', require('./src/routes/applications.routes')({ DEFAULT_APPLICANT_SHEET_CSV_URL, applicationStore, authenticateToken, db, normalizeSheetCsvUrl, syncApplicantsFromSheet }));
-app.use('/api/dev', require('./src/routes/dev.routes')({ authenticateToken, db }));
+app.use('/api/emails', authenticateToken, requireAdmin, require('./src/routes/emails.routes')({ applicationStore, authenticateToken, db, transporter }));
+app.use('/api/calls', authenticateToken, requireAdmin, require('./src/routes/calls.routes')({ authenticateToken, db }));
+app.use('/api/notifications', authenticateToken, requireAdmin, require('./src/routes/notifications.routes')({ authenticateToken, db }));
+app.use('/api/messages', authenticateToken, requireAdmin, require('./src/routes/messages.routes')({ authenticateToken, db }));
+app.use('/api/companies', authenticateToken, requireAdmin, require('./src/routes/companies.routes')({ authenticateToken, db }));
+app.use('/api/applications', authenticateToken, requireAdmin, require('./src/routes/applications.routes')({ DEFAULT_APPLICANT_SHEET_CSV_URL, applicationStore, authenticateToken, db, normalizeSheetCsvUrl, syncApplicantsFromSheet }));
+app.use('/api/dev', authenticateToken, requireAdmin, require('./src/routes/dev.routes')({ authenticateToken, db }));
 
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'omahconnect-admin/dist', 'index.html'));

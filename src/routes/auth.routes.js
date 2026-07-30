@@ -5,6 +5,9 @@ module.exports = (deps) => {
   const { JWT_SECRET, authenticateToken, bcrypt, db, jwt } = deps;
 
   router.post('/signup', async (req, res) => {
+    if (process.env.ALLOW_SIGNUP !== 'true') {
+      return res.status(403).json({ success: false, error: 'Signup is disabled' });
+    }
     try {
       const { name, email, password, role } = req.body;
       if (!name || !email || !password) {
@@ -22,7 +25,7 @@ module.exports = (deps) => {
         name,
         email,
         password: hashedPassword,
-        role: role || 'User'
+        role: 'User'
       });
   
       const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
