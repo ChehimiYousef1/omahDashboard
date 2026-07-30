@@ -232,24 +232,22 @@ async function deleteApplication(id) {
   return toApiFormat(removed);
 }
 
-function buildSyncIdentifier(email, jobTitle) {
-  return String(email).toLowerCase().trim() + '::' + String(jobTitle || '').toLowerCase().trim();
-}
-
-async function findDuplicate(email, appliedDate, jobTitle) {
+async function findDuplicate(email, appliedDate) {
   const normalizedEmail = email.toLowerCase().trim();
   const dateStr = new Date(appliedDate).toISOString().split('T')[0];
 
   if (useMongo) {
-    return Application.findOne({ syncIdentifier: buildSyncIdentifier(normalizedEmail, jobTitle) });
+    return Application.findOne({
+      email: normalizedEmail,
+      syncIdentifier: `${normalizedEmail}_${dateStr}`,
+    });
   }
 
   const apps = await db.getApplications();
   return apps.find(
     (app) =>
-      String(app.userEmail || '').toLowerCase() === normalizedEmail &&
-      String(app.jobTitle || '').toLowerCase().trim() ===
-        String(jobTitle || '').toLowerCase().trim()
+      app.userEmail.toLowerCase() === normalizedEmail &&
+      app.appliedDate === dateStr
   ) || null;
 }
 
@@ -258,11 +256,11 @@ async function createFromSheetRow(rowData) {
   const appliedDate = rowData.appliedDate ? new Date(rowData.appliedDate) : new Date();
   const dateStr = appliedDate.toISOString().split('T')[0];
 
-  const duplicate = await findDuplicate(email, appliedDate, rowData.jobTitle);
+  const duplicate = await findDuplicate(email, appliedDate);
   if (duplicate) return null;
 
   if (useMongo) {
-    const syncIdentifier = buildSyncIdentifier(email, rowData.jobTitle);
+    const syncIdentifier = `${email}_${dateStr}`;
     const doc = await Application.create({
       name: rowData.name.trim(),
       email,

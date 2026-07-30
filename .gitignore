@@ -7,3 +7,4 @@ backup-before-rebase/
 data-backup-*/
 backup-mongo/
 data/db.json
+data/
