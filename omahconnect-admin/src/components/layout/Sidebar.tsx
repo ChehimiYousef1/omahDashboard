@@ -9,7 +9,6 @@ import {
   BarChart3,
   Code2,
   Settings,
-  Rocket,
   Infinity,
   Mail,
   Bell,

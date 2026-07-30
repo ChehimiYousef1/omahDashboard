@@ -2,3 +2,8 @@ node_modules/
 .env
 .env.*
 node_modules
+backup-mongo/
+backup-before-rebase/
+data-backup-*/
+backup-mongo/
+data/db.json

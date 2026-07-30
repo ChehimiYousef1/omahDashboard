@@ -155,7 +155,7 @@ export function DeveloperToolsPage() {
     try {
       const response = await axios({
         method: apiMethod,
-        url: `http://localhost:5000/api${apiEndpoint}`,
+        url: `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${apiEndpoint}`,
         withCredentials: true,
       });
       setApiResponse(JSON.stringify(response.data, null, 2));

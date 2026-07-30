@@ -1,30 +1,3 @@
 {
-  "requireVerificationDocs": true,
-  "autoFilterSpamJobs": true,
-  "allowedDomains": [
-    ".com",
-    ".org",
-    ".net",
-    ".edu",
-    ".co",
-    ".io",
-    ".kr",
-    ".in",
-    ".es",
-    ".ae",
-    ".cn",
-    ".ca"
-  ],
-  "minTrustScoreToPost": 60,
-  "spamKeywords": [
-    "crypto",
-    "fast cash",
-    "quick cash",
-    "guaranteed payout",
-    "no experience",
-    "earn from home",
-    "wire transfer",
-    "deposit fee"
-  ],
   "applicantSheetUrl": "https://docs.google.com/spreadsheets/d/19T3MgIa_iDzybzLneCqXYIbATxOuL644xqKtYuZUvbY/export?format=csv&gid=961207793"
 }

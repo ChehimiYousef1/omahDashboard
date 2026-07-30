@@ -5,7 +5,11 @@
     "build": "npm install --prefix omahconnect-admin && npm run build --prefix omahconnect-admin",
     "install:mongodb": "powershell -ExecutionPolicy Bypass -File scripts/install-mongodb.ps1",
     "mongodb": "powershell -ExecutionPolicy Bypass -File scripts/start-mongodb.ps1",
-    "hash-passwords": "node scripts/hash-passwords.js"
+    "hash-passwords": "node scripts/hash-passwords.js",
+    "backup": "node scripts/backup-mongo.js",
+    "tree": "bash scripts/tree.sh",
+    "clean": "bash scripts/cleanup.sh",
+    "organize": "bash scripts/organize.sh"
   },
   "dependencies": {
     "axios": "^1.16.1",
@@ -14,6 +18,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.0.0",
     "nodemailer": "^9.0.1"

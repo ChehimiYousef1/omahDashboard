@@ -152,50 +152,8 @@ export interface Conversation {
    AUTHENTICATION API
 ========================= */
 export const fetchCurrentUser = async (): Promise<User> => {
-  try {
-    const response = await apiClient.get('/auth/me');
-    return response.data.user;
-  } catch (error: any) {
-    // If backend is running but returns 401 (Not authenticated), try auto-login
-    if (error.response && error.response.status === 401) {
-      try {
-        console.log('User is unauthorized (401). Attempting automatic admin login...');
-        const loginResponse = await apiClient.post('/auth/login', {
-          email: 'admin@omahconnect.com',
-          password: 'password123',
-        });
-        console.log('Automatic admin login successful.');
-        return loginResponse.data.user;
-      } catch (loginError) {
-        console.error('Automatic admin login failed:', loginError);
-      }
-    }
-
-    console.log('Backend not available, using mock admin user');
-    return {
-      id: "admin-1",
-      email: "admin@omahconnect.com",
-      name: "Admin User",
-      role: "Super Admin",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      coverPage: null,
-      gender: "Male",
-      country: "United States",
-      city: "Austin",
-      profession: "Operations Director",
-      isStudent: false,
-      isVerified: true,
-      joinedDate: "2025-01-10",
-      trustScore: 99,
-      status: "Active",
-      plan: "Enterprise",
-      badge: "System Creator",
-      bio: "Managing the platform's core administrative and verification tools.",
-      phone: "+1 (555) 019-000",
-      emergencyPhone: "+1 (555) 911-000",
-      notificationPermissions: { push: true, email: true, inApp: true }
-    };
-  }
+  const response = await apiClient.get('/auth/me');
+  return response.data.user;
 };
 
 /* =========================

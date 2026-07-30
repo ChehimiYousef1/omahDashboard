@@ -15,6 +15,7 @@ import { DeveloperToolsPage } from "./pages/DeveloperToolsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { DialerModal } from "./components/calling/DialerModal";
 import { fetchCurrentUser, type User } from "./services/api";
+import { LoginPage } from "./pages/LoginPage";
 
 const pageConfig: Record<
   string,
@@ -69,6 +70,7 @@ const pageConfig: Record<
 
 function App() {
   const [authLoading, setAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [emailTargetUserId, setEmailTargetUserId] = useState<string | null>(null);
   const [emailCampaignType, setEmailCampaignType] = useState<string | null>(null);
@@ -82,9 +84,10 @@ function App() {
   useEffect(() => {
     async function checkAuth() {
       try {
-        await fetchCurrentUser();
-      } catch (err) {
-        console.log("Database connection error or offline.");
+        const user = await fetchCurrentUser();
+        setCurrentUser(user);
+      } catch {
+        setCurrentUser(null);
       } finally {
         setAuthLoading(false);
       }
@@ -121,6 +124,10 @@ function App() {
     );
   }
 
+  if (!currentUser) {
+    return <LoginPage onSuccess={setCurrentUser} />;
+  }
+
   const config = pageConfig[activeNav] || { title: "Admin Console", description: "" };
 
   return (
@@ -153,7 +160,7 @@ function App() {
           <ApplicationsPage onTriggerEmail={handleTriggerEmail} />
         ) : activeNav === "reports" ? (
           <ReportsPage />
-        ) : activeNav === "developer" ? (
+        ) : activeNav === "developer" && import.meta.env.DEV ? (
           <DeveloperToolsPage />
         ) : activeNav === "settings" ? (
           <SettingsPage />

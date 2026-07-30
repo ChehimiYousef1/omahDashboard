@@ -1,7 +1,9 @@
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_fallback_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 async function authenticateToken(req, res, next) {
   const token = req.cookies?.auth_token;
