@@ -452,6 +452,17 @@ const applicantFormSubmissionSchema = new Schema(
       unique: true,
       trim: true,
     },
+    /*
+     * Master applicant relationship.
+     *
+     * Optional during migration because historical submissions
+     * do not have a master Applicant record yet.
+     */
+    applicantId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Applicant',
+      default: null,
+    },
 
     formVersion: {
       type: Number,
@@ -526,6 +537,11 @@ const applicantFormSubmissionSchema = new Schema(
 | Indexes
 |--------------------------------------------------------------------------
 */
+
+applicantFormSubmissionSchema.index({
+  applicantId: 1,
+  submittedAt: -1,
+});
 
 applicantFormSubmissionSchema.index({
   'personal.email': 1,
