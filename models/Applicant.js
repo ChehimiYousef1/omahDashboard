@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const {
   normalizeEmail,
   normalizePhone,
+  canonicalizeLinkedIn,
 } = require('../utils/applicantIdentity');
 
 const { Schema } = mongoose;
@@ -14,10 +15,12 @@ const { Schema } = mongoose;
 | Identity
 |--------------------------------------------------------------------------
 |
-| This represents the CURRENT approved identity of the applicant.
-| Original Google Form values remain inside ApplicantFormSubmission.
+| Current administrator-approved identity.
+|
+| Original submitted values remain inside ApplicantFormSubmission.
 |
 */
+
 const identitySchema = new Schema(
   {
     fullName: {
@@ -51,6 +54,372 @@ const identitySchema = new Schema(
       default: '',
       trim: true,
     },
+
+    whatsappNumber: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    country: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    city: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Education
+|--------------------------------------------------------------------------
+|
+| Current approved educational information.
+|
+| Detailed historical answers remain preserved in submissions.
+|
+*/
+
+const educationSchema = new Schema(
+  {
+    universityName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    institutionCountry: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    degreeLevel: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    major: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    specialization: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    studyStatus: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    graduationDate: {
+      type: Date,
+      default: null,
+    },
+
+    gpa: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    gradingScale: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    relevantCoursework: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    academicProjects: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    hasCertifications: {
+      type: Boolean,
+      default: false,
+    },
+
+    certificateNames: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    languages: {
+      type: [String],
+      default: [],
+    },
+
+    englishProficiency: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    additionalEducation: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Position / Internship Preferences
+|--------------------------------------------------------------------------
+*/
+
+const preferencesSchema = new Schema(
+  {
+    positionTrack: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    positionType: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    availableStartDate: {
+      type: Date,
+      default: null,
+    },
+
+    duration: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    weeklyAvailability: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    workingDays: {
+      type: [String],
+      default: [],
+    },
+
+    workingTime: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    currentlyEmployed: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    currentCommitment: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    canCommit: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    objectives: {
+      type: [String],
+      default: [],
+    },
+
+    universityRequired: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    universityRequiredDuration: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Skills & Experience
+|--------------------------------------------------------------------------
+*/
+
+const skillsSchema = new Schema(
+  {
+    primaryTechnical: {
+      type: [String],
+      default: [],
+    },
+
+    otherTechnical: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    technicalExperienceLevel: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    professionalExperience: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    previousExperience: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    previousExperienceDetails: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    programmingLanguages: {
+      type: [String],
+      default: [],
+    },
+
+    frameworks: {
+      type: [String],
+      default: [],
+    },
+
+    databases: {
+      type: [String],
+      default: [],
+    },
+
+    cloudDevOps: {
+      type: [String],
+      default: [],
+    },
+
+    developmentTools: {
+      type: [String],
+      default: [],
+    },
+
+    softSkills: {
+      type: [String],
+      default: [],
+    },
+
+    dataEngineerSkills: {
+      type: [String],
+      default: [],
+    },
+
+    aiMlEngineerSkills: {
+      type: [String],
+      default: [],
+    },
+
+    dataAnalystSkills: {
+      type: [String],
+      default: [],
+    },
+
+    skillsToImprove: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    additionalSkills: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  {
+    _id: false,
+  }
+);
+
+/*
+|--------------------------------------------------------------------------
+| Professional Profiles
+|--------------------------------------------------------------------------
+*/
+
+const profilesSchema = new Schema(
+  {
+    linkedin: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    linkedinCanonical: {
+      type: String,
+      default: '',
+      lowercase: true,
+      trim: true,
+    },
+
+    github: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    portfolio: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    socialMedia: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
   {
     _id: false,
@@ -62,16 +431,34 @@ const identitySchema = new Schema(
 | Recruitment State
 |--------------------------------------------------------------------------
 |
-| We intentionally do not lock the status to a final enum yet.
-| The official recruitment pipeline will be defined later.
+| Full controlled pipeline rules will be implemented in the
+| Status Pipeline Management task.
 |
 */
+
 const recruitmentSchema = new Schema(
   {
     status: {
       type: String,
       default: 'applied',
       lowercase: true,
+      trim: true,
+    },
+
+    source: {
+      type: String,
+      enum: [
+        'google-form',
+        'manual',
+        'api',
+        'legacy',
+      ],
+      default: 'google-form',
+    },
+
+    assignedRecruiterId: {
+      type: String,
+      default: '',
       trim: true,
     },
 
@@ -89,6 +476,11 @@ const recruitmentSchema = new Schema(
       type: Date,
       default: null,
     },
+
+    tags: {
+      type: [String],
+      default: [],
+    },
   },
   {
     _id: false,
@@ -97,12 +489,13 @@ const recruitmentSchema = new Schema(
 
 /*
 |--------------------------------------------------------------------------
-| Lifecycle / Archive
+| Lifecycle
 |--------------------------------------------------------------------------
 |
-| Applicants should normally be archived rather than permanently deleted.
+| Normal applicant removal should use archive / soft delete.
 |
 */
+
 const lifecycleSchema = new Schema(
   {
     archived: {
@@ -116,8 +509,9 @@ const lifecycleSchema = new Schema(
     },
 
     archivedBy: {
-      type: Schema.Types.ObjectId,
-      default: null,
+      type: String,
+      default: '',
+      trim: true,
     },
 
     archiveReason: {
@@ -138,18 +532,12 @@ const lifecycleSchema = new Schema(
 |
 | One Applicant = one real person.
 |
-| One Applicant may later be connected to many immutable
-| ApplicantFormSubmission records.
+| One Applicant may have many immutable ApplicantFormSubmission records.
 |
 */
+
 const applicantSchema = new Schema(
   {
-    /*
-     * Human-readable code.
-     *
-     * We keep it optional for now because the safe code-generation
-     * strategy will be implemented separately.
-     */
     applicantCode: {
       type: String,
       unique: true,
@@ -163,6 +551,26 @@ const applicantSchema = new Schema(
       required: true,
     },
 
+    education: {
+      type: educationSchema,
+      default: () => ({}),
+    },
+
+    preferences: {
+      type: preferencesSchema,
+      default: () => ({}),
+    },
+
+    skills: {
+      type: skillsSchema,
+      default: () => ({}),
+    },
+
+    profiles: {
+      type: profilesSchema,
+      default: () => ({}),
+    },
+
     recruitment: {
       type: recruitmentSchema,
       default: () => ({}),
@@ -173,21 +581,12 @@ const applicantSchema = new Schema(
       default: () => ({}),
     },
 
-    /*
-     * Increment later whenever the approved current profile changes.
-     */
     profileVersion: {
       type: Number,
       min: 1,
       default: 1,
     },
 
-    /*
-     * Optional reference to the submission currently used as the
-     * primary/latest approved source.
-     *
-     * Individual field provenance will be designed later.
-     */
     latestApprovedSubmissionId: {
       type: Schema.Types.ObjectId,
       ref: 'ApplicantFormSubmission',
@@ -196,39 +595,48 @@ const applicantSchema = new Schema(
   },
   {
     timestamps: true,
-
     collection: 'applicants',
   }
 );
 
 /*
 |--------------------------------------------------------------------------
-| Identity Normalization
+| Identity / Profile Normalization
 |--------------------------------------------------------------------------
-|
-| Keep normalized identity fields synchronized with the approved
-| display values before validation/save.
-|
 */
 
-applicantSchema.pre('validate', function normalizeApplicantIdentity(next) {
-  if (this.identity) {
-    this.identity.normalizedEmail = normalizeEmail(
-      this.identity.email
-    );
+applicantSchema.pre(
+  'validate',
+  function normalizeApplicantProfile(next) {
+    if (this.identity) {
+      this.identity.normalizedEmail = normalizeEmail(
+        this.identity.email
+      );
 
-    this.identity.normalizedPhone = normalizePhone(
-      this.identity.phoneNumber
-    );
+      this.identity.normalizedPhone = normalizePhone(
+        this.identity.phoneNumber
+      );
+    }
+
+    if (this.profiles) {
+      this.profiles.linkedinCanonical =
+        canonicalizeLinkedIn(
+          this.profiles.linkedin
+        );
+    }
+
+    next();
   }
-
-  next();
-});
+);
 
 /*
 |--------------------------------------------------------------------------
-| Initial Indexes
+| Indexes
 |--------------------------------------------------------------------------
+|
+| These are schema definitions only.
+| This script does NOT run syncIndexes() against MongoDB.
+|
 */
 
 applicantSchema.index({
@@ -237,6 +645,18 @@ applicantSchema.index({
 
 applicantSchema.index({
   'identity.normalizedPhone': 1,
+});
+
+applicantSchema.index({
+  'profiles.linkedinCanonical': 1,
+});
+
+applicantSchema.index({
+  'preferences.positionTrack': 1,
+});
+
+applicantSchema.index({
+  'skills.primaryTechnical': 1,
 });
 
 applicantSchema.index({
