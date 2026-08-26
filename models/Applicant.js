@@ -2,6 +2,11 @@
 
 const mongoose = require('mongoose');
 
+const {
+  normalizeEmail,
+  normalizePhone,
+} = require('../utils/applicantIdentity');
+
 const { Schema } = mongoose;
 
 /*
@@ -28,7 +33,20 @@ const identitySchema = new Schema(
       trim: true,
     },
 
+    normalizedEmail: {
+      type: String,
+      default: '',
+      lowercase: true,
+      trim: true,
+    },
+
     phoneNumber: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+
+    normalizedPhone: {
       type: String,
       default: '',
       trim: true,
@@ -185,16 +203,40 @@ const applicantSchema = new Schema(
 
 /*
 |--------------------------------------------------------------------------
+| Identity Normalization
+|--------------------------------------------------------------------------
+|
+| Keep normalized identity fields synchronized with the approved
+| display values before validation/save.
+|
+*/
+
+applicantSchema.pre('validate', function normalizeApplicantIdentity(next) {
+  if (this.identity) {
+    this.identity.normalizedEmail = normalizeEmail(
+      this.identity.email
+    );
+
+    this.identity.normalizedPhone = normalizePhone(
+      this.identity.phoneNumber
+    );
+  }
+
+  next();
+});
+
+/*
+|--------------------------------------------------------------------------
 | Initial Indexes
 |--------------------------------------------------------------------------
 */
 
 applicantSchema.index({
-  'identity.email': 1,
+  'identity.normalizedEmail': 1,
 });
 
 applicantSchema.index({
-  'identity.phoneNumber': 1,
+  'identity.normalizedPhone': 1,
 });
 
 applicantSchema.index({
