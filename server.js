@@ -7,65 +7,154 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
-const db = require('./db');
-const mongoConnection = require('./mongoConnection');
-const applicationStore = require('./applicationStore');
-const { authenticateToken } = require('./middleware/auth');
-const requireAdmin = require('./middleware/requireAdmin');
 
 dotenv.config();
 
-// SMTP Transporter configuration for real email sending
+const db = require('./db');
+const mongoConnection = require('./mongoConnection');
+const applicationStore = require('./applicationStore');
+
+const { authenticateToken } = require('./middleware/auth');
+const requireAdmin = require('./middleware/requireAdmin');
+
+const {
+  syncApplicantForm,
+  normalizeSheetCsvUrl,
+} = require('./services/applicantFormSyncService');
+
+
+/* =========================
+   SMTP CONFIGURATION
+========================= */
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_SECURE === 'true', // true for port 465, false for 587
+
+  port: parseInt(
+    process.env.SMTP_PORT || '587',
+    10
+  ),
+
+  secure:
+    process.env.SMTP_SECURE === 'true',
+
   auth: {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
   },
-  tls: {
-    ciphers: 'SSLv3',
-    rejectUnauthorized: false
-  }
 });
+
+
+/* =========================
+   EXPRESS APP
+========================= */
 
 const app = express();
 
-// Middleware
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : [];
 
-if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
+/* =========================
+   MIDDLEWARE
+========================= */
 
-app.use(helmet({ contentSecurityPolicy: false }));
+const allowedOrigins =
+  process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : [];
+
+
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
+
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.method === 'OPTIONS',
-  message: { error: 'Too many attempts, try again in 15 minutes' },
-});
-app.use('/api/auth/login', loginLimiter);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
+  max: 10,
+
+  standardHeaders: true,
+
+  legacyHeaders: false,
+
+  skip: (req) =>
+    req.method === 'OPTIONS',
+
+  message: {
+    error:
+      'Too many attempts, try again in 15 minutes',
   },
-  credentials: true
-}));
-app.use(express.json({ limit: '2mb' }));
+});
+
+
+app.use(
+  '/api/auth/login',
+  loginLimiter
+);
+
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      /*
+       * Allow:
+       *
+       * - server-to-server requests
+       * - localhost development
+       * - configured production origins
+       */
+
+      if (
+        !origin ||
+        /^http:\/\/localhost:\d+$/.test(
+          origin
+        ) ||
+        allowedOrigins.includes(origin)
+      ) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+
+    credentials: true,
+  })
+);
+
+
+app.use(
+  express.json({
+    limit: '2mb',
+  })
+);
+
+
 app.use(cookieParser());
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
+
+/* =========================
+   JWT CONFIGURATION
+========================= */
+
+const JWT_SECRET =
+  process.env.JWT_SECRET;
+
+
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET is required'
+  );
+}
+
 
 /* =========================
    AUTHENTICATION ENDPOINTS
@@ -79,6 +168,7 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Auth Me
 
+
 /* =========================
    USER DIRECTORY ENDPOINTS
 ========================= */
@@ -86,6 +176,7 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 // Get all users
 
 // Toggle User Notification Permissions
+
 
 /* =========================
    POSTS ENDPOINTS
@@ -100,6 +191,7 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Send simulated emails (Direct or Bulk)
 
+
 /* =========================
    CRM CALLING ENDPOINTS
 ========================= */
@@ -107,6 +199,7 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 // Get call logs
 
 // Initiate simulated call
+
 
 /* =========================
    NOTIFICATION HUB ENDPOINTS
@@ -118,8 +211,10 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Resend notification
 
+
 /* =========================
-   MESSAGE CENTER / CHAT ENDPOINTS
+   MESSAGE CENTER / CHAT
+   ENDPOINTS
 ========================= */
 
 // Get all conversations list
@@ -128,7 +223,10 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Flag conversation
 
-// Send Chat Message (Admin or Mock User) with AI/Spam moderation
+// Send Chat Message
+// (Admin or Mock User)
+// with AI/Spam moderation
+
 
 /* =========================
    COMPANY MODULE ENDPOINTS
@@ -136,7 +234,8 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Get all companies
 
-// Get recruiters directory (synced with users in db.json)
+// Get recruiters directory
+// (synced with users in db.json)
 
 // Get all jobs
 
@@ -150,9 +249,11 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Verify company
 
-// Suspend company (with cascades)
+// Suspend company
+// (with cascades)
 
-// Send email campaign to recruiters
+// Send email campaign
+// to recruiters
 
 // Toggle Job Featured Star
 
@@ -160,233 +261,453 @@ if (!JWT_SECRET) throw new Error('JWT_SECRET is required');
 
 // Resolve Report ticket
 
+
 /* =========================
-   APPLICATION MODULE ENDPOINTS
+   APPLICATION MODULE
+   CONFIGURATION
 ========================= */
 
-// Get all applications
+/*
+ * IMPORTANT:
+ *
+ * The Google Sheet URL now comes
+ * from .env.
+ *
+ * We intentionally do NOT keep
+ * the old Google Sheet URL
+ * hardcoded in server.js.
+ */
 
-// Update application status
-
-// Delete application
-
-// Default applicant responses sheet (publish to web as CSV for sync to work)
 const DEFAULT_APPLICANT_SHEET_CSV_URL =
-  'https://docs.google.com/spreadsheets/d/19T3MgIa_iDzybzLneCqXYIbATxOuL644xqKtYuZUvbY/export?format=csv&gid=961207793';
+  process.env.APPLICANT_SHEET_CSV_URL ||
+  '';
 
-function normalizeSheetCsvUrl(url) {
-  if (!url) return DEFAULT_APPLICANT_SHEET_CSV_URL;
-  const trimmed = url.trim();
-  const sheetIdMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (!sheetIdMatch) return trimmed;
-  const gidMatch = trimmed.match(/[#&?]gid=(\d+)/);
-  const gid = gidMatch ? gidMatch[1] : '0';
-  return `https://docs.google.com/spreadsheets/d/${sheetIdMatch[1]}/export?format=csv&gid=${gid}`;
-}
 
-function getMappedColumnIndices(headers) {
-  const find = (...patterns) =>
-    headers.findIndex((h) => patterns.some((p) => h.includes(p)));
+/*
+ * Convert environment flags to
+ * real booleans safely.
+ */
 
-  return {
-    timestamp: find('timestamp'),
-    email: find('email', 'e-mail', 'mail address'),
-    name: headers.findIndex((h) => h.includes('name') && !h.includes('company') && !h.includes('user name')),
-    phone: find('phone', 'contact number', 'mobile'),
-    education: find('education', 'school', 'university', 'college'),
-    skills: find('skill'),
-    portfolio: find('portfolio', 'linkedin', 'website', 'github'),
-    resume: find('resume', 'cv', 'upload'),
-    coverLetter: find('cover', 'letter', 'purpose', 'statement', 'why'),
-    position: find('position', 'job', 'role', 'interest', 'internship'),
-  };
-}
-
-// CSV parser helper for Google Sheets
-function parseCSV(text) {
-  const lines = [];
-  let row = [""];
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    const next = text[i+1];
-    if (c === '"') {
-      if (inQuotes && next === '"') {
-        row[row.length - 1] += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (c === ',' && !inQuotes) {
-      row.push('');
-    } else if ((c === '\r' || c === '\n') && !inQuotes) {
-      if (c === '\r' && next === '\n') { i++; }
-      lines.push(row);
-      row = [''];
-    } else {
-      row[row.length - 1] += c;
-    }
-  }
-  if (row.length > 1 || row[0] !== '') {
-    lines.push(row);
-  }
-  return lines;
-}
-
-// Sync applicants from Google Sheets CSV
-async function syncApplicantsFromSheet(sheetUrl) {
-  const csvUrl = normalizeSheetCsvUrl(sheetUrl);
-  const response = await fetch(csvUrl);
-  if (!response.ok) {
-    throw new Error(
-      'Failed to fetch the Google Sheet CSV. Open the sheet → File → Share → Publish to web → select this tab → Comma-separated values (.csv).'
-    );
-  }
-
-  const csvText = await response.text();
-  const rows = parseCSV(csvText);
-
-  if (rows.length < 2) {
-    throw new Error('The CSV has no data rows.');
-  }
-
-  const rawHeaders = rows[0].map((h) => h.trim());
-  const headers = rawHeaders.map((h) => h.toLowerCase().trim());
-  const cols = getMappedColumnIndices(headers);
-
-  if (cols.email === -1 || cols.name === -1) {
-    throw new Error('Could not find columns for Email or Name. Check your Sheet headers.');
-  }
-
-  const mappedIndices = new Set(
-    Object.values(cols).filter((idx) => idx !== -1)
+function isEnvEnabled(value) {
+  return (
+    String(value || '')
+      .trim()
+      .toLowerCase() === 'true'
   );
-
-  let addedCount = 0;
-  const jobs = await db.getJobs();
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length === 0 || !row[cols.email]) continue;
-
-    const email = row[cols.email].trim();
-    const name = row[cols.name].trim();
-    const rawTimestamp = cols.timestamp !== -1 && row[cols.timestamp] ? row[cols.timestamp].trim() : '';
-
-    let appliedDate = new Date().toISOString().split('T')[0];
-    if (rawTimestamp) {
-      const parsedDate = new Date(rawTimestamp);
-      if (!isNaN(parsedDate.getTime())) {
-        appliedDate = parsedDate.toISOString().split('T')[0];
-      }
-    }
-
-    const phone = cols.phone !== -1 && row[cols.phone] ? row[cols.phone].trim() : '';
-    const education = cols.education !== -1 && row[cols.education] ? row[cols.education].trim() : '';
-    const skills = cols.skills !== -1 && row[cols.skills] ? row[cols.skills].trim() : '';
-    const portfolioUrl = cols.portfolio !== -1 && row[cols.portfolio] ? row[cols.portfolio].trim() : '';
-    const resumeUrl = cols.resume !== -1 && row[cols.resume] ? row[cols.resume].trim() : '';
-    const coverLetter = cols.coverLetter !== -1 && row[cols.coverLetter] ? row[cols.coverLetter].trim() : '';
-    const rawPosition = cols.position !== -1 && row[cols.position] ? row[cols.position].trim() : 'Applicant';
-
-    const extraFields = {};
-    for (let j = 0; j < rawHeaders.length; j++) {
-      const value = row[j] ? row[j].trim() : '';
-      if (!value || mappedIndices.has(j)) continue;
-      extraFields[rawHeaders[j]] = value;
-    }
-
-    let jobId = 'j-sheet';
-    let jobTitle = rawPosition;
-    let companyName = 'OMAHCONNECT';
-
-    const matchedJob = jobs.find(
-      (j) =>
-        j.title.toLowerCase().includes(rawPosition.toLowerCase()) ||
-        rawPosition.toLowerCase().includes(j.title.toLowerCase())
-    );
-    if (matchedJob) {
-      jobId = matchedJob.id;
-      jobTitle = matchedJob.title;
-      companyName = matchedJob.companyName;
-    }
-
-    const created = await applicationStore.createFromSheetRow({
-      email,
-      name,
-      phone,
-      education,
-      skills,
-      portfolioUrl,
-      resumeUrl,
-      coverLetter,
-      jobId,
-      jobTitle,
-      companyName,
-      appliedDate,
-      extraFields,
-    });
-
-    if (created) addedCount++;
-  }
-
-  const settings = await db.getCompanySettings();
-  settings.applicantSheetUrl = csvUrl;
-  await db.saveCompanySettings(settings);
-
-  return addedCount;
 }
 
 
+/*
+ * Compatibility wrapper used by
+ * applications.routes.js.
+ *
+ * All:
+ *
+ * - CSV fetching
+ * - CSV parsing
+ * - form mapping
+ * - validation
+ * - duplicate detection
+ * - MongoDB inserts
+ *
+ * are now handled by:
+ *
+ * services/applicantFormSyncService.js
+ */
 
-// Get database stats summary
+async function syncApplicantsFromSheet(
+  sheetUrl,
+  {
+    dryRun = true,
+  } = {}
+) {
+  if (!sheetUrl) {
+    throw new Error(
+      'APPLICANT_SHEET_CSV_URL is not configured.'
+    );
+  }
 
-const path = require('path');
-
-// Serve static assets from the frontend build directory
-app.use(express.static(path.join(__dirname, 'omahconnect-admin/dist')));
-
-// Wildcard handler to serve frontend SPA for any other route
-/* ---- API routes (extracted into src/routes/) ---- */
-app.use('/api/auth', require('./src/routes/auth.routes')({ JWT_SECRET, authenticateToken, bcrypt, db, jwt }));
-app.use('/api/users', authenticateToken, requireAdmin, require('./src/routes/users.routes')({ authenticateToken, db }));
-app.use('/api/posts', require('./src/routes/posts.routes')({ db }));
-app.use('/api/emails', authenticateToken, requireAdmin, require('./src/routes/emails.routes')({ applicationStore, authenticateToken, db, transporter }));
-app.use('/api/calls', authenticateToken, requireAdmin, require('./src/routes/calls.routes')({ authenticateToken, db }));
-app.use('/api/notifications', authenticateToken, requireAdmin, require('./src/routes/notifications.routes')({ authenticateToken, db }));
-app.use('/api/messages', authenticateToken, requireAdmin, require('./src/routes/messages.routes')({ authenticateToken, db }));
-app.use('/api/companies', authenticateToken, requireAdmin, require('./src/routes/companies.routes')({ authenticateToken, db }));
-app.use('/api/applications', authenticateToken, requireAdmin, require('./src/routes/applications.routes')({ DEFAULT_APPLICANT_SHEET_CSV_URL, applicationStore, authenticateToken, db, normalizeSheetCsvUrl, syncApplicantsFromSheet }));
-app.use('/api/dev', authenticateToken, requireAdmin, require('./src/routes/dev.routes')({ authenticateToken, db }));
-
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'omahconnect-admin/dist', 'index.html'));
-});
-
-async function startServer() {
-  await applicationStore.init(mongoConnection);
-
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📦 Applications storage: ${applicationStore.isUsingMongo() ? 'MongoDB' : 'JSON file (data/applications.json)'}`);
-
-    // Sync applicants in the background so it doesn't block server startup
-    const sheetUrl = process.env.APPLICANT_SHEET_CSV_URL || DEFAULT_APPLICANT_SHEET_CSV_URL;
-    syncApplicantsFromSheet(sheetUrl)
-      .then((added) => {
-        console.log(`📋 Applicant sheet sync: imported ${added} new applicant(s)`);
-      })
-      .catch((error) => {
-        console.warn('⚠️  Applicant sheet auto-sync skipped:', error.message);
-      });
+  return syncApplicantForm({
+    sheetUrl,
+    dryRun,
   });
 }
 
-startServer().catch((error) => {
-  console.error('Failed to start server:', error);
-  process.exit(1);
-});
+
+/* =========================
+   DATABASE STATS
+========================= */
+
+// Get database stats summary
+
+
+/* =========================
+   STATIC FRONTEND
+========================= */
+
+const path = require('path');
+
+
+app.use(
+  express.static(
+    path.join(
+      __dirname,
+      'omahconnect-admin/dist'
+    )
+  )
+);
+
+
+/* =========================
+   API ROUTES
+========================= */
+
+app.use(
+  '/api/auth',
+
+  require('./src/routes/auth.routes')({
+    JWT_SECRET,
+    authenticateToken,
+    bcrypt,
+    db,
+    jwt,
+  })
+);
+
+
+app.use(
+  '/api/users',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require('./src/routes/users.routes')({
+    authenticateToken,
+    db,
+  })
+);
+
+
+app.use(
+  '/api/posts',
+
+  require('./src/routes/posts.routes')({
+    db,
+  })
+);
+
+
+app.use(
+  '/api/emails',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require('./src/routes/emails.routes')({
+    applicationStore,
+    authenticateToken,
+    db,
+    transporter,
+  })
+);
+
+
+app.use(
+  '/api/calls',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require('./src/routes/calls.routes')({
+    authenticateToken,
+    db,
+  })
+);
+
+
+app.use(
+  '/api/notifications',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require(
+    './src/routes/notifications.routes'
+  )({
+    authenticateToken,
+    db,
+  })
+);
+
+
+app.use(
+  '/api/messages',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require('./src/routes/messages.routes')({
+    authenticateToken,
+    db,
+  })
+);
+
+
+app.use(
+  '/api/companies',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require(
+    './src/routes/companies.routes'
+  )({
+    authenticateToken,
+    db,
+  })
+);
+
+
+/*
+ * Applicant routes.
+ *
+ * The new Google Form synchronization
+ * service is injected here.
+ */
+
+app.use(
+  '/api/applications',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require(
+    './src/routes/applications.routes'
+  )({
+    DEFAULT_APPLICANT_SHEET_CSV_URL,
+
+    applicationStore,
+
+    authenticateToken,
+
+    db,
+
+    normalizeSheetCsvUrl,
+
+    syncApplicantsFromSheet,
+  })
+);
+
+
+app.use(
+  '/api/dev',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require('./src/routes/dev.routes')({
+    authenticateToken,
+    db,
+  })
+);
+
+
+/* =========================
+   SPA FALLBACK
+========================= */
+
+app.get(
+  /.*/,
+  (req, res) => {
+    res.sendFile(
+      path.join(
+        __dirname,
+        'omahconnect-admin/dist',
+        'index.html'
+      )
+    );
+  }
+);
+
+
+/* =========================
+   SERVER STARTUP
+========================= */
+
+async function startServer() {
+  /*
+   * Initialize existing application
+   * storage first.
+   */
+
+  await applicationStore.init(
+    mongoConnection
+  );
+
+
+  const PORT =
+    process.env.PORT || 5000;
+
+
+  app.listen(
+    PORT,
+    () => {
+      console.log(
+        `🚀 Server running on port ${PORT}`
+      );
+
+
+      console.log(
+        `📦 Applications storage: ${
+          applicationStore.isUsingMongo()
+            ? 'MongoDB'
+            : 'JSON file (data/applications.json)'
+        }`
+      );
+
+
+      /*
+       * ==================================================
+       * GOOGLE FORM AUTO SYNC SAFETY GATE
+       * ==================================================
+       *
+       * Auto sync requires BOTH:
+       *
+       * APPLICANT_AUTO_SYNC_ENABLED=true
+       *
+       * AND
+       *
+       * APPLICANT_SYNC_WRITE_ENABLED=true
+       *
+       * During development both remain false.
+       */
+
+
+      const autoSyncEnabled =
+        isEnvEnabled(
+          process.env
+            .APPLICANT_AUTO_SYNC_ENABLED
+        );
+
+
+      const writeEnabled =
+        isEnvEnabled(
+          process.env
+            .APPLICANT_SYNC_WRITE_ENABLED
+        );
+
+
+      /*
+       * Auto sync completely disabled.
+       */
+
+      if (!autoSyncEnabled) {
+        console.log(
+          '📋 Applicant sheet auto-sync: disabled'
+        );
+
+        return;
+      }
+
+
+      /*
+       * Additional protection:
+       *
+       * Even if someone accidentally
+       * enables auto-sync, MongoDB writing
+       * must also be explicitly enabled.
+       */
+
+      if (!writeEnabled) {
+        console.warn(
+          '⚠️ Applicant sheet auto-sync not started because APPLICANT_SYNC_WRITE_ENABLED=false'
+        );
+
+        return;
+      }
+
+
+      /*
+       * Do NOT fall back to the old
+       * Google Sheet URL.
+       */
+
+      const sheetUrl =
+        process.env
+          .APPLICANT_SHEET_CSV_URL;
+
+
+      if (!sheetUrl) {
+        console.warn(
+          '⚠️ Applicant sheet auto-sync skipped: APPLICANT_SHEET_CSV_URL is not configured.'
+        );
+
+        return;
+      }
+
+
+      /*
+       * Only reaches this point when
+       * BOTH safety flags are true.
+       */
+
+      syncApplicantsFromSheet(
+        sheetUrl,
+        {
+          dryRun: false,
+        }
+      )
+        .then((result) => {
+          console.log(
+            `📋 Applicant sheet sync: imported ${result.inserted} new applicant(s)`
+          );
+
+
+          console.log(
+            `📋 Applicant sheet sync: skipped ${result.duplicates} duplicate(s)`
+          );
+
+
+          console.log(
+            `📋 Applicant sheet sync: ${result.invalid} invalid response(s), ${result.failed} failed row(s)`
+          );
+        })
+        .catch((error) => {
+          console.warn(
+            '⚠️ Applicant sheet auto-sync skipped:',
+            error.message
+          );
+        });
+    }
+  );
+}
+
+
+/* =========================
+   START SERVER
+========================= */
+
+startServer()
+  .catch((error) => {
+    console.error(
+      'Failed to start server:',
+      error
+    );
+
+    process.exit(1);
+  });
+
+
+/* =========================
+   EXPORT
+========================= */
 
 module.exports = app;
-

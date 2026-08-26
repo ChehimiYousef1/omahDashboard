@@ -41,7 +41,15 @@ const {
 */
 
 const EXPECTED_TEST_EMAIL =
-  'test.applicant@example.com';
+  String(process.env.TEST_APPLICANT_EMAIL || '')
+    .trim()
+    .toLowerCase();
+
+if (!EXPECTED_TEST_EMAIL) {
+  throw new Error(
+    'TEST_APPLICANT_EMAIL is not configured.'
+  );
+}
 
 function hasConfirmationFlag() {
   return process.argv.includes(
