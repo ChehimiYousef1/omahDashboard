@@ -8,6 +8,11 @@ import {
 
 import type { Application } from "../../services/api";
 
+import {
+  applicantManagementActions,
+  type ApplicantManagementActionId,
+} from "./applicantManagementActions";
+
 type ProfileTab =
   | "overview"
   | "current-profile"
@@ -22,6 +27,12 @@ type ProfileTab =
 interface ApplicantProfilePanelProps {
   application: Application;
   onClose: () => void;
+
+  onTriggerEmail?: (
+    recipientId: string,
+    campaignType: string,
+    recipientType: "direct" | "applicant" | "bulk"
+  ) => void;
 }
 
 const tabs: Array<{
@@ -52,9 +63,40 @@ function initials(name: string) {
 export function ApplicantProfilePanel({
   application,
   onClose,
+  onTriggerEmail,
 }: ApplicantProfilePanelProps) {
   const [activeTab, setActiveTab] =
     useState<ProfileTab>("overview");
+
+  function handleManagementAction(
+    actionId: ApplicantManagementActionId
+  ) {
+    switch (actionId) {
+      case "send-email":
+        if (onTriggerEmail) {
+          onClose();
+
+          onTriggerEmail(
+            application.id,
+            "direct",
+            "applicant"
+          );
+        }
+        break;
+
+      case "view-submissions":
+        setActiveTab("submissions");
+        break;
+
+      case "view-documents":
+        setActiveTab("documents");
+        break;
+
+      default:
+        // Tasks 8-10 will implement the remaining actions.
+        break;
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs">
@@ -145,6 +187,58 @@ export function ApplicantProfilePanel({
                   value={application.status}
                 />
               </div>
+
+              <section className="mt-5 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Management Actions
+                </h3>
+
+                <p className="mt-1 text-xs text-slate-400">
+                  Central administrator actions for this Applicant.
+                </p>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {applicantManagementActions.map((action) => {
+                    const unavailable =
+                      action.availability !== "available" ||
+                      (action.id === "send-email" &&
+                        !onTriggerEmail);
+
+                    return (
+                      <button
+                        key={action.id}
+                        type="button"
+                        disabled={unavailable}
+                        onClick={() =>
+                          handleManagementAction(action.id)
+                        }
+                        className={`rounded-lg border p-3 text-left transition ${
+                          unavailable
+                            ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-60"
+                            : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-slate-800">
+                            {action.label}
+                          </span>
+
+                          {action.availability === "planned" &&
+                            action.plannedTask && (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-500">
+                                Task {action.plannedTask}
+                              </span>
+                            )}
+                        </div>
+
+                        <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                          {action.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">

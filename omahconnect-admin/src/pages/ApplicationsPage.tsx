@@ -354,6 +354,7 @@ export function ApplicationsPage({ onTriggerEmail }: ApplicationsPageProps) {
         <ApplicantProfilePanel
           application={selectedApp}
           onClose={() => setSelectedApp(null)}
+          onTriggerEmail={onTriggerEmail}
         />
       )}
     </div>
