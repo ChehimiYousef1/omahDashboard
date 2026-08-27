@@ -7,12 +7,12 @@ import {
   type Application,
 } from "../services/api";
 import { Header } from "../components/layout/Header";
+import { ApplicantProfilePanel } from "../components/applicants/ApplicantProfilePanel";
 import {
   Search,
   Eye,
   Download,
   Calendar,
-  X,
   FileText,
   Mail,
   Trash2,
@@ -20,10 +20,6 @@ import {
   Phone,
   Loader2,
 } from "lucide-react";
-
-function isUrl(value: string) {
-  return /^https?:\/\//i.test(value);
-}
 
 interface ApplicationsPageProps {
   onTriggerEmail?: (recipientId: string, campaignType: string, recipientType: "direct" | "applicant" | "bulk") => void;
@@ -82,6 +78,9 @@ export function ApplicationsPage({ onTriggerEmail }: ApplicationsPageProps) {
   };
 
   useEffect(() => {
+    // Initial applicant synchronization intentionally loads remote data
+    // when the page mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadApps(true);
   }, []);
 
@@ -352,192 +351,11 @@ export function ApplicationsPage({ onTriggerEmail }: ApplicationsPageProps) {
       </div>
 
       {selectedApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <h3 className="font-bold text-slate-800">Applicant Details</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedApp(null)}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">{selectedApp.userName}</h2>
-                <p className="text-slate-500 flex items-center gap-1 mt-0.5">
-                  <Mail className="h-3 w-3" /> {selectedApp.userEmail}
-                  {onTriggerEmail && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedApp(null);
-                        onTriggerEmail(selectedApp.id, 'direct', 'applicant');
-                      }}
-                      className="ml-2 font-bold text-blue-650 hover:text-blue-500 hover:underline cursor-pointer"
-                    >
-                      (Send Email)
-                    </button>
-                  )}
-                </p>
-                {selectedApp.phone && (
-                  <p className="text-slate-500 flex items-center gap-1 mt-0.5">
-                    <Phone className="h-3 w-3" /> {selectedApp.phone}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <DetailField label="Position" value={selectedApp.jobTitle} />
-                <DetailField label="Company" value={selectedApp.companyName} className="text-blue-600" />
-                <DetailField label="Applied Date" value={selectedApp.appliedDate} />
-                <DetailField label="Pipeline Stage" value={selectedApp.status} className="capitalize" />
-                {selectedApp.education && (
-                  <div className="col-span-2">
-                    <DetailField label="Education" value={selectedApp.education} />
-                  </div>
-                )}
-                {selectedApp.portfolioUrl && (
-                  <div className="col-span-2">
-                    <span className="text-slate-400 block mb-0.5">Portfolio / LinkedIn</span>
-                    <a
-                      href={selectedApp.portfolioUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-blue-600 hover:underline break-all"
-                    >
-                      {selectedApp.portfolioUrl}
-                    </a>
-                  </div>
-                )}
-                {selectedApp.resumeUrl && (
-                  <div className="col-span-2">
-                    <span className="text-slate-400 block mb-0.5">Resume</span>
-                    <a
-                      href={selectedApp.resumeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-bold text-blue-600 hover:underline flex items-center gap-0.5"
-                    >
-                      <Download className="h-3.5 w-3.5" /> Open resume
-                    </a>
-                  </div>
-                )}
-              </div>
-
-              {selectedApp.skills && (
-                <div>
-                  <h4 className="font-bold text-slate-800 mb-1">Skills</h4>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedApp.skills.split(",").map((skill, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-semibold"
-                      >
-                        {skill.trim()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedApp.coverLetter && (
-                <div>
-                  <h4 className="font-bold text-slate-800 mb-1">Cover Letter / Statement</h4>
-                  <p className="leading-relaxed text-slate-600 bg-slate-50 border border-slate-100 p-3 rounded-lg whitespace-pre-wrap">
-                    {selectedApp.coverLetter}
-                  </p>
-                </div>
-              )}
-
-              {selectedApp.extraFields && Object.keys(selectedApp.extraFields).length > 0 && (
-                <div>
-                  <h4 className="font-bold text-slate-800 mb-2">Additional Responses</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-purple-50/40 p-3 rounded-lg border border-purple-100/50">
-                    {Object.entries(selectedApp.extraFields).map(([key, value]) => (
-                      <div key={key}>
-                        <span className="text-slate-400 block mb-0.5">{key}</span>
-                        {isUrl(value) ? (
-                          <a
-                            href={value}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-semibold text-blue-600 hover:underline break-all"
-                          >
-                            {value}
-                          </a>
-                        ) : (
-                          <span className="font-semibold text-slate-800 whitespace-pre-wrap">{value}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <h4 className="font-bold text-slate-800 mb-2">Update Stage</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(["applied", "reviewed", "interview", "hired", "rejected"] as const).map((stage) => (
-                    <button
-                      key={stage}
-                      type="button"
-                      onClick={() => handleUpdateStatus(selectedApp.id, stage)}
-                      className={`rounded-lg px-2.5 py-1.5 font-semibold border text-[10px] capitalize transition-all ${
-                        selectedApp.status === stage
-                          ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                      }`}
-                    >
-                      {stage}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 text-xs font-bold pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => handleDeleteApp(selectedApp.id)}
-                className="rounded-lg bg-rose-600 px-3 py-1.5 text-white hover:bg-rose-500"
-              >
-                Delete
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedApp(null)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-650 hover:bg-slate-50"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <ApplicantProfilePanel
+          application={selectedApp}
+          onClose={() => setSelectedApp(null)}
+        />
       )}
-    </div>
-  );
-}
-
-function DetailField({
-  label,
-  value,
-  className = "",
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <div>
-      <span className="text-slate-400 block mb-0.5">{label}</span>
-      <span className={`font-semibold text-slate-800 ${className}`}>{value}</span>
     </div>
   );
 }
