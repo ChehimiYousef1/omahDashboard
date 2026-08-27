@@ -1,145 +1,469 @@
-import { useEffect, useMemo, useState } from "react";
 import {
-  fetchApplications,
-  updateApplicationStatus,
-  deleteApplication,
-  syncApplicantsSheet,
-  type Application,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  archiveApplicant,
+  fetchApplicantMasters,
+  restoreApplicant,
+  updateApplicantStatus,
+  type ApplicantLifecycleFilter,
+  type ApplicantMaster,
+  type ApplicantStatus,
 } from "../services/api";
+
 import { Header } from "../components/layout/Header";
+
 import { ApplicantProfilePanel } from "../components/applicants/ApplicantProfilePanel";
+
 import {
-  Search,
-  Eye,
-  Download,
+  Archive,
   Calendar,
+  Eye,
   FileText,
-  Mail,
-  Trash2,
-  RefreshCw,
-  Phone,
   Loader2,
+  Phone,
+  RotateCcw,
+  Search,
 } from "lucide-react";
 
 interface ApplicationsPageProps {
-  onTriggerEmail?: (recipientId: string, campaignType: string, recipientType: "direct" | "applicant" | "bulk") => void;
+  onTriggerEmail?: (
+    recipientId: string,
+    campaignType: string,
+    recipientType:
+      | "direct"
+      | "applicant"
+      | "bulk"
+  ) => void;
 }
 
-export function ApplicationsPage({ onTriggerEmail }: ApplicationsPageProps) {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+/*
+ * Communication remains owned by the
+ * dedicated Communication enhancement.
+ *
+ * The prop stays here so App.tsx remains
+ * backward compatible during migration.
+ */
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [dateFilter, setDateFilter] = useState("All");
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+const ALL_STATUSES:
+  ApplicantStatus[] = [
+    "applied",
+    "reviewed",
+    "interview",
+    "hired",
+    "rejected",
+  ];
 
-  const loadApps = async (withSync = false) => {
-    try {
-      setLoading(true);
-      setError(null);
+const STATUS_TRANSITIONS:
+  Record<
+    ApplicantStatus,
+    ApplicantStatus[]
+  > = {
+    applied: [
+      "reviewed",
+      "interview",
+      "rejected",
+    ],
 
-      if (withSync) {
+    reviewed: [
+      "applied",
+      "interview",
+      "rejected",
+    ],
+
+    interview: [
+      "reviewed",
+      "hired",
+      "rejected",
+    ],
+
+    hired: [
+      "interview",
+    ],
+
+    rejected: [
+      "applied",
+      "reviewed",
+    ],
+  };
+
+function allowedStatuses(
+  current: ApplicantStatus
+) {
+  return [
+    current,
+    ...STATUS_TRANSITIONS[current],
+  ];
+}
+
+function formatDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "—";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function errorMessage(
+  error: unknown
+) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "response" in error
+  ) {
+    const response =
+      (
+        error as {
+          response?: {
+            data?: {
+              error?: string;
+            };
+          };
+        }
+      ).response;
+
+    if (
+      response?.data?.error
+    ) {
+      return response.data.error;
+    }
+  }
+
+  if (
+    error instanceof Error
+  ) {
+    return error.message;
+  }
+
+  return "Unexpected error";
+}
+
+export function ApplicationsPage({
+  onTriggerEmail,
+}: ApplicationsPageProps) {
+  /*
+   * Intentionally not connected to the
+   * legacy email-by-Application-ID flow.
+   */
+  void onTriggerEmail;
+
+  const [
+    applicants,
+    setApplicants,
+  ] = useState<
+    ApplicantMaster[]
+  >([]);
+
+  const [
+    selectedApplicant,
+    setSelectedApplicant,
+  ] = useState<
+    ApplicantMaster | null
+  >(null);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+  const [
+    error,
+    setError,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
+
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState<
+    "All" | ApplicantStatus
+  >("All");
+
+  const [
+    lifecycleFilter,
+    setLifecycleFilter,
+  ] = useState<
+    ApplicantLifecycleFilter
+  >("false");
+
+  const [
+    dateFilter,
+    setDateFilter,
+  ] = useState("All");
+
+  const [
+    filterNow,
+    setFilterNow,
+  ] = useState(0);
+
+  const loadApplicants =
+    useCallback(
+      async () => {
         try {
-          setSyncing(true);
-          const result = await syncApplicantsSheet();
-          if (result.addedCount > 0) {
-            setSyncMessage(`Imported ${result.addedCount} new applicant(s) from the sheet.`);
-          } else {
-            setSyncMessage("Sheet is up to date — no new applicants to import.");
-          }
-        } catch (err: unknown) {
-          const message =
-            err && typeof err === "object" && "response" in err
-              ? (err as { response?: { data?: { error?: string } } }).response?.data?.error
-              : null;
-          setSyncMessage(
-            message ||
-              "Could not sync from Google Sheet. Publish the sheet to the web as CSV (File → Share → Publish to web)."
+          setLoading(true);
+          setError(null);
+
+          const data =
+            await fetchApplicantMasters(
+              lifecycleFilter,
+              200
+            );
+
+          setApplicants(data);
+          setFilterNow(Date.now());
+        } catch (err) {
+          setError(
+            errorMessage(err)
           );
         } finally {
-          setSyncing(false);
+          setLoading(false);
         }
-      }
-
-      const data = await fetchApplications();
-      setApplications(data);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to load applicants";
-      setError(
-        `${message}. Make sure the backend is running: open a terminal in the project folder and run "npm start".`
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+      },
+      [lifecycleFilter]
+    );
 
   useEffect(() => {
-    // Initial applicant synchronization intentionally loads remote data
-    // when the page mounts.
+    // Initial Applicant API load.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadApps(true);
-  }, []);
+    void loadApplicants();
+  }, [loadApplicants]);
 
-  const handleUpdateStatus = async (
-    id: string,
-    nextStatus: "applied" | "reviewed" | "interview" | "hired" | "rejected"
-  ) => {
+  async function handleStatusChange(
+    applicant:
+      ApplicantMaster,
+    nextStatus:
+      ApplicantStatus
+  ) {
+    if (
+      applicant.recruitment
+        .status === nextStatus
+    ) {
+      return;
+    }
+
     try {
-      await updateApplicationStatus(id, nextStatus);
-      setApplications((prev) =>
-        prev.map((app) => (app.id === id ? { ...app, status: nextStatus } : app))
+      await updateApplicantStatus(
+        applicant._id,
+        nextStatus
       );
-      if (selectedApp?.id === id) {
-        setSelectedApp((prev) => (prev ? { ...prev, status: nextStatus } : null));
-      }
-    } catch {
-      alert("Failed to update applicant status");
-    }
-  };
 
-  const handleDeleteApp = async (id: string) => {
-    if (!window.confirm("Delete this applicant record? This cannot be undone.")) return;
+      await loadApplicants();
+    } catch (err) {
+      window.alert(
+        errorMessage(err)
+      );
+    }
+  }
+
+  async function handleArchive(
+    applicant:
+      ApplicantMaster
+  ) {
+    const confirmed =
+      window.confirm(
+        "Archive this Applicant? Historical submissions will be preserved."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const reason =
+      window.prompt(
+        "Optional archive reason:",
+        ""
+      ) ?? "";
+
     try {
-      await deleteApplication(id);
-      setApplications((prev) => prev.filter((app) => app.id !== id));
-      setSelectedApp(null);
-    } catch {
-      alert("Failed to delete applicant record.");
+      await archiveApplicant(
+        applicant._id,
+        reason
+      );
+
+      setSelectedApplicant(
+        null
+      );
+
+      await loadApplicants();
+    } catch (err) {
+      window.alert(
+        errorMessage(err)
+      );
     }
-  };
+  }
 
-  const filteredApps = useMemo(() => {
-    return applications.filter((app) => {
-      const q = searchQuery.toLowerCase();
-      const matchesQuery =
-        app.userName.toLowerCase().includes(q) ||
-        app.userEmail.toLowerCase().includes(q) ||
-        (app.phone || "").toLowerCase().includes(q) ||
-        app.jobTitle.toLowerCase().includes(q) ||
-        app.companyName.toLowerCase().includes(q) ||
-        (app.education || "").toLowerCase().includes(q) ||
-        (app.skills || "").toLowerCase().includes(q);
+  async function handleRestore(
+    applicant:
+      ApplicantMaster
+  ) {
+    const confirmed =
+      window.confirm(
+        "Restore this Applicant?"
+      );
 
-      const matchesStatus = statusFilter === "All" || app.status === statusFilter;
+    if (!confirmed) {
+      return;
+    }
 
-      const appDate = new Date(app.appliedDate);
-      const now = new Date();
-      let matchesDate = true;
-      if (dateFilter === "7d") {
-        matchesDate = now.getTime() - appDate.getTime() <= 7 * 24 * 60 * 60 * 1000;
-      } else if (dateFilter === "30d") {
-        matchesDate = now.getTime() - appDate.getTime() <= 30 * 24 * 60 * 60 * 1000;
-      }
+    try {
+      await restoreApplicant(
+        applicant._id
+      );
 
-      return matchesQuery && matchesStatus && matchesDate;
-    });
-  }, [applications, searchQuery, statusFilter, dateFilter]);
+      setSelectedApplicant(
+        null
+      );
 
-  if (loading && applications.length === 0) {
+      await loadApplicants();
+    } catch (err) {
+      window.alert(
+        errorMessage(err)
+      );
+    }
+  }
+
+  const filteredApplicants =
+    useMemo(() => {
+      return applicants.filter(
+        (applicant) => {
+          const query =
+            searchQuery
+              .trim()
+              .toLowerCase();
+
+          const searchable =
+            [
+              applicant.identity
+                .fullName,
+
+              applicant.identity
+                .email,
+
+              applicant.identity
+                .phoneNumber,
+
+              applicant.preferences
+                .positionTrack,
+
+              applicant.education
+                .universityName,
+
+              applicant.education
+                .major,
+
+              ...applicant.skills
+                .primaryTechnical,
+            ]
+              .join(" ")
+              .toLowerCase();
+
+          const matchesQuery =
+            !query ||
+            searchable.includes(
+              query
+            );
+
+          const matchesStatus =
+            statusFilter ===
+              "All" ||
+            applicant.recruitment
+              .status ===
+              statusFilter;
+
+          const appliedAt =
+            applicant.recruitment
+              .lastAppliedAt ||
+            applicant.recruitment
+              .firstAppliedAt ||
+            applicant.createdAt;
+
+          let matchesDate =
+            true;
+
+          if (
+            dateFilter !==
+              "All" &&
+            appliedAt
+          ) {
+            const date =
+              new Date(
+                appliedAt
+              );
+
+            const age =
+              filterNow -
+              date.getTime();
+
+            if (
+              dateFilter ===
+              "7d"
+            ) {
+              matchesDate =
+                age <=
+                7 *
+                  24 *
+                  60 *
+                  60 *
+                  1000;
+            }
+
+            if (
+              dateFilter ===
+              "30d"
+            ) {
+              matchesDate =
+                age <=
+                30 *
+                  24 *
+                  60 *
+                  60 *
+                  1000;
+            }
+          }
+
+          return (
+            matchesQuery &&
+            matchesStatus &&
+            matchesDate
+          );
+        }
+      );
+    }, [
+      applicants,
+      searchQuery,
+      statusFilter,
+      dateFilter,
+      filterNow,
+    ]);
+
+  if (
+    loading &&
+    applicants.length === 0
+  ) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -150,9 +474,25 @@ export function ApplicationsPage({ onTriggerEmail }: ApplicationsPageProps) {
   if (error) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-xl border border-dashed border-red-200 bg-red-50 p-12 text-center text-red-600">
-        <FileText className="h-10 w-10 text-red-500" />
-        <p className="mt-3 font-semibold">Error Loading Applicants</p>
-        <p className="mt-1 text-sm text-red-500">{error}</p>
+        <FileText className="h-10 w-10" />
+
+        <p className="mt-3 font-semibold">
+          Error Loading Applicants
+        </p>
+
+        <p className="mt-1 text-sm">
+          {error}
+        </p>
+
+        <button
+          type="button"
+          onClick={() =>
+            void loadApplicants()
+          }
+          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -161,202 +501,385 @@ export function ApplicationsPage({ onTriggerEmail }: ApplicationsPageProps) {
     <div className="space-y-6">
       <Header title="Applicants" />
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 -mt-3 pb-2 border-b border-slate-100">
-        <p className="text-sm text-slate-500">
-          All applicants synced from your Google Sheet responses.
-          {applications.length > 0 && (
-            <span className="ml-2 font-semibold text-slate-700">({applications.length} total)</span>
-          )}
-        </p>
+      <div className="-mt-3 flex flex-col gap-4 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-slate-500">
+            Master Applicant profiles with preserved submission history.
+          </p>
+
+          <p className="mt-1 text-xs text-slate-400">
+            {applicants.length} loaded
+            {" · "}
+            {filteredApplicants.length} shown
+          </p>
+        </div>
+
         <button
-          onClick={() => loadApps(true)}
-          disabled={syncing || loading}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+          type="button"
+          disabled={loading}
+          onClick={() =>
+            void loadApplicants()
+          }
+          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing..." : "Refresh from Sheet"}
+          {loading
+            ? "Refreshing..."
+            : "Refresh Applicants"}
         </button>
       </div>
-
-      {syncMessage && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-800">
-          {syncMessage}
-        </div>
-      )}
 
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
           <input
             type="search"
-            placeholder="Search name, email, phone, role..."
+            placeholder="Search name, email, phone, position, skills..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-9 pr-4 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+            onChange={(event) =>
+              setSearchQuery(
+                event.target.value
+              )
+            }
+            className="w-full rounded-lg border border-slate-200 py-1.5 pl-9 pr-4 text-xs"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+
+        <div className="flex flex-wrap gap-3">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none"
+            onChange={(event) =>
+              setStatusFilter(
+                event.target
+                  .value as
+                  | "All"
+                  | ApplicantStatus
+              )
+            }
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
           >
-            <option value="All">All Stages</option>
-            <option value="applied">Applied</option>
-            <option value="reviewed">Reviewed</option>
-            <option value="interview">Interview</option>
-            <option value="hired">Hired</option>
-            <option value="rejected">Rejected</option>
+            <option value="All">
+              All Stages
+            </option>
+
+            {ALL_STATUSES.map(
+              (status) => (
+                <option
+                  key={status}
+                  value={status}
+                >
+                  {status}
+                </option>
+              )
+            )}
           </select>
+
+          <select
+            value={lifecycleFilter}
+            onChange={(event) =>
+              setLifecycleFilter(
+                event.target
+                  .value as
+                  ApplicantLifecycleFilter
+              )
+            }
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
+          >
+            <option value="false">
+              Active
+            </option>
+            <option value="true">
+              Archived
+            </option>
+            <option value="all">
+              All
+            </option>
+          </select>
+
           <select
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none"
+            onChange={(event) =>
+              setDateFilter(
+                event.target.value
+              )
+            }
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
           >
-            <option value="All">All Time</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="30d">Last 30 Days</option>
+            <option value="All">
+              All Time
+            </option>
+            <option value="7d">
+              Last 7 Days
+            </option>
+            <option value="30d">
+              Last 30 Days
+            </option>
           </select>
         </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white shadow-sm">
-        <table className="w-full min-w-[900px] text-left border-collapse">
+        <table className="w-full min-w-[900px] border-collapse text-left">
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-450">
-              <th className="px-5 py-3.5">Applicant</th>
-              <th className="px-5 py-3.5">Phone</th>
-              <th className="px-5 py-3.5">Role / Position</th>
-              <th className="px-5 py-3.5">Education</th>
-              <th className="px-5 py-3.5">Date Applied</th>
-              <th className="px-5 py-3.5 text-center">Resume</th>
-              <th className="px-5 py-3.5">Stage</th>
-              <th className="px-5 py-3.5 text-right">Actions</th>
+            <tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <th className="px-5 py-3.5">
+                Applicant
+              </th>
+
+              <th className="px-5 py-3.5">
+                Phone
+              </th>
+
+              <th className="px-5 py-3.5">
+                Position
+              </th>
+
+              <th className="px-5 py-3.5">
+                Education
+              </th>
+
+              <th className="px-5 py-3.5">
+                Last Applied
+              </th>
+
+              <th className="px-5 py-3.5">
+                Status
+              </th>
+
+              <th className="px-5 py-3.5 text-right">
+                Actions
+              </th>
             </tr>
           </thead>
+
           <tbody className="divide-y divide-slate-100 text-xs">
-            {filteredApps.length === 0 ? (
+            {filteredApplicants.length ===
+            0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400">
-                  {applications.length === 0
-                    ? "No applicants yet. Click Refresh from Sheet after publishing your Google Sheet as CSV."
-                    : "No applicants match the filters."}
+                <td
+                  colSpan={7}
+                  className="py-12 text-center text-slate-400"
+                >
+                  No Applicant profiles match the current filters.
                 </td>
               </tr>
             ) : (
-              filteredApps.map((app) => (
-                <tr key={app.id} className="hover:bg-slate-50/50">
-                  <td className="px-5 py-4">
-                    <span className="font-semibold text-slate-800">{app.userName}</span>
-                    <span className="block text-[10px] text-slate-400">{app.userEmail}</span>
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {app.phone ? (
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3 text-slate-400" />
-                        {app.phone}
+              filteredApplicants.map(
+                (applicant) => (
+                  <tr
+                    key={
+                      applicant._id
+                    }
+                    className="hover:bg-slate-50/50"
+                  >
+                    <td className="px-5 py-4">
+                      <span className="font-semibold text-slate-800">
+                        {
+                          applicant
+                            .identity
+                            .fullName
+                        }
                       </span>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="font-semibold text-slate-800">{app.jobTitle}</span>
-                    <span className="block text-[10px] text-blue-600">{app.companyName}</span>
-                  </td>
-                  <td className="px-5 py-4 text-slate-600 max-w-[140px] truncate" title={app.education}>
-                    {app.education || "—"}
-                  </td>
-                  <td className="px-5 py-4 text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                      {app.appliedDate}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    {app.resumeUrl ? (
-                      <a
-                        href={app.resumeUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-0.5 font-bold text-blue-600 hover:text-blue-500"
+
+                      <span className="block text-[10px] text-slate-400">
+                        {
+                          applicant
+                            .identity
+                            .email
+                        }
+                      </span>
+
+                      {applicant.lifecycle
+                        .archived && (
+                        <span className="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                          Archived
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 text-slate-600">
+                      {applicant
+                        .identity
+                        .phoneNumber ? (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3 text-slate-400" />
+                          {
+                            applicant
+                              .identity
+                              .phoneNumber
+                          }
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span className="font-semibold text-slate-800">
+                        {applicant
+                          .preferences
+                          .positionTrack ||
+                          "—"}
+                      </span>
+
+                      <span className="block text-[10px] text-blue-600">
+                        {applicant
+                          .preferences
+                          .positionType ||
+                          "—"}
+                      </span>
+                    </td>
+
+                    <td className="max-w-[180px] px-5 py-4 text-slate-600">
+                      <span className="block truncate">
+                        {applicant
+                          .education
+                          .universityName ||
+                          "—"}
+                      </span>
+
+                      <span className="block truncate text-[10px] text-slate-400">
+                        {applicant
+                          .education
+                          .major ||
+                          applicant
+                            .education
+                            .degreeLevel ||
+                          ""}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4 text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+
+                        {formatDate(
+                          applicant
+                            .recruitment
+                            .lastAppliedAt ||
+                            applicant
+                              .recruitment
+                              .firstAppliedAt ||
+                            applicant.createdAt
+                        )}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <select
+                        disabled={
+                          applicant
+                            .lifecycle
+                            .archived
+                        }
+                        value={
+                          applicant
+                            .recruitment
+                            .status
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          void handleStatusChange(
+                            applicant,
+                            event.target
+                              .value as
+                              ApplicantStatus
+                          )
+                        }
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold disabled:bg-slate-100"
                       >
-                        <Download className="h-3.5 w-3.5" /> View
-                      </a>
-                    ) : (
-                      <span className="text-slate-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4">
-                    <select
-                      value={app.status}
-                      onChange={(e) =>
-                        handleUpdateStatus(
-                          app.id,
-                          e.target.value as "applied" | "reviewed" | "interview" | "hired" | "rejected"
-                        )
-                      }
-                      className={`rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold focus:outline-none ${
-                        app.status === "hired"
-                          ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                          : app.status === "rejected"
-                          ? "text-rose-700 bg-rose-50 border-rose-200"
-                          : app.status === "interview"
-                          ? "text-blue-700 bg-blue-50 border-blue-200"
-                          : "text-slate-700 bg-slate-50"
-                      }`}
-                    >
-                      <option value="applied">Applied</option>
-                      <option value="reviewed">Reviewed</option>
-                      <option value="interview">Interview</option>
-                      <option value="hired">Hired</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      {onTriggerEmail && (
+                        {allowedStatuses(
+                          applicant
+                            .recruitment
+                            .status
+                        ).map(
+                          (status) => (
+                            <option
+                              key={
+                                status
+                              }
+                              value={
+                                status
+                              }
+                            >
+                              {status}
+                            </option>
+                          )
+                        )}
+                      </select>
+                    </td>
+
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => onTriggerEmail(app.id, 'direct', 'applicant')}
+                          onClick={() =>
+                            setSelectedApplicant(
+                              applicant
+                            )
+                          }
                           className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-                          title="Send Email"
+                          title="View Applicant"
                         >
-                          <Mail className="h-4.5 w-4.5" />
+                          <Eye className="h-4.5 w-4.5" />
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedApp(app)}
-                        className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-                        title="View all details"
-                      >
-                        <Eye className="h-4.5 w-4.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteApp(app.id)}
-                        className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4.5 w-4.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+
+                        {applicant
+                          .lifecycle
+                          .archived ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleRestore(
+                                applicant
+                              )
+                            }
+                            className="rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50"
+                            title="Restore Applicant"
+                          >
+                            <RotateCcw className="h-4.5 w-4.5" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleArchive(
+                                applicant
+                              )
+                            }
+                            className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50"
+                            title="Archive Applicant"
+                          >
+                            <Archive className="h-4.5 w-4.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )
             )}
           </tbody>
         </table>
       </div>
 
-      {selectedApp && (
+      {selectedApplicant && (
         <ApplicantProfilePanel
-          application={selectedApp}
-          onClose={() => setSelectedApp(null)}
-          onTriggerEmail={onTriggerEmail}
+          applicant={
+            selectedApplicant
+          }
+          onClose={() =>
+            setSelectedApplicant(
+              null
+            )
+          }
+          onChanged={
+            loadApplicants
+          }
         />
       )}
     </div>
   );
 }
+

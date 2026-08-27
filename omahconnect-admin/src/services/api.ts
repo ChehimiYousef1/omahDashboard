@@ -442,6 +442,287 @@ export const syncApplicantsSheet = async (sheetUrl?: string): Promise<{ success:
   return response.data;
 };
 
+
+/* =========================
+   APPLICANT MASTER API
+========================= */
+
+export type ApplicantStatus =
+  | "applied"
+  | "reviewed"
+  | "interview"
+  | "hired"
+  | "rejected";
+
+export type ApplicantLifecycleFilter =
+  | "false"
+  | "true"
+  | "all";
+
+export interface ApplicantMaster {
+  _id: string;
+  applicantCode?: string;
+
+  identity: {
+    fullName: string;
+    email: string;
+    normalizedEmail?: string;
+    phoneNumber: string;
+    normalizedPhone?: string;
+    whatsappNumber: string;
+    country: string;
+    city: string;
+  };
+
+  education: {
+    universityName: string;
+    institutionCountry: string;
+    degreeLevel: string;
+    major: string;
+    specialization: string;
+    studyStatus: string;
+    graduationDate: string | null;
+    gpa: string;
+    gradingScale: string;
+    relevantCoursework: string;
+    academicProjects: string;
+    hasCertifications: boolean;
+    certificateNames: string;
+    languages: string[];
+    englishProficiency: string;
+    additionalEducation: string;
+  };
+
+  preferences: {
+    positionTrack: string;
+    positionType: string;
+    availableStartDate: string | null;
+    duration: string;
+    weeklyAvailability: string;
+    workingDays: string[];
+    workingTime: string;
+    currentlyEmployed: string;
+    currentCommitment: string;
+    canCommit: string;
+    objectives: string[];
+    universityRequired: string;
+    universityRequiredDuration: string;
+  };
+
+  skills: {
+    primaryTechnical: string[];
+    otherTechnical: string;
+    technicalExperienceLevel: string;
+    professionalExperience: string;
+    previousExperience: string;
+    previousExperienceDetails: string;
+    programmingLanguages: string[];
+    frameworks: string[];
+    databases: string[];
+    cloudDevOps: string[];
+    developmentTools: string[];
+    softSkills: string[];
+    dataEngineerSkills: string[];
+    aiMlEngineerSkills: string[];
+    dataAnalystSkills: string[];
+    skillsToImprove: string;
+    additionalSkills: string;
+  };
+
+  profiles: {
+    linkedin: string;
+    linkedinCanonical?: string;
+    github: string;
+    portfolio: string;
+    socialMedia: string;
+  };
+
+  recruitment: {
+    status: ApplicantStatus;
+    source: string;
+    assignedRecruiterId: string;
+    firstAppliedAt: string | null;
+    lastAppliedAt: string | null;
+    lastActivityAt: string | null;
+    tags: string[];
+  };
+
+  lifecycle: {
+    archived: boolean;
+    archivedAt: string | null;
+    archivedBy: string;
+    archiveReason: string;
+  };
+
+  profileVersion: number;
+  latestApprovedSubmissionId: string | null;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApplicantFormSubmission {
+  _id: string;
+  submissionKey?: string;
+  applicantId?: string | null;
+  submittedAt?: string;
+
+  personal?: {
+    fullName?: string;
+    email?: string;
+    phoneNumber?: string;
+  };
+
+  documents?: Record<string, unknown>;
+  rawResponse?: Record<string, unknown>;
+  createdAt?: string;
+}
+
+export type ApplicantEditableValue =
+  | string
+  | string[]
+  | boolean
+  | null;
+
+export type ApplicantProfileChanges =
+  Record<string, ApplicantEditableValue>;
+
+export const fetchApplicantMasters = async (
+  archived: ApplicantLifecycleFilter = "false",
+  limit = 200
+): Promise<ApplicantMaster[]> => {
+  const response =
+    await apiClient.get(
+      "/applicants",
+      {
+        params: {
+          archived,
+          limit,
+        },
+      }
+    );
+
+  return response.data.applicants || [];
+};
+
+export const fetchApplicantMaster = async (
+  id: string
+): Promise<ApplicantMaster> => {
+  const response =
+    await apiClient.get(
+      `/applicants/${id}`
+    );
+
+  return response.data.applicant;
+};
+
+export const updateApplicantProfile = async (
+  id: string,
+  changes: ApplicantProfileChanges
+) => {
+  const response =
+    await apiClient.patch(
+      `/applicants/${id}/profile`,
+      {
+        changes,
+      }
+    );
+
+  return response.data.result;
+};
+
+export const updateApplicantStatus = async (
+  id: string,
+  status: ApplicantStatus
+) => {
+  const response =
+    await apiClient.patch(
+      `/applicants/${id}/status`,
+      {
+        status,
+      }
+    );
+
+  return response.data.result;
+};
+
+export const archiveApplicant = async (
+  id: string,
+  reason = ""
+) => {
+  const response =
+    await apiClient.post(
+      `/applicants/${id}/archive`,
+      {
+        reason,
+      }
+    );
+
+  return response.data.result;
+};
+
+export const restoreApplicant = async (
+  id: string
+) => {
+  const response =
+    await apiClient.post(
+      `/applicants/${id}/restore`
+    );
+
+  return response.data.result;
+};
+
+export const fetchApplicantSubmissions = async (
+  id: string
+): Promise<ApplicantFormSubmission[]> => {
+  const response =
+    await apiClient.get(
+      `/applicants/${id}/submissions`
+    );
+
+  return response.data.submissions || [];
+};
+
+export const approveApplicantProfile = async (
+  id: string,
+  submissionId: string,
+  fields: string[]
+) => {
+  const response =
+    await apiClient.patch(
+      `/applicants/${id}/approve-profile`,
+      {
+        submissionId,
+        fields,
+      }
+    );
+
+  return response.data.result;
+};
+
+export const linkApplicantSubmission = async (
+  id: string,
+  submissionId: string
+) => {
+  const response =
+    await apiClient.post(
+      `/applicants/${id}/submissions/${submissionId}/link`
+    );
+
+  return response.data.result;
+};
+
+export const checkApplicantRelationshipIntegrity = async (
+  id: string
+) => {
+  const response =
+    await apiClient.get(
+      `/applicants/${id}/relationship-integrity`
+    );
+
+  return response.data.result;
+};
+
 /* =========================
    DEVELOPER TOOLS API
 ========================= */

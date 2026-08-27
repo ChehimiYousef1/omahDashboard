@@ -11,26 +11,18 @@ export type ApplicantActionAvailability =
   | "planned";
 
 export interface ApplicantManagementAction {
-  id: ApplicantManagementActionId;
+  id:
+    ApplicantManagementActionId;
+
   label: string;
   description: string;
-  availability: ApplicantActionAvailability;
+
+  availability:
+    ApplicantActionAvailability;
+
   plannedTask?: number;
   destructive?: boolean;
 }
-
-/*
-|--------------------------------------------------------------------------
-| Applicant Management Action Registry
-|--------------------------------------------------------------------------
-|
-| This registry defines WHAT administrators may do from the Applicant
-| workspace.
-|
-| It deliberately does not implement edit/archive/status permissions here.
-| Those behaviors belong to Tasks 8, 9, 10 and 11.
-|
-*/
 
 export const applicantManagementActions:
   ApplicantManagementAction[] = [
@@ -38,24 +30,29 @@ export const applicantManagementActions:
       id: "send-email",
       label: "Send Email",
       description:
-        "Open the existing applicant email workflow.",
-      availability: "available",
+        "Communication will be connected in the dedicated Email & WhatsApp enhancement.",
+      availability:
+        "available",
     },
 
     {
       id: "view-submissions",
-      label: "View Submissions",
+      label:
+        "View Submissions",
       description:
-        "Open the immutable Applicant submission history workspace.",
-      availability: "available",
+        "Open immutable Applicant submission history.",
+      availability:
+        "available",
     },
 
     {
       id: "view-documents",
-      label: "View Documents",
+      label:
+        "View Documents",
       description:
-        "Open the Applicant documents workspace.",
-      availability: "available",
+        "View documents preserved with Applicant submissions.",
+      availability:
+        "available",
     },
 
     {
@@ -63,17 +60,19 @@ export const applicantManagementActions:
       label: "Edit Profile",
       description:
         "Edit administrator-controlled current Applicant profile fields.",
-      availability: "planned",
-      plannedTask: 8,
+      availability:
+        "available",
     },
 
     {
-      id: "archive-applicant",
-      label: "Archive Applicant",
+      id:
+        "archive-applicant",
+      label:
+        "Archive Applicant",
       description:
-        "Archive the Applicant without destroying historical records.",
-      availability: "planned",
-      plannedTask: 9,
+        "Archive or restore the Applicant without destroying historical records.",
+      availability:
+        "available",
       destructive: true,
     },
 
@@ -82,8 +81,8 @@ export const applicantManagementActions:
       label: "Change Status",
       description:
         "Move the Applicant through the controlled recruitment pipeline.",
-      availability: "planned",
-      plannedTask: 10,
+      availability:
+        "available",
     },
   ];
 
@@ -91,7 +90,8 @@ export function getApplicantManagementAction(
   id: ApplicantManagementActionId
 ) {
   return applicantManagementActions.find(
-    (action) => action.id === id
+    (action) =>
+      action.id === id
   );
 }
 
@@ -99,7 +99,10 @@ export function isApplicantActionAvailable(
   id: ApplicantManagementActionId
 ) {
   return (
-    getApplicantManagementAction(id)
-      ?.availability === "available"
+    getApplicantManagementAction(
+      id
+    )?.availability ===
+    "available"
   );
 }
+
