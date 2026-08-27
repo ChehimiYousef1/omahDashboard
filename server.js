@@ -16,6 +16,9 @@ const applicationStore = require('./applicationStore');
 
 const { authenticateToken } = require('./middleware/auth');
 const requireAdmin = require('./middleware/requireAdmin');
+const requireApplicantPermission = require('./middleware/requireApplicantPermission');
+const swaggerUi = require('swagger-ui-express');
+const applicantSwaggerSpec = require('./docs/applicantSwagger');
 
 const {
   syncApplicantForm,
@@ -505,6 +508,66 @@ app.use(
   })
 );
 
+
+
+/*
+ * New Applicant master-profile API.
+ *
+ * Legacy /api/applications remains untouched
+ * during migration.
+ */
+app.use(
+  '/api/applicants',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require(
+    './src/routes/applicants.routes'
+  )({
+    requireApplicantPermission,
+  })
+);
+
+
+/*
+ * Applicant API Swagger UI.
+ *
+ * Documentation is itself admin protected.
+ */
+function swaggerDocsCsp(
+  req,
+  res,
+  next
+) {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
+  );
+
+  return next();
+}
+
+app.use(
+  '/api-docs',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  swaggerDocsCsp,
+
+  swaggerUi.serve,
+
+  swaggerUi.setup(
+    applicantSwaggerSpec,
+    {
+      customSiteTitle:
+        'OMAH Applicant API',
+    }
+  )
+);
 
 app.use(
   '/api/dev',
