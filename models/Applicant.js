@@ -8,6 +8,10 @@ const {
   canonicalizeLinkedIn,
 } = require('../utils/applicantIdentity');
 
+const {
+  APPLICANT_STATUSES,
+} = require('../utils/applicantStatus');
+
 const { Schema } = mongoose;
 
 /*
@@ -440,6 +444,7 @@ const recruitmentSchema = new Schema(
   {
     status: {
       type: String,
+      enum: APPLICANT_STATUSES,
       default: 'applied',
       lowercase: true,
       trim: true,

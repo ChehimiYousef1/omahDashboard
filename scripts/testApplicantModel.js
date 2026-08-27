@@ -149,7 +149,7 @@ async function run() {
     },
 
     recruitment: {
-      status: 'under_review',
+      status: 'reviewed',
       source: 'google-form',
       tags: [
         'backend',
@@ -211,7 +211,7 @@ async function run() {
 
   assert.strictEqual(
     applicant.recruitment.status,
-    'under_review'
+    'reviewed'
   );
 
   assert.strictEqual(
