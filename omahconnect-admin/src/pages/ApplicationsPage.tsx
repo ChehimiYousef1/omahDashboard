@@ -1,23 +1,27 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
 import {
   archiveApplicant,
-  fetchApplicantMasters,
+  fetchApplicantSearchOptions,
   restoreApplicant,
+  searchApplicantMasters,
   updateApplicantStatus,
-  type ApplicantLifecycleFilter,
   type ApplicantMaster,
+  type ApplicantPagination,
+  type ApplicantSearchOptions,
+  type ApplicantSearchQuery,
   type ApplicantStatus,
 } from "../services/api";
 
 import { Header } from "../components/layout/Header";
 
 import { ApplicantProfilePanel } from "../components/applicants/ApplicantProfilePanel";
+import { AdvancedApplicantFilters } from "../components/applicants/AdvancedApplicantFilters";
+import { DuplicateReviewPanel } from "../components/applicants/DuplicateReviewPanel";
 
 import {
   Archive,
@@ -27,7 +31,6 @@ import {
   Loader2,
   Phone,
   RotateCcw,
-  Search,
 } from "lucide-react";
 
 interface ApplicationsPageProps {
@@ -49,14 +52,22 @@ interface ApplicationsPageProps {
  * backward compatible during migration.
  */
 
-const ALL_STATUSES:
-  ApplicantStatus[] = [
-    "applied",
-    "reviewed",
-    "interview",
-    "hired",
-    "rejected",
-  ];
+const DEFAULT_APPLICANT_FILTERS:
+  ApplicantSearchQuery = {
+    archived: "false",
+    sortBy: "lastActivityAt",
+    sortOrder: "desc",
+    page: 1,
+    limit: 25,
+  };
+
+const DEFAULT_PAGINATION:
+  ApplicantPagination = {
+    page: 1,
+    limit: 25,
+    total: 0,
+    pages: 0,
+  };
 
 const STATUS_TRANSITIONS:
   Record<
@@ -192,33 +203,64 @@ export function ApplicationsPage({
   >(null);
 
   const [
-    searchQuery,
-    setSearchQuery,
-  ] = useState("");
+    filters,
+    setFilters,
+  ] = useState<ApplicantSearchQuery>(
+    DEFAULT_APPLICANT_FILTERS
+  );
 
   const [
-    statusFilter,
-    setStatusFilter,
+    requestFilters,
+    setRequestFilters,
+  ] = useState<ApplicantSearchQuery>(
+    DEFAULT_APPLICANT_FILTERS
+  );
+
+  const [
+    pagination,
+    setPagination,
+  ] = useState<ApplicantPagination>(
+    DEFAULT_PAGINATION
+  );
+
+  const [
+    searchOptions,
+    setSearchOptions,
   ] = useState<
-    "All" | ApplicantStatus
-  >("All");
+    ApplicantSearchOptions | null
+  >(null);
 
   const [
-    lifecycleFilter,
-    setLifecycleFilter,
+    optionsLoading,
+    setOptionsLoading,
+  ] = useState(true);
+
+  const [
+    optionsError,
+    setOptionsError,
   ] = useState<
-    ApplicantLifecycleFilter
-  >("false");
+    string | null
+  >(null);
 
-  const [
-    dateFilter,
-    setDateFilter,
-  ] = useState("All");
+  /*
+   * Debounce filter changes so free-text
+   * search does not issue one request for
+   * every keyboard event.
+   */
+  useEffect(() => {
+    const timer =
+      window.setTimeout(() => {
+        setRequestFilters(
+          filters
+        );
+      }, 350);
 
-  const [
-    filterNow,
-    setFilterNow,
-  ] = useState(0);
+    return () => {
+      window.clearTimeout(
+        timer
+      );
+    };
+  }, [filters]);
 
   const loadApplicants =
     useCallback(
@@ -227,14 +269,18 @@ export function ApplicationsPage({
           setLoading(true);
           setError(null);
 
-          const data =
-            await fetchApplicantMasters(
-              lifecycleFilter,
-              200
+          const result =
+            await searchApplicantMasters(
+              requestFilters
             );
 
-          setApplicants(data);
-          setFilterNow(Date.now());
+          setApplicants(
+            result.applicants
+          );
+
+          setPagination(
+            result.pagination
+          );
         } catch (err) {
           setError(
             errorMessage(err)
@@ -243,14 +289,78 @@ export function ApplicationsPage({
           setLoading(false);
         }
       },
-      [lifecycleFilter]
+      [requestFilters]
     );
 
   useEffect(() => {
-    // Initial Applicant API load.
+    // Server-side Applicant search load.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadApplicants();
   }, [loadApplicants]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadOptions() {
+      try {
+        setOptionsLoading(true);
+        setOptionsError(null);
+
+        const options =
+          await fetchApplicantSearchOptions();
+
+        if (active) {
+          setSearchOptions(
+            options
+          );
+        }
+      } catch (err) {
+        if (active) {
+          setOptionsError(
+            errorMessage(err)
+          );
+        }
+      } finally {
+        if (active) {
+          setOptionsLoading(false);
+        }
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function resetFilters() {
+    setFilters({
+      ...DEFAULT_APPLICANT_FILTERS,
+    });
+  }
+
+  function changePage(
+    nextPage: number
+  ) {
+    if (
+      nextPage < 1 ||
+      (
+        pagination.pages > 0 &&
+        nextPage >
+          pagination.pages
+      )
+    ) {
+      return;
+    }
+
+    setFilters(
+      (current) => ({
+        ...current,
+        page: nextPage,
+      })
+    );
+  }
 
   async function handleStatusChange(
     applicant:
@@ -346,120 +456,6 @@ export function ApplicationsPage({
     }
   }
 
-  const filteredApplicants =
-    useMemo(() => {
-      return applicants.filter(
-        (applicant) => {
-          const query =
-            searchQuery
-              .trim()
-              .toLowerCase();
-
-          const searchable =
-            [
-              applicant.identity
-                .fullName,
-
-              applicant.identity
-                .email,
-
-              applicant.identity
-                .phoneNumber,
-
-              applicant.preferences
-                .positionTrack,
-
-              applicant.education
-                .universityName,
-
-              applicant.education
-                .major,
-
-              ...applicant.skills
-                .primaryTechnical,
-            ]
-              .join(" ")
-              .toLowerCase();
-
-          const matchesQuery =
-            !query ||
-            searchable.includes(
-              query
-            );
-
-          const matchesStatus =
-            statusFilter ===
-              "All" ||
-            applicant.recruitment
-              .status ===
-              statusFilter;
-
-          const appliedAt =
-            applicant.recruitment
-              .lastAppliedAt ||
-            applicant.recruitment
-              .firstAppliedAt ||
-            applicant.createdAt;
-
-          let matchesDate =
-            true;
-
-          if (
-            dateFilter !==
-              "All" &&
-            appliedAt
-          ) {
-            const date =
-              new Date(
-                appliedAt
-              );
-
-            const age =
-              filterNow -
-              date.getTime();
-
-            if (
-              dateFilter ===
-              "7d"
-            ) {
-              matchesDate =
-                age <=
-                7 *
-                  24 *
-                  60 *
-                  60 *
-                  1000;
-            }
-
-            if (
-              dateFilter ===
-              "30d"
-            ) {
-              matchesDate =
-                age <=
-                30 *
-                  24 *
-                  60 *
-                  60 *
-                  1000;
-            }
-          }
-
-          return (
-            matchesQuery &&
-            matchesStatus &&
-            matchesDate
-          );
-        }
-      );
-    }, [
-      applicants,
-      searchQuery,
-      statusFilter,
-      dateFilter,
-      filterNow,
-    ]);
-
   if (
     loading &&
     applicants.length === 0
@@ -508,9 +504,9 @@ export function ApplicationsPage({
           </p>
 
           <p className="mt-1 text-xs text-slate-400">
-            {applicants.length} loaded
+            {pagination.total} total
             {" · "}
-            {filteredApplicants.length} shown
+            {applicants.length} on this page
           </p>
         </div>
 
@@ -528,95 +524,23 @@ export function ApplicationsPage({
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <DuplicateReviewPanel />
 
-          <input
-            type="search"
-            placeholder="Search name, email, phone, position, skills..."
-            value={searchQuery}
-            onChange={(event) =>
-              setSearchQuery(
-                event.target.value
-              )
-            }
-            className="w-full rounded-lg border border-slate-200 py-1.5 pl-9 pr-4 text-xs"
-          />
-        </div>
+      <AdvancedApplicantFilters
+        filters={filters}
+        options={searchOptions}
+        loading={optionsLoading}
+        onChange={setFilters}
+        onReset={resetFilters}
+      />
 
-        <div className="flex flex-wrap gap-3">
-          <select
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(
-                event.target
-                  .value as
-                  | "All"
-                  | ApplicantStatus
-              )
-            }
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
-          >
-            <option value="All">
-              All Stages
-            </option>
-
-            {ALL_STATUSES.map(
-              (status) => (
-                <option
-                  key={status}
-                  value={status}
-                >
-                  {status}
-                </option>
-              )
-            )}
-          </select>
-
-          <select
-            value={lifecycleFilter}
-            onChange={(event) =>
-              setLifecycleFilter(
-                event.target
-                  .value as
-                  ApplicantLifecycleFilter
-              )
-            }
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
-          >
-            <option value="false">
-              Active
-            </option>
-            <option value="true">
-              Archived
-            </option>
-            <option value="all">
-              All
-            </option>
-          </select>
-
-          <select
-            value={dateFilter}
-            onChange={(event) =>
-              setDateFilter(
-                event.target.value
-              )
-            }
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
-          >
-            <option value="All">
-              All Time
-            </option>
-            <option value="7d">
-              Last 7 Days
-            </option>
-            <option value="30d">
-              Last 30 Days
-            </option>
-          </select>
-        </div>
-      </div>
+      {optionsError && (
+        <p className="-mt-3 text-xs text-amber-600">
+          Filter options could not be refreshed:
+          {" "}
+          {optionsError}
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full min-w-[900px] border-collapse text-left">
@@ -653,7 +577,7 @@ export function ApplicationsPage({
           </thead>
 
           <tbody className="divide-y divide-slate-100 text-xs">
-            {filteredApplicants.length ===
+            {applicants.length ===
             0 ? (
               <tr>
                 <td
@@ -664,7 +588,7 @@ export function ApplicationsPage({
                 </td>
               </tr>
             ) : (
-              filteredApplicants.map(
+              applicants.map(
                 (applicant) => (
                   <tr
                     key={
@@ -862,6 +786,63 @@ export function ApplicationsPage({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 text-xs shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-slate-500">
+          {pagination.total === 0
+            ? "No applicants"
+            : (
+              <>
+                Page{" "}
+                <span className="font-semibold text-slate-700">
+                  {pagination.page}
+                </span>
+                {" "}of{" "}
+                <span className="font-semibold text-slate-700">
+                  {pagination.pages}
+                </span>
+                {" · "}
+                {pagination.total} total
+              </>
+            )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={
+              loading ||
+              pagination.page <= 1
+            }
+            onClick={() =>
+              changePage(
+                pagination.page - 1
+              )
+            }
+            className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Previous
+          </button>
+
+          <button
+            type="button"
+            disabled={
+              loading ||
+              pagination.pages === 0 ||
+              pagination.page >=
+                pagination.pages
+            }
+            onClick={() =>
+              changePage(
+                pagination.page + 1
+              )
+            }
+            className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {selectedApplicant && (

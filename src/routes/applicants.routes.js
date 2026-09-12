@@ -6,6 +6,13 @@ const Applicant =
   require('../../models/Applicant');
 
 const {
+  getApplicantSearchOptions,
+  searchApplicants,
+} = require(
+  '../../services/applicantSearchService'
+);
+
+const {
   editApplicantProfile,
 } = require(
   '../../services/applicantEditService'
@@ -44,6 +51,14 @@ const {
   '../../services/applicantRelationshipService'
 );
 
+const {
+  listDuplicateCases,
+  getDuplicateCase,
+  resolveDuplicateCase,
+} = require(
+  '../../services/applicantDuplicateCaseService'
+);
+
 /*
 |--------------------------------------------------------------------------
 | API Error Mapping
@@ -55,6 +70,7 @@ const NOT_FOUND_CODES =
     'APPLICANT_NOT_FOUND',
     'SUBMISSION_NOT_FOUND',
     'APPROVED_SUBMISSION_NOT_FOUND',
+    'DUPLICATE_CASE_NOT_FOUND',
   ]);
 
 const CONFLICT_CODES =
@@ -67,6 +83,7 @@ const CONFLICT_CODES =
     'STATUS_TRANSITION_CONFLICT',
     'CURRENT_STATUS_INVALID',
     'APPROVED_SUBMISSION_RELATIONSHIP_INVALID',
+    'DUPLICATE_CASE_ALREADY_RESOLVED',
     'SUBMISSION_NOT_LINKED_TO_APPLICANT',
   ]);
 
@@ -163,6 +180,15 @@ function createApplicantRouter({
 
   checkRelationships =
     checkApplicantRelationshipIntegrity,
+
+  listDuplicates =
+    listDuplicateCases,
+
+  getDuplicate =
+    getDuplicateCase,
+
+  resolveDuplicate =
+    resolveDuplicateCase,
 } = {}) {
   if (
     typeof
@@ -179,6 +205,9 @@ function createApplicantRouter({
 
   /*
    * GET /api/applicants
+   *
+   * Advanced server-side search, filtering,
+   * sorting, and pagination.
    */
   router.get(
     '/',
@@ -189,64 +218,23 @@ function createApplicantRouter({
 
     async (req, res) => {
       try {
-        const archived =
-          String(
-            req.query.archived ||
-              'false'
-          ).toLowerCase();
-
-        const filter = {};
-
-        if (
-          archived === 'true'
-        ) {
-          filter[
-            'lifecycle.archived'
-          ] = true;
-        } else if (
-          archived !== 'all'
-        ) {
-          filter[
-            'lifecycle.archived'
-          ] = {
-            $ne: true,
-          };
-        }
-
-        const parsedLimit =
-          Number.parseInt(
-            req.query.limit,
-            10
-          );
-
-        const limit =
-          Number.isFinite(
-            parsedLimit
-          )
-            ? Math.min(
-                Math.max(
-                  parsedLimit,
-                  1
-                ),
-                200
-              )
-            : 50;
-
-        const applicants =
-          await ApplicantModel
-            .find(filter)
-            .sort({
-              'recruitment.lastActivityAt':
-                -1,
-
-              updatedAt: -1,
-            })
-            .limit(limit)
-            .lean();
+        const result =
+          await searchApplicants({
+            query: req.query,
+            ApplicantModel,
+          });
 
         return res.json({
           success: true,
-          applicants,
+
+          applicants:
+            result.applicants,
+
+          pagination:
+            result.pagination,
+
+          filters:
+            result.filters,
         });
       } catch (error) {
         return sendError(
@@ -256,6 +244,174 @@ function createApplicantRouter({
       }
     }
   );
+
+  /*
+   * GET /api/applicants/search-options
+   *
+   * Returns distinct values used by the
+   * advanced Applicant filtering UI.
+   */
+  router.get(
+    '/search-options',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const options =
+          await getApplicantSearchOptions({
+            ApplicantModel,
+          });
+
+        return res.json({
+          success: true,
+          options,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * ==================================================
+   * DUPLICATE REVIEW MANAGEMENT
+   * ==================================================
+   *
+   * Review endpoints only.
+   *
+   * They never merge or delete Applicants.
+   */
+
+  /*
+   * GET /api/applicants/duplicates
+   */
+  router.get(
+    '/duplicates',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await listDuplicates({
+            status:
+              req.query.status,
+
+            applicantId:
+              req.query
+                .applicantId,
+
+            page:
+              req.query.page,
+
+            limit:
+              req.query.limit,
+          });
+
+        return res.json({
+          success: true,
+          ...result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * GET /api/applicants/duplicates/:caseId
+   */
+  router.get(
+    '/duplicates/:caseId',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const duplicateCase =
+          await getDuplicate({
+            duplicateCaseId:
+              req.params.caseId,
+          });
+
+        return res.json({
+          success: true,
+          duplicateCase,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PATCH
+   * /api/applicants/duplicates/:caseId/resolve
+   *
+   * IMPORTANT:
+   *
+   * same_person only records the
+   * administrative decision.
+   *
+   * It does NOT merge Applicants.
+   */
+  router.patch(
+    '/duplicates/:caseId/resolve',
+
+    requireApplicantPermission(
+      'applicant:edit'
+    ),
+
+    async (req, res) => {
+      try {
+        const duplicateCase =
+          await resolveDuplicate({
+            duplicateCaseId:
+              req.params.caseId,
+
+            decision:
+              req.body?.decision,
+
+            notes:
+              req.body?.notes ||
+              '',
+
+            resolvedBy:
+              req.user.id,
+          });
+
+        return res.json({
+          success: true,
+          duplicateCase,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
 
   /*
    * PATCH /api/applicants/:id/profile

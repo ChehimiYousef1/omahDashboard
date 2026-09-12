@@ -19,7 +19,16 @@ async function connectToMongoDB() {
     });
 
     isConnected = true;
-    console.log('✅ MongoDB connected successfully at ' + MONGODB_URI);
+
+    console.log(
+      '✅ MongoDB connected successfully'
+    );
+
+    console.log(
+      '📦 MongoDB database:',
+      mongoose.connection.name
+    );
+
     return mongoose.connection;
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
@@ -39,8 +48,17 @@ function getConnection() {
   return mongoose.connection;
 }
 
-function disconnect() {
-  return mongoose.disconnect();
+async function disconnect() {
+  if (
+    mongoose.connection.readyState === 0
+  ) {
+    isConnected = false;
+    return;
+  }
+
+  await mongoose.disconnect();
+
+  isConnected = false;
 }
 
 module.exports = {

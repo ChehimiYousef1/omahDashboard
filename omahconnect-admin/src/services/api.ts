@@ -36,12 +36,20 @@ export interface User {
   };
 }
 
+export interface PostAttachment {
+  url?: string;
+  src?: string;
+  name?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
 export interface Post {
   id: number;
   userId: string;
   title: string;
   description: string;
-  attachments: any[];
+  attachments: PostAttachment[];
   postType: string;
   visibility: string;
   created_at: string;
@@ -164,7 +172,7 @@ export const fetchUsers = async (): Promise<User[]> => {
   return response.data.users;
 };
 
-export const toggleNotificationPermissions = async (userId: string, permissions: { push?: boolean; email?: boolean; inApp?: boolean }): Promise<any> => {
+export const toggleNotificationPermissions = async (userId: string, permissions: { push?: boolean; email?: boolean; inApp?: boolean }): Promise<unknown> => {
   const response = await apiClient.post(`/users/${userId}/notifications/toggle`, permissions);
   return response.data;
 };
@@ -459,6 +467,65 @@ export type ApplicantLifecycleFilter =
   | "true"
   | "all";
 
+export type ApplicantSortField =
+  | "lastActivityAt"
+  | "firstAppliedAt"
+  | "lastAppliedAt"
+  | "fullName"
+  | "status"
+  | "createdAt"
+  | "updatedAt";
+
+export type ApplicantSortOrder =
+  | "asc"
+  | "desc";
+
+export interface ApplicantSearchQuery {
+  q?: string;
+  status?: ApplicantStatus;
+  positionTrack?: string;
+  positionType?: string;
+  country?: string;
+  city?: string;
+  source?: string;
+  assignedRecruiterId?: string;
+  skill?: string;
+  tag?: string;
+  hasLinkedIn?: boolean;
+  hasGitHub?: boolean;
+  appliedFrom?: string;
+  appliedTo?: string;
+  archived?: ApplicantLifecycleFilter;
+  sortBy?: ApplicantSortField;
+  sortOrder?: ApplicantSortOrder;
+  page?: number;
+  limit?: number;
+}
+
+export interface ApplicantPagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface ApplicantSearchResponse {
+  applicants: ApplicantMaster[];
+  pagination: ApplicantPagination;
+  filters: Record<string, unknown>;
+}
+
+export interface ApplicantSearchOptions {
+  statuses: ApplicantStatus[];
+  tracks: string[];
+  positionTypes: string[];
+  countries: string[];
+  cities: string[];
+  sources: string[];
+  tags: string[];
+  sortFields: ApplicantSortField[];
+}
+
 export interface ApplicantMaster {
   _id: string;
   applicantCode?: string;
@@ -561,6 +628,107 @@ export interface ApplicantMaster {
   updatedAt?: string;
 }
 
+export type ApplicantDuplicateCaseStatus =
+  | "open"
+  | "under_review"
+  | "resolved";
+
+export type ApplicantDuplicateDecision =
+  | "pending"
+  | "same_person"
+  | "keep_separate"
+  | "not_duplicate"
+  | "link_submissions"
+  | "merge";
+
+export interface ApplicantDuplicateEvidence {
+  fullName: string;
+  normalizedEmail: string;
+  normalizedPhone: string;
+  linkedinCanonical: string;
+}
+
+export interface ApplicantDuplicateCase {
+  _id: string;
+  pairKey: string;
+
+  sourceApplicantId: string;
+  candidateApplicantId: string;
+
+  status:
+    ApplicantDuplicateCaseStatus;
+
+  confidence:
+    "possible" |
+    "high";
+
+  strongMatchCount: number;
+
+  matchedSignals:
+    Array<
+      "email" |
+      "phone" |
+      "linkedin"
+    >;
+
+  nameMatches: boolean;
+
+  sourceEvidence:
+    ApplicantDuplicateEvidence;
+
+  candidateEvidence:
+    ApplicantDuplicateEvidence;
+
+  detectedAt?: string;
+  detectedBy?: string;
+
+  resolution?: {
+    decision:
+      ApplicantDuplicateDecision;
+
+    resolvedAt?: string | null;
+    resolvedBy?: string;
+    notes?: string;
+  };
+
+  sourceApplicant?:
+    ApplicantMaster |
+    null;
+
+  candidateApplicant?:
+    ApplicantMaster |
+    null;
+}
+
+export interface ApplicantDuplicateCaseListResponse {
+  duplicateCases:
+    ApplicantDuplicateCase[];
+
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+
+  filters: {
+    status: string;
+    applicantId: string;
+  };
+}
+
+
+export interface ApplicantSubmissionDocuments {
+  cvResume?: string;
+  identityDocument?: string;
+  enrollmentDocument?: string;
+  degreeCertificate?: string;
+  trainingCertificates?: string[];
+  recommendationLetters?: string[];
+  portfolioWorkSamples?: string[];
+  additionalSupportingDocuments?: string[];
+}
+
 export interface ApplicantFormSubmission {
   _id: string;
   submissionKey?: string;
@@ -571,10 +739,23 @@ export interface ApplicantFormSubmission {
     fullName?: string;
     email?: string;
     phoneNumber?: string;
+    country?: string;
+    city?: string;
+    whatsappAvailable?: boolean;
+    whatsappNumber?: string;
   };
 
-  documents?: Record<string, unknown>;
+  education?: Record<string, unknown>;
+  preferences?: Record<string, unknown>;
+  skills?: Record<string, unknown>;
+  profiles?: Record<string, unknown>;
+
+  documents?: ApplicantSubmissionDocuments;
+
+  recruitment?: Record<string, unknown>;
+
   rawResponse?: Record<string, unknown>;
+
   createdAt?: string;
 }
 
@@ -586,6 +767,44 @@ export type ApplicantEditableValue =
 
 export type ApplicantProfileChanges =
   Record<string, ApplicantEditableValue>;
+
+export const searchApplicantMasters = async (
+  query: ApplicantSearchQuery = {}
+): Promise<ApplicantSearchResponse> => {
+  const response =
+    await apiClient.get(
+      "/applicants",
+      {
+        params: query,
+      }
+    );
+
+  return {
+    applicants:
+      response.data.applicants || [],
+
+    pagination:
+      response.data.pagination || {
+        page: query.page || 1,
+        limit: query.limit || 50,
+        total: 0,
+        pages: 0,
+      },
+
+    filters:
+      response.data.filters || {},
+  };
+};
+
+export const fetchApplicantSearchOptions =
+  async (): Promise<ApplicantSearchOptions> => {
+    const response =
+      await apiClient.get(
+        "/applicants/search-options"
+      );
+
+    return response.data.options;
+  };
 
 export const fetchApplicantMasters = async (
   archived: ApplicantLifecycleFilter = "false",
@@ -615,6 +834,93 @@ export const fetchApplicantMaster = async (
 
   return response.data.applicant;
 };
+
+export const fetchApplicantDuplicateCases =
+  async (
+    params: {
+      status?:
+        ApplicantDuplicateCaseStatus |
+        "all";
+
+      applicantId?: string;
+      page?: number;
+      limit?: number;
+    } = {}
+  ): Promise<ApplicantDuplicateCaseListResponse> => {
+    const response =
+      await apiClient.get(
+        "/applicants/duplicates",
+        {
+          params,
+        }
+      );
+
+    return {
+      duplicateCases:
+        response.data
+          .duplicateCases || [],
+
+      pagination:
+        response.data
+          .pagination || {
+            page: 1,
+            limit: 50,
+            total: 0,
+            pages: 0,
+          },
+
+      filters:
+        response.data
+          .filters || {
+            status:
+              params.status ||
+              "open",
+
+            applicantId:
+              params
+                .applicantId ||
+              "",
+          },
+    };
+  };
+
+
+export const fetchApplicantDuplicateCase =
+  async (
+    duplicateCaseId: string
+  ): Promise<ApplicantDuplicateCase> => {
+    const response =
+      await apiClient.get(
+        `/applicants/duplicates/${duplicateCaseId}`
+      );
+
+    return response.data
+      .duplicateCase;
+  };
+
+
+export const resolveApplicantDuplicateCase =
+  async (
+    duplicateCaseId: string,
+    payload: {
+      decision:
+        | "same_person"
+        | "not_duplicate"
+        | "keep_separate";
+
+      notes?: string;
+    }
+  ): Promise<ApplicantDuplicateCase> => {
+    const response =
+      await apiClient.patch(
+        `/applicants/duplicates/${duplicateCaseId}/resolve`,
+        payload
+      );
+
+    return response.data
+      .duplicateCase;
+  };
+
 
 export const updateApplicantProfile = async (
   id: string,

@@ -95,14 +95,427 @@ module.exports = {
   ],
 
   paths: {
+    '/api/applicants/duplicates': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'List Applicant duplicate review cases',
+
+        security: [
+          {
+            cookieAuth: [],
+          },
+        ],
+
+        parameters: [
+          {
+            in: 'query',
+            name: 'status',
+
+            schema: {
+              type: 'string',
+
+              enum: [
+                'open',
+                'under_review',
+                'resolved',
+                'all',
+              ],
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'applicantId',
+
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'page',
+
+            schema: {
+              type: 'integer',
+              minimum: 1,
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'limit',
+
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+            },
+          },
+        ],
+
+        responses: {
+          200: {
+            description:
+              'Duplicate review cases',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
+    '/api/applicants/duplicates/{caseId}': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get an Applicant duplicate review case',
+
+        security: [
+          {
+            cookieAuth: [],
+          },
+        ],
+
+        parameters: [
+          {
+            in: 'path',
+            name: 'caseId',
+            required: true,
+
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+
+        responses: {
+          200: {
+            description:
+              'Duplicate review case',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          404: {
+            $ref:
+              '#/components/responses/NotFound',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
+    '/api/applicants/duplicates/{caseId}/resolve': {
+      patch: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Resolve an Applicant duplicate review case',
+
+        description:
+          'Records the administrator review decision only. This endpoint does not automatically merge or delete Applicants.',
+
+        security: [
+          {
+            cookieAuth: [],
+          },
+        ],
+
+        parameters: [
+          {
+            in: 'path',
+            name: 'caseId',
+            required: true,
+
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'decision',
+                ],
+
+                properties: {
+                  decision: {
+                    type:
+                      'string',
+
+                    enum: [
+                      'same_person',
+                      'not_duplicate',
+                      'keep_separate',
+                    ],
+                  },
+
+                  notes: {
+                    type:
+                      'string',
+
+                    maxLength:
+                      2000,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200: {
+            description:
+              'Duplicate review case resolved',
+          },
+
+          400: {
+            description:
+              'Invalid duplicate review request',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          404: {
+            $ref:
+              '#/components/responses/NotFound',
+          },
+
+          409: {
+            $ref:
+              '#/components/responses/Conflict',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
     '/api/applicants': {
       get: {
         tags: ['Applicants'],
 
         summary:
-          'List applicants',
+          'Search and list applicants',
+
+        description:
+          'Server-side Applicant search, filtering, sorting, lifecycle filtering, and pagination.',
 
         parameters: [
+          {
+            name: 'q',
+            in: 'query',
+
+            description:
+              'Free-text search across Applicant identity, education, skills, profiles, and tags.',
+
+            schema: {
+              type: 'string',
+              maxLength: 120,
+            },
+          },
+
+          {
+            name: 'status',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+
+              enum: [
+                'applied',
+                'reviewed',
+                'interview',
+                'hired',
+                'rejected',
+              ],
+            },
+          },
+
+          {
+            name: 'positionTrack',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'positionType',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'country',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'city',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'source',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'assignedRecruiterId',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'skill',
+            in: 'query',
+
+            description:
+              'Search across Applicant technical skill fields.',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'tag',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+              maxLength: 100,
+            },
+          },
+
+          {
+            name: 'hasLinkedIn',
+            in: 'query',
+
+            schema: {
+              type: 'boolean',
+            },
+          },
+
+          {
+            name: 'hasGitHub',
+            in: 'query',
+
+            schema: {
+              type: 'boolean',
+            },
+          },
+
+          {
+            name: 'appliedFrom',
+            in: 'query',
+
+            description:
+              'Include Applicants whose first application date is on or after this date.',
+
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            name: 'appliedTo',
+            in: 'query',
+
+            description:
+              'Include Applicants whose first application date is on or before this date.',
+
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
           {
             name: 'archived',
             in: 'query',
@@ -122,6 +535,56 @@ module.exports = {
           },
 
           {
+            name: 'sortBy',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+
+              enum: [
+                'lastActivityAt',
+                'firstAppliedAt',
+                'lastAppliedAt',
+                'fullName',
+                'status',
+                'createdAt',
+                'updatedAt',
+              ],
+
+              default:
+                'lastActivityAt',
+            },
+          },
+
+          {
+            name: 'sortOrder',
+            in: 'query',
+
+            schema: {
+              type: 'string',
+
+              enum: [
+                'asc',
+                'desc',
+              ],
+
+              default:
+                'desc',
+            },
+          },
+
+          {
+            name: 'page',
+            in: 'query',
+
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+            },
+          },
+
+          {
             name: 'limit',
             in: 'query',
 
@@ -133,6 +596,25 @@ module.exports = {
             },
           },
         ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+    '/api/applicants/search-options': {
+      get: {
+        tags: ['Applicants'],
+
+        summary:
+          'Get Applicant search filter options',
+
+        description:
+          'Returns normalized distinct values used by the advanced Applicant filtering interface.',
 
         responses: {
           200:

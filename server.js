@@ -23,6 +23,7 @@ const applicantSwaggerSpec = require('./docs/applicantSwagger');
 const {
   syncApplicantForm,
   normalizeSheetCsvUrl,
+  processSubmission,
 } = require('./services/applicantFormSyncService');
 
 
@@ -134,6 +135,99 @@ app.use(
 );
 
 
+/*
+ * Applicant Form webhook is mounted BEFORE
+ * the global 2 MB JSON parser.
+ *
+ * This keeps its public request body limited
+ * to 64 KB before parsing/allocation.
+ */
+const applicantWebhookLimiter =
+  rateLimit({
+    windowMs:
+      60 * 1000,
+
+    max: 30,
+
+    standardHeaders: true,
+
+    legacyHeaders: false,
+
+    skip: (req) =>
+      req.method === 'OPTIONS',
+
+    message: {
+      success: false,
+      error:
+        'Too many webhook requests.',
+    },
+  });
+
+
+app.use(
+  '/api/applicant-form/webhook',
+
+  applicantWebhookLimiter,
+
+  express.json({
+    limit: '64kb',
+    type: 'application/json',
+  }),
+
+  (error, req, res, next) => {
+    if (
+      error &&
+      error.type ===
+        'entity.too.large'
+    ) {
+      return res
+        .status(413)
+        .json({
+          success: false,
+          error:
+            'Webhook payload is too large.',
+        });
+    }
+
+    if (
+      error instanceof
+        SyntaxError &&
+      error.status === 400 &&
+      'body' in error
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error:
+            'Invalid JSON payload.',
+        });
+    }
+
+    return next(error);
+  },
+
+  require(
+    './src/routes/applicantFormWebhook.routes'
+  )({
+    processSubmission,
+
+    webhookSecret:
+      process.env
+        .APPLICANT_FORM_WEBHOOK_SECRET,
+
+    sourceKey:
+      process.env
+        .APPLICANT_FORM_SOURCE_KEY ||
+      'omah-applicant-form-v2',
+  })
+);
+
+
+/*
+ * Remaining application APIs use the
+ * existing larger authenticated JSON limit.
+ */
 app.use(
   express.json({
     limit: '2mb',
@@ -333,6 +427,11 @@ async function syncApplicantsFromSheet(
   return syncApplicantForm({
     sheetUrl,
     dryRun,
+
+    sourceKey:
+      process.env
+        .APPLICANT_FORM_SOURCE_KEY ||
+      'omah-applicant-form-v2',
   });
 }
 
@@ -584,6 +683,79 @@ app.use(
 
 
 /* =========================
+   HEALTH / READINESS
+========================= */
+
+/*
+ * Liveness:
+ *
+ * Confirms that the Node / Express process
+ * is alive. No database details are exposed.
+ */
+app.get(
+  '/health',
+  (req, res) => {
+    res.setHeader(
+      'Cache-Control',
+      'no-store'
+    );
+
+    return res
+      .status(200)
+      .json({
+        status: 'ok',
+      });
+  }
+);
+
+
+/*
+ * Readiness:
+ *
+ * Confirms that MongoDB is actually ready
+ * to serve application traffic.
+ */
+app.get(
+  '/ready',
+  (req, res) => {
+    res.setHeader(
+      'Cache-Control',
+      'no-store'
+    );
+
+    const connection =
+      mongoConnection.getConnection();
+
+    const databaseReady =
+      connection &&
+      connection.readyState === 1;
+
+    if (!databaseReady) {
+      return res
+        .status(503)
+        .json({
+          status:
+            'not_ready',
+
+          database:
+            'unavailable',
+        });
+    }
+
+    return res
+      .status(200)
+      .json({
+        status:
+          'ready',
+
+        database:
+          'connected',
+      });
+  }
+);
+
+
+/* =========================
    SPA FALLBACK
 ========================= */
 
@@ -605,6 +777,10 @@ app.get(
    SERVER STARTUP
 ========================= */
 
+let httpServer = null;
+let isShuttingDown = false;
+
+
 async function startServer() {
   /*
    * Initialize existing application
@@ -620,7 +796,7 @@ async function startServer() {
     process.env.PORT || 5000;
 
 
-  app.listen(
+  httpServer = app.listen(
     PORT,
     () => {
       console.log(
@@ -751,7 +927,154 @@ async function startServer() {
         });
     }
   );
+/*
+ * Handle asynchronous HTTP server failures
+ * such as EADDRINUSE.
+ */
+  httpServer.once(
+    'error',
+    async (error) => {
+      console.error(
+        'HTTP server error:',
+        error?.code ||
+        error?.message ||
+        'UNKNOWN_ERROR'
+      );
+
+      try {
+        await mongoConnection.disconnect();
+      } catch {
+        // Startup failure is already being handled.
+      }
+
+      process.exit(1);
+    }
+  );
+
+  return httpServer;
 }
+
+
+/* =========================
+   GRACEFUL SHUTDOWN
+========================= */
+
+async function shutdownServer(
+  signal
+) {
+  if (isShuttingDown) {
+    return;
+  }
+
+  isShuttingDown = true;
+
+  console.log(
+    `${signal} received. Shutting down gracefully...`
+  );
+
+  /*
+   * Safety timeout prevents a deployment
+   * from hanging indefinitely.
+   */
+  const forceShutdownTimer =
+    setTimeout(
+      () => {
+        console.error(
+          'Graceful shutdown timed out.'
+        );
+
+        if (
+          httpServer &&
+          typeof httpServer
+            .closeAllConnections ===
+            'function'
+        ) {
+          httpServer
+            .closeAllConnections();
+        }
+
+        process.exit(1);
+      },
+      10000
+    );
+
+  forceShutdownTimer.unref();
+
+  try {
+    if (
+      httpServer &&
+      httpServer.listening
+    ) {
+      await new Promise(
+        (resolve, reject) => {
+          httpServer.close(
+            (error) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+
+              resolve();
+            }
+          );
+        }
+      );
+
+      console.log(
+        '✅ HTTP server closed'
+      );
+    }
+
+    await mongoConnection.disconnect();
+
+    console.log(
+      '✅ MongoDB disconnected'
+    );
+
+    clearTimeout(
+      forceShutdownTimer
+    );
+
+    console.log(
+      '✅ Graceful shutdown complete'
+    );
+
+    process.exit(0);
+  } catch (error) {
+    clearTimeout(
+      forceShutdownTimer
+    );
+
+    console.error(
+      'Shutdown error:',
+      error?.message ||
+      'UNKNOWN_ERROR'
+    );
+
+    process.exit(1);
+  }
+}
+
+
+process.once(
+  'SIGTERM',
+  () => {
+    void shutdownServer(
+      'SIGTERM'
+    );
+  }
+);
+
+
+process.once(
+  'SIGINT',
+  () => {
+    void shutdownServer(
+      'SIGINT'
+    );
+  }
+);
+
 
 
 /* =========================
@@ -762,7 +1085,8 @@ startServer()
   .catch((error) => {
     console.error(
       'Failed to start server:',
-      error
+      error?.message ||
+      'UNKNOWN_ERROR'
     );
 
     process.exit(1);

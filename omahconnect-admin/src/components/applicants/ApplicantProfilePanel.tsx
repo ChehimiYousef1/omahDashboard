@@ -106,6 +106,90 @@ function initials(
     .toUpperCase();
 }
 
+function displayValue(
+  value: unknown
+): string {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "—";
+  }
+
+  if (Array.isArray(value)) {
+    return value.length
+      ? value
+          .map((item) =>
+            displayValue(item)
+          )
+          .join(", ")
+      : "—";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+
+function isSafeDocumentUrl(
+  value: unknown
+): value is string {
+  if (
+    typeof value !== "string" ||
+    !value.trim()
+  ) {
+    return false;
+  }
+
+  try {
+    const url =
+      new URL(value);
+
+    return (
+      url.protocol === "https:" ||
+      (
+        url.protocol === "http:" &&
+        (
+          url.hostname ===
+            "localhost" ||
+          url.hostname ===
+            "127.0.0.1"
+        )
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+
+function documentValues(
+  value:
+    | string
+    | string[]
+    | undefined
+): string[] {
+  if (Array.isArray(value)) {
+    return value.filter(
+      (item) =>
+        isSafeDocumentUrl(item)
+    );
+  }
+
+  return isSafeDocumentUrl(value)
+    ? [value]
+    : [];
+}
+
+
 function errorMessage(
   error: unknown
 ) {
@@ -1092,6 +1176,49 @@ export function ApplicantProfilePanel({
                             }
                           </p>
                         )}
+
+                        {submission.rawResponse &&
+                          Object.keys(
+                            submission.rawResponse
+                          ).length > 0 && (
+                          <details className="mt-4 rounded-lg border border-slate-100 bg-slate-50">
+                            <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-700">
+                              View All Original Form Answers
+                            </summary>
+
+                            <div className="border-t border-slate-100 p-4">
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                {Object.entries(
+                                  submission.rawResponse
+                                ).map(
+                                  ([
+                                    question,
+                                    answer,
+                                  ]) => (
+                                    <div
+                                      key={
+                                        question
+                                      }
+                                      className="rounded-lg bg-white p-3"
+                                    >
+                                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                        {
+                                          question
+                                        }
+                                      </span>
+
+                                      <span className="mt-1 block whitespace-pre-wrap break-words text-xs text-slate-700">
+                                        {displayValue(
+                                          answer
+                                        )}
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          </details>
+                        )}
                       </div>
                     )
                   )}
@@ -1104,7 +1231,7 @@ export function ApplicantProfilePanel({
             "documents" && (
             <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
               <h3 className="text-sm font-bold text-slate-900">
-                Documents
+                Documents & Supporting Files
               </h3>
 
               <p className="mt-1 text-xs text-slate-400">
@@ -1115,47 +1242,224 @@ export function ApplicantProfilePanel({
                 <p className="mt-4 text-xs text-slate-400">
                   Loading documents...
                 </p>
+              ) : submissions.length ===
+                0 ? (
+                <p className="mt-4 text-xs text-slate-400">
+                  No linked submissions.
+                </p>
               ) : (
-                <div className="mt-4 space-y-3">
-                  {submissions
-                    .filter(
-                      (
-                        submission
-                      ) =>
-                        submission.documents &&
-                        Object.keys(
-                          submission.documents
-                        ).length >
-                          0
-                    )
-                    .map(
-                      (
-                        submission
-                      ) => (
-                        <pre
+                <div className="mt-5 space-y-5">
+                  {submissions.map(
+                    (
+                      submission,
+                      submissionIndex
+                    ) => {
+                      const documents =
+                        submission.documents;
+
+                      if (!documents) {
+                        return null;
+                      }
+
+                      const groups = [
+                        {
+                          label:
+                            "CV / Resume",
+                          values:
+                            documentValues(
+                              documents.cvResume
+                            ),
+                        },
+                        {
+                          label:
+                            "Identity Document",
+                          values:
+                            documentValues(
+                              documents.identityDocument
+                            ),
+                        },
+                        {
+                          label:
+                            "University / Enrollment Document",
+                          values:
+                            documentValues(
+                              documents.enrollmentDocument
+                            ),
+                        },
+                        {
+                          label:
+                            "Degree / Graduation Certificate",
+                          values:
+                            documentValues(
+                              documents.degreeCertificate
+                            ),
+                        },
+                        {
+                          label:
+                            "Training Certificates",
+                          values:
+                            documentValues(
+                              documents.trainingCertificates
+                            ),
+                        },
+                        {
+                          label:
+                            "Recommendation Letters",
+                          values:
+                            documentValues(
+                              documents.recommendationLetters
+                            ),
+                        },
+                        {
+                          label:
+                            "Portfolio / Work Samples",
+                          values:
+                            documentValues(
+                              documents.portfolioWorkSamples
+                            ),
+                        },
+                        {
+                          label:
+                            "Additional Supporting Documents",
+                          values:
+                            documentValues(
+                              documents.additionalSupportingDocuments
+                            ),
+                        },
+                      ].filter(
+                        (group) =>
+                          group.values
+                            .length > 0
+                      );
+
+                      if (
+                        groups.length === 0
+                      ) {
+                        return null;
+                      }
+
+                      return (
+                        <div
                           key={
                             submission._id
                           }
-                          className="overflow-x-auto rounded-lg bg-slate-50 p-3 text-[10px] text-slate-600"
+                          className="rounded-xl border border-slate-100 p-4"
                         >
-                          {JSON.stringify(
-                            submission.documents,
-                            null,
-                            2
-                          )}
-                        </pre>
-                      )
-                    )}
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">
+                                Submission{" "}
+                                {
+                                  submissionIndex +
+                                  1
+                                }
+                              </p>
+
+                              <p className="mt-1 text-[10px] text-slate-400">
+                                {submission
+                                  .submittedAt
+                                  ? new Date(
+                                      submission
+                                        .submittedAt
+                                    ).toLocaleString()
+                                  : "Submission date unavailable"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {groups.map(
+                              (group) => (
+                                <div
+                                  key={
+                                    group.label
+                                  }
+                                  className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                                >
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                    {
+                                      group.label
+                                    }
+                                  </p>
+
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {group.values.map(
+                                      (
+                                        url,
+                                        index
+                                      ) => (
+                                        <a
+                                          key={`${group.label}-${index}`}
+                                          href={
+                                            url
+                                          }
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white hover:bg-blue-700"
+                                        >
+                                          <FileText className="h-3.5 w-3.5" />
+
+                                          {group.label ===
+                                          "CV / Resume"
+                                            ? group
+                                                .values
+                                                .length >
+                                              1
+                                              ? `View CV ${
+                                                  index +
+                                                  1
+                                                }`
+                                              : "View CV"
+                                            : group
+                                                  .values
+                                                  .length >
+                                                1
+                                              ? `Open ${
+                                                  index +
+                                                  1
+                                                }`
+                                              : "Open"}
+                                        </a>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
 
                   {!submissions.some(
-                    (
-                      submission
-                    ) =>
-                      submission.documents &&
-                      Object.keys(
-                        submission.documents
-                      ).length >
-                        0
+                    (submission) => {
+                      const docs =
+                        submission.documents;
+
+                      return Boolean(
+                        docs &&
+                        [
+                          docs.cvResume,
+                          docs.identityDocument,
+                          docs.enrollmentDocument,
+                          docs.degreeCertificate,
+                          ...(docs.trainingCertificates ||
+                            []),
+                          ...(docs.recommendationLetters ||
+                            []),
+                          ...(docs.portfolioWorkSamples ||
+                            []),
+                          ...(docs.additionalSupportingDocuments ||
+                            []),
+                        ].some(
+                          (value) =>
+                            typeof value ===
+                              "string" &&
+                            value.trim()
+                        )
+                      );
+                    }
                   ) && (
                     <p className="text-xs text-slate-400">
                       No linked documents found.

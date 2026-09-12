@@ -6,6 +6,10 @@ const ApplicantFormSubmission =
   require('../models/ApplicantFormSubmission');
 
 const {
+  ensureApplicantIngestion,
+} = require('./applicantIngestionService');
+
+const {
   mapApplicantFormResponse,
   getValue,
   text,
@@ -553,6 +557,12 @@ async function processSubmission(
     dryRun = true,
     sourceKey =
       'google-form-v2',
+
+    SubmissionModel =
+      ApplicantFormSubmission,
+
+    ensureApplicantIngestionFn =
+      ensureApplicantIngestion,
   } = {}
 ) {
   const mapped =
@@ -602,18 +612,95 @@ async function processSubmission(
     submissionKey;
 
   /*
-   * Read-only duplicate check.
+   * Look up the existing response.
+   *
+   * We need the submission _id rather
+   * than only an existence boolean so
+   * replay can repair an incomplete
+   * Applicant relationship.
    */
+  const existingQuery =
+    SubmissionModel.findOne({
+      submissionKey,
+    });
+
+  if (
+    existingQuery &&
+    typeof existingQuery.select ===
+      'function'
+  ) {
+    existingQuery.select(
+      '_id applicantId'
+    );
+  }
+
   const existing =
-    await ApplicantFormSubmission
-      .exists({
-        submissionKey,
-      });
+    existingQuery &&
+    typeof existingQuery.lean ===
+      'function'
+      ? await existingQuery.lean()
+      : await existingQuery;
 
   if (existing) {
+    /*
+     * Dry-run remains strictly
+     * read-only.
+     */
+    if (dryRun) {
+      return {
+        status: 'duplicate',
+        submissionKey,
+      };
+    }
+
+    /*
+     * Self-healing replay.
+     *
+     * - linked Applicant:
+     *     idempotently reused
+     *
+     * - missing applicantId:
+     *     Applicant is created + linked
+     *
+     * - duplicate review cases:
+     *     created/reused as necessary
+     */
+    const ingestion =
+      await ensureApplicantIngestionFn({
+        submissionId:
+          existing._id,
+
+        SubmissionModel,
+
+        detectedBy:
+          'google-form-sync',
+      });
+
     return {
       status: 'duplicate',
       submissionKey,
+
+      applicantId:
+        ingestion.applicantId,
+
+      applicantStatus:
+        ingestion.applicantStatus,
+
+      repaired:
+        ingestion.applicantStatus ===
+        'created',
+
+      duplicateCandidates:
+        ingestion
+          .duplicateCandidates,
+
+      duplicateCasesCreated:
+        ingestion
+          .duplicateCasesCreated,
+
+      duplicateCasesReused:
+        ingestion
+          .duplicateCasesReused,
     };
   }
 
@@ -621,6 +708,8 @@ async function processSubmission(
    * Safe testing mode:
    *
    * NO INSERT
+   * NO Applicant creation
+   * NO DuplicateCase creation
    */
   if (dryRun) {
     return {
@@ -630,33 +719,139 @@ async function processSubmission(
   }
 
   try {
-    await ApplicantFormSubmission
-      .create(mapped);
+    /*
+     * Preserve the immutable form
+     * response first.
+     */
+    const createdSubmission =
+      await SubmissionModel.create(
+        mapped
+      );
+
+    /*
+     * Then create/link the master
+     * Applicant and perform duplicate
+     * review detection.
+     *
+     * If this stage fails, the saved
+     * submission remains preserved.
+     * A later replay repairs it.
+     */
+    const ingestion =
+      await ensureApplicantIngestionFn({
+        submissionId:
+          createdSubmission._id,
+
+        SubmissionModel,
+
+        detectedBy:
+          'google-form-sync',
+      });
 
     return {
       status: 'inserted',
       submissionKey,
+
+      applicantId:
+        ingestion.applicantId,
+
+      applicantStatus:
+        ingestion.applicantStatus,
+
+      duplicateCandidates:
+        ingestion
+          .duplicateCandidates,
+
+      duplicateCasesCreated:
+        ingestion
+          .duplicateCasesCreated,
+
+      duplicateCasesReused:
+        ingestion
+          .duplicateCasesReused,
     };
   } catch (error) {
     /*
-     * MongoDB duplicate key.
+     * Concurrent synchronization may
+     * race on the unique submissionKey.
      *
-     * Protects against race conditions
-     * if two sync jobs run at the same time.
+     * If the submission now exists,
+     * reconcile its Applicant instead
+     * of silently stopping.
      */
     if (
       error &&
       error.code === 11000
     ) {
+      const racedQuery =
+        SubmissionModel.findOne({
+          submissionKey,
+        });
+
+      if (
+        racedQuery &&
+        typeof racedQuery.select ===
+          'function'
+      ) {
+        racedQuery.select(
+          '_id applicantId'
+        );
+      }
+
+      const raced =
+        racedQuery &&
+        typeof racedQuery.lean ===
+          'function'
+          ? await racedQuery.lean()
+          : await racedQuery;
+
+      if (!raced) {
+        throw error;
+      }
+
+      const ingestion =
+        await ensureApplicantIngestionFn({
+          submissionId:
+            raced._id,
+
+          SubmissionModel,
+
+          detectedBy:
+            'google-form-sync',
+        });
+
       return {
         status: 'duplicate',
         submissionKey,
+
+        applicantId:
+          ingestion.applicantId,
+
+        applicantStatus:
+          ingestion.applicantStatus,
+
+        repaired:
+          ingestion.applicantStatus ===
+          'created',
+
+        duplicateCandidates:
+          ingestion
+            .duplicateCandidates,
+
+        duplicateCasesCreated:
+          ingestion
+            .duplicateCasesCreated,
+
+        duplicateCasesReused:
+          ingestion
+            .duplicateCasesReused,
       };
     }
 
     throw error;
   }
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -667,6 +862,8 @@ async function processSubmission(
 async function syncApplicantForm({
   sheetUrl,
   dryRun = true,
+  sourceKey =
+    'omah-applicant-form-v2',
 } = {}) {
   if (!sheetUrl) {
     throw new Error(
@@ -711,18 +908,23 @@ async function syncApplicantForm({
   };
 
   /*
-   * Hash the normalized Sheet URL.
+   * Use one stable source identifier
+   * for both:
    *
-   * This keeps submissions from
-   * different forms logically separate
-   * without storing the URL itself in
+   * - immediate webhook ingestion
+   * - Sheet reconciliation
+   *
+   * This guarantees that replaying the
+   * same Form response through either
+   * transport produces the same
    * submissionKey.
    */
-  const sourceKey =
-    crypto
-      .createHash('sha256')
-      .update(csvUrl)
-      .digest('hex');
+  const resolvedSourceKey =
+    String(
+      sourceKey ||
+      'omah-applicant-form-v2'
+    ).trim() ||
+    'omah-applicant-form-v2';
 
   for (
     let index = 0;
@@ -738,7 +940,8 @@ async function syncApplicantForm({
           row,
           {
             dryRun,
-            sourceKey,
+            sourceKey:
+              resolvedSourceKey,
           }
         );
 

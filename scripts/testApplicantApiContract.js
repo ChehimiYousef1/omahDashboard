@@ -51,10 +51,14 @@ const expectedRoutes = [
   'GET /:id',
   'GET /:id/relationship-integrity',
   'GET /:id/submissions',
+  'GET /duplicates',
+  'GET /duplicates/:caseId',
+  'GET /search-options',
 
   'PATCH /:id/approve-profile',
   'PATCH /:id/profile',
   'PATCH /:id/status',
+  'PATCH /duplicates/:caseId/resolve',
 
   'POST /:id/archive',
   'POST /:id/restore',
@@ -74,6 +78,26 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants',
+  ],
+
+  [
+    'get',
+    '/api/applicants/search-options',
+  ],
+
+  [
+    'get',
+    '/api/applicants/duplicates',
+  ],
+
+  [
+    'get',
+    '/api/applicants/duplicates/{caseId}',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/duplicates/{caseId}/resolve',
   ],
 
   [
