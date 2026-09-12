@@ -35,7 +35,48 @@ export function DeveloperToolsPage() {
   const [uptime] = useState("1d 4h 12m");
 
   // Terminal Console State
-  const [logs, setLogs] = useState<LogItem[]>([]);
+  const [logs, setLogs] = useState<LogItem[]>(() => [
+    {
+      id: "1",
+      type: "info",
+      message:
+        "OMAHCONNECT Express API Gateway binding active on PORT 5000.",
+      timestamp:
+        new Date(Date.now() - 30000).toLocaleTimeString(),
+    },
+    {
+      id: "2",
+      type: "info",
+      message:
+        "Database connection successfully initialized. JSON collections loaded.",
+      timestamp:
+        new Date(Date.now() - 25000).toLocaleTimeString(),
+    },
+    {
+      id: "3",
+      type: "info",
+      message:
+        "Static client builds served from Vite distribution folder.",
+      timestamp:
+        new Date(Date.now() - 20000).toLocaleTimeString(),
+    },
+    {
+      id: "4",
+      type: "warn",
+      message:
+        "Memory usage spike detected during bulk email campaign simulation.",
+      timestamp:
+        new Date(Date.now() - 15000).toLocaleTimeString(),
+    },
+    {
+      id: "5",
+      type: "info",
+      message:
+        "Session auto-verification granted token for SuperAdmin ID admin-1.",
+      timestamp:
+        new Date(Date.now() - 10000).toLocaleTimeString(),
+    },
+  ]);
   const [paused, setPaused] = useState(false);
   const [logFilter, setLogFilter] = useState<"all" | "info" | "warn" | "error">("all");
   const consoleBottomRef = useRef<HTMLDivElement>(null);
@@ -60,7 +101,29 @@ export function DeveloperToolsPage() {
   };
 
   useEffect(() => {
-    loadDbSummary();
+    let active = true;
+
+    void fetchDbSummary()
+      .then((data) => {
+        if (active) {
+          setDbSummary(data);
+        }
+      })
+      .catch((err: unknown) => {
+        console.error(
+          "Failed to load db summary",
+          err
+        );
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingDb(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // System gauges simulation
@@ -75,15 +138,7 @@ export function DeveloperToolsPage() {
 
   // Real-time log console simulator
   useEffect(() => {
-    // Seed initial logs
-    const seedLogs: LogItem[] = [
-      { id: "1", type: "info", message: "OMAHCONNECT Express API Gateway binding active on PORT 5000.", timestamp: new Date(Date.now() - 30000).toLocaleTimeString() },
-      { id: "2", type: "info", message: "Database connection successfully initialized. JSON collections loaded.", timestamp: new Date(Date.now() - 25000).toLocaleTimeString() },
-      { id: "3", type: "info", message: "Static client builds served from Vite distribution folder.", timestamp: new Date(Date.now() - 20000).toLocaleTimeString() },
-      { id: "4", type: "warn", message: "Memory usage spike detected during bulk email campaign simulation.", timestamp: new Date(Date.now() - 15000).toLocaleTimeString() },
-      { id: "5", type: "info", message: "Session auto-verification granted token for SuperAdmin ID admin-1.", timestamp: new Date(Date.now() - 10000).toLocaleTimeString() },
-    ];
-    setLogs(seedLogs);
+
 
     const routes = [
       { method: "GET", path: "/api/users", code: "200 OK", type: "info" as const },
@@ -159,13 +214,26 @@ export function DeveloperToolsPage() {
         withCredentials: true,
       });
       setApiResponse(JSON.stringify(response.data, null, 2));
-    } catch (err: any) {
+    } catch (err: unknown) {
       setApiResponse(
         JSON.stringify(
           {
             success: false,
-            error: err.response?.data?.error || err.message || "Failed to contact API",
-            status: err.response?.status,
+            error:
+              axios.isAxiosError(err)
+                ? (
+                    typeof err.response?.data?.error === "string"
+                      ? err.response.data.error
+                      : err.message ||
+                        "Failed to contact API"
+                  )
+                : err instanceof Error
+                  ? err.message
+                  : "Failed to contact API",
+            status:
+              axios.isAxiosError(err)
+                ? err.response?.status
+                : undefined,
           },
           null,
           2
@@ -267,7 +335,15 @@ export function DeveloperToolsPage() {
             <div className="flex items-center gap-2">
               <select
                 value={logFilter}
-                onChange={(e: any) => setLogFilter(e.target.value)}
+                onChange={(e) =>
+                  setLogFilter(
+                    e.target.value as
+                      | "all"
+                      | "info"
+                      | "warn"
+                      | "error"
+                  )
+                }
                 className="rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[10px] font-mono text-slate-400 focus:outline-none focus:border-blue-500"
               >
                 <option value="all">ALL LOGS</option>
@@ -355,7 +431,12 @@ export function DeveloperToolsPage() {
                 ].map((item) => (
                   <div key={item.key} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
                     <span className="text-slate-500">{item.label}</span>
-                    <span className="font-bold text-slate-850 font-mono">{(dbSummary as any)[item.key]}</span>
+                    <span className="font-bold text-slate-850 font-mono">{String(
+                      (
+                        dbSummary as unknown as
+                          Record<string, unknown>
+                      )[item.key] ?? 0
+                    )}</span>
                   </div>
                 ))}
               </div>
@@ -383,7 +464,13 @@ export function DeveloperToolsPage() {
               <div className="flex gap-2">
                 <select
                   value={apiMethod}
-                  onChange={(e: any) => setApiMethod(e.target.value)}
+                  onChange={(e) =>
+                    setApiMethod(
+                      e.target.value as
+                        | "GET"
+                        | "POST"
+                    )
+                  }
                   className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 font-bold focus:outline-none"
                 >
                   <option value="GET">GET</option>

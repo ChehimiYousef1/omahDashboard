@@ -22,22 +22,35 @@ export function ReportsPage() {
 
   // Selected Report for Modal View
   const [selectedReport, setSelectedReport] = useState<CompanyReport | null>(null);
-
-  const loadReports = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchCompanyReports();
-      setReports(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load reports log");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadReports();
+    let active = true;
+
+    void fetchCompanyReports()
+      .then((data) => {
+        if (active) {
+          setReports(data);
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load reports log"
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
 
   const handleResolve = async (id: string) => {
     try {
@@ -49,7 +62,7 @@ export function ReportsPage() {
         setSelectedReport((prev) => prev ? { ...prev, status: "resolved" } : null);
       }
       alert("Report ticket resolved successfully.");
-    } catch (err) {
+    } catch {
       alert("Failed to resolve report ticket");
     }
   };
@@ -68,7 +81,7 @@ export function ReportsPage() {
         }
       }
       await handleResolve(report.id);
-    } catch (err) {
+    } catch {
       alert("Failed to take disciplinary actions.");
     }
   };

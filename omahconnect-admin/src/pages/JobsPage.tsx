@@ -22,22 +22,35 @@ export function JobsPage() {
 
   // Selected Job for Quick View Modal
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-
-  const loadJobs = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchCompanyJobs();
-      setJobs(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load jobs directory");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadJobs();
+    let active = true;
+
+    void fetchCompanyJobs()
+      .then((data) => {
+        if (active) {
+          setJobs(data);
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load jobs directory"
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
 
   const handleToggleFeature = async (id: string) => {
     try {
@@ -46,7 +59,7 @@ export function JobsPage() {
       setJobs((prev) =>
         prev.map((j) => (j.id === id ? { ...j, isFeatured: !j.isFeatured } : j))
       );
-    } catch (err) {
+    } catch {
       alert("Failed to toggle featured status");
     }
   };
@@ -58,7 +71,7 @@ export function JobsPage() {
       setJobs((prev) =>
         prev.map((j) => (j.id === id ? { ...j, status: nextStatus } : j))
       );
-    } catch (err) {
+    } catch {
       alert("Failed to toggle listing status");
     }
   };

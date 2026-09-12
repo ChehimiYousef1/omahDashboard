@@ -18,12 +18,29 @@ import {
 } from "recharts";
 import { Users, UserCheck, ShieldCheck, UserX, BarChart3, TrendingUp, Compass, Award } from "lucide-react";
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipEntry {
+  name?: string;
+  value?: string | number;
+  stroke?: string;
+  fill?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
+const CustomTooltip = ({
+  active,
+  payload,
+  label,
+}: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-xl border border-slate-100 bg-white/95 p-3 shadow-xl backdrop-blur-md text-[11px]">
         <p className="font-bold text-slate-800 mb-1">{label}</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index: number) => (
           <p key={index} className="font-semibold" style={{ color: entry.stroke || entry.fill }}>
             {entry.name}: <span className="font-extrabold text-slate-950">{entry.value}</span>
           </p>
@@ -44,8 +61,12 @@ export function AnalyticsPage() {
       try {
         const data = await fetchUsers();
         setUsers(data);
-      } catch (err: any) {
-        setError(err.message || "Failed to load user analytics data");
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load user analytics data"
+        );
       } finally {
         setLoading(false);
       }

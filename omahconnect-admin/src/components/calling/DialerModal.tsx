@@ -14,7 +14,7 @@ export function DialerModal({ user, callType, onClose }: DialerModalProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
 
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callDurationRef = useRef(0);
 
   useEffect(() => {

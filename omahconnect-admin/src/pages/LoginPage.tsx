@@ -21,9 +21,10 @@ export function LoginPage({ onSuccess }: { onSuccess: (user: User) => void }) {
         { withCredentials: true }
       );
       onSuccess(res.data.user);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(
-        err?.response?.status === 429
+        axios.isAxiosError(err) &&
+        err.response?.status === 429
           ? "Too many attempts. Try again in 15 minutes."
           : "Invalid email or password."
       );

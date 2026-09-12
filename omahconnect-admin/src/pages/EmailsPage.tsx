@@ -82,8 +82,12 @@ export function EmailsPage({ initialTargetUserId, initialCampaignType, initialRe
           setSubject(TEMPLATES.direct.subject);
           setBody(TEMPLATES.direct.body);
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to load database. Ensure backend server is running.");
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load database. Ensure backend server is running."
+        );
       } finally {
         setLoading(false);
       }
@@ -147,9 +151,39 @@ export function EmailsPage({ initialTargetUserId, initialCampaignType, initialRe
           onClearInitialState();
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to simulate email delivery.");
+
+      let apiMessage: string | undefined;
+
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "response" in err
+      ) {
+        const response =
+          (
+            err as {
+              response?: {
+                data?: {
+                  error?: unknown;
+                };
+              };
+            }
+          ).response;
+
+        if (
+          typeof response?.data?.error ===
+          "string"
+        ) {
+          apiMessage = response.data.error;
+        }
+      }
+
+      setError(
+        apiMessage ||
+        "Failed to simulate email delivery."
+      );
     } finally {
       setComposerLoading(false);
     }
@@ -264,7 +298,14 @@ export function EmailsPage({ initialTargetUserId, initialCampaignType, initialRe
                   </label>
                   <select
                     value={recipientGroup}
-                    onChange={(e) => setRecipientGroup(e.target.value as any)}
+                    onChange={(e) => setRecipientGroup(
+                      e.target.value as
+                        | "all"
+                        | "students"
+                        | "professionals"
+                        | "verified"
+                        | "unverified"
+                    )}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3 text-xs text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all"
                   >
                     <option value="all">All Registered Users</option>

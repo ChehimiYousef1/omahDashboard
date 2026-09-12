@@ -9,7 +9,7 @@ import {
   BarChart3,
   Code2,
   Settings,
-  Infinity,
+  Infinity as InfinityIcon,
   Mail,
   Bell,
 } from "lucide-react";
@@ -40,7 +40,7 @@ export function Sidebar({ activeId, onNavigate }: SidebarProps) {
     <aside className="fixed left-0 top-0 z-30 flex h-screen w-56 flex-col bg-[#0a192f] text-slate-300">
       <div className="flex items-center gap-2 border-b border-slate-700/50 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-          <Infinity className="h-5 w-5 text-white" />
+          <InfinityIcon className="h-5 w-5 text-white" />
         </div>
         <span className="text-sm font-bold tracking-wide text-white">
           OMAHCONNECT

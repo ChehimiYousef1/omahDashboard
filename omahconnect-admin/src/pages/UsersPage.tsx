@@ -56,8 +56,12 @@ export function UsersPage({ onTriggerEmail, onInitiateCall }: UsersPageProps) {
           // Select the first user as default
           setSelectedUserId(data[0].id);
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch users directory from backend");
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch users directory from backend"
+        );
       } finally {
         setLoading(false);
       }

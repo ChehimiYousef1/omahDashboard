@@ -33,6 +33,44 @@ import {
   UserCheck
 } from "lucide-react";
 
+function apiErrorMessage(
+  error: unknown,
+  fallback: string
+) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error
+  ) {
+    const response =
+      (
+        error as {
+          response?: {
+            data?: {
+              error?: unknown;
+            };
+          };
+        }
+      ).response;
+
+    if (
+      typeof response?.data?.error ===
+      "string"
+    ) {
+      return response.data.error;
+    }
+  }
+
+  if (
+    error instanceof Error &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 type Tab = "dms" | "broadcasts" | "opt-ins";
 
 export function CommunicationsPage() {
@@ -64,29 +102,58 @@ export function CommunicationsPage() {
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Load all communication records in parallel
-  const loadAllData = async (selectFirstConv = false) => {
-    try {
-      const [usersData, notifsData, convsData] = await Promise.all([
-        fetchUsers(),
-        fetchNotifications(),
-        fetchConversations()
-      ]);
-      setUsers(usersData);
-      setNotifications(notifsData);
-      setConversations(convsData);
-      if (selectFirstConv && convsData.length > 0 && !selectedConvId) {
-        setSelectedConvId(convsData[0].id);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to synchronize communication logs.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Load communication records after mount.
   useEffect(() => {
-    loadAllData(true);
+    let active = true;
+
+    async function loadInitialData() {
+      try {
+        const [
+          usersData,
+          notifsData,
+          convsData,
+        ] = await Promise.all([
+          fetchUsers(),
+          fetchNotifications(),
+          fetchConversations(),
+        ]);
+
+        if (!active) {
+          return;
+        }
+
+        setUsers(usersData);
+        setNotifications(notifsData);
+        setConversations(convsData);
+
+        if (convsData.length > 0) {
+          setSelectedConvId(
+            (current) =>
+              current ??
+              convsData[0].id
+          );
+        }
+      } catch (err: unknown) {
+        if (active) {
+          setError(
+            apiErrorMessage(
+              err,
+              "Failed to synchronize communication logs."
+            )
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Selected active DM conversation
@@ -121,8 +188,13 @@ export function CommunicationsPage() {
           alert("⚠️ Auto Moderation Triggered: Message contains blacklisted words and was flagged. An auto-warning warning was dispatched.");
         }
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to post message reply.");
+    } catch (err: unknown) {
+      setError(
+        apiErrorMessage(
+          err,
+          "Failed to post message reply."
+        )
+      );
     } finally {
       setSendingMessage(false);
     }
@@ -138,7 +210,7 @@ export function CommunicationsPage() {
           prev.map((c) => (c.id === activeConv.id ? { ...c, isFlagged: res.conversation.isFlagged } : c))
         );
       }
-    } catch (err: any) {
+    } catch {
       setError("Failed to toggle flag on conversation.");
     }
   };
@@ -151,7 +223,7 @@ export function CommunicationsPage() {
       await sendMessage(activeConv.userId, "Get free bitcoin now! Just sign up on my crypto scam page buy cryptocurrency today!", activeConv.userId);
       const updatedConvs = await fetchConversations();
       setConversations(updatedConvs);
-    } catch (err) {
+    } catch {
       setError("Failed to simulate user spam message.");
     } finally {
       setSendingMessage(false);
@@ -195,8 +267,13 @@ export function CommunicationsPage() {
         const updatedNotifs = await fetchNotifications();
         setNotifications(updatedNotifs);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to dispatch broadcast campaign.");
+    } catch (err: unknown) {
+      setError(
+        apiErrorMessage(
+          err,
+          "Failed to dispatch broadcast campaign."
+        )
+      );
     } finally {
       setComposerLoading(false);
     }
@@ -213,8 +290,13 @@ export function CommunicationsPage() {
         const updatedNotifs = await fetchNotifications();
         setNotifications(updatedNotifs);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to resend notification campaign.");
+    } catch (err: unknown) {
+      setError(
+        apiErrorMessage(
+          err,
+          "Failed to resend notification campaign."
+        )
+      );
     }
   };
 
@@ -243,7 +325,7 @@ export function CommunicationsPage() {
 
     try {
       await toggleNotificationPermissions(user.id, { [field]: newVal });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to update opt-in state", err);
       // Revert optimistic update
       const updatedUsers = await fetchUsers();
@@ -606,7 +688,7 @@ export function CommunicationsPage() {
                     </label>
                     <select
                       value={recipientType}
-                      onChange={(e) => setRecipientType(e.target.value as any)}
+                      onChange={(e) => setRecipientType(e.target.value as "direct" | "bulk")}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none"
                     >
                       <option value="bulk">Bulk Group (Broadcast)</option>
@@ -640,7 +722,14 @@ export function CommunicationsPage() {
                       </label>
                       <select
                         value={recipientGroup}
-                        onChange={(e) => setRecipientGroup(e.target.value as any)}
+                        onChange={(e) => setRecipientGroup(
+                            e.target.value as
+                              | "all"
+                              | "students"
+                              | "professionals"
+                              | "verified"
+                              | "unverified"
+                          )}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-xs text-slate-700 focus:border-blue-500 focus:bg-white focus:outline-none"
                       >
                         <option value="all">All Registered Members</option>

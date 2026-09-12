@@ -65,7 +65,7 @@ import {
 interface CompaniesPageProps {
   onTriggerEmail?: (userId: string, campaignType: string) => void;
   onInitiateCall?: (
-    user: any,
+    user: User,
     type: "Standard Call" | "Emergency Call" | "Recruiter Support Call"
   ) => void;
 }
@@ -145,7 +145,7 @@ export function CompaniesPage({
         setAutoSpamFilter(setsData.autoFilterSpamJobs);
         setMinTrustScore(setsData.minTrustScoreToPost);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError("Failed to sync company operations database from backend.");
     } finally {
@@ -154,7 +154,65 @@ export function CompaniesPage({
   };
 
   useEffect(() => {
-    loadAllData();
+    let active = true;
+
+    void Promise.all([
+      fetchCompanies(),
+      fetchCompanyRecruiters(),
+      fetchCompanyJobs(),
+      fetchCompanyReports(),
+      fetchCompanyLogs(),
+      fetchCompanySettings(),
+    ])
+      .then(
+        ([
+          compsData,
+          recsData,
+          jobsData,
+          repsData,
+          logsData,
+          setsData,
+        ]) => {
+          if (!active) {
+            return;
+          }
+
+          setCompanies(compsData);
+          setRecruiters(recsData);
+          setJobs(jobsData);
+          setReports(repsData);
+          setLogs(logsData);
+          setSettings(setsData);
+
+          if (setsData) {
+            setRequireDocs(
+              setsData.requireVerificationDocs
+            );
+            setAutoSpamFilter(
+              setsData.autoFilterSpamJobs
+            );
+            setMinTrustScore(
+              setsData.minTrustScoreToPost
+            );
+          }
+        }
+      )
+      .catch(() => {
+        if (active) {
+          setError(
+            "Failed to sync company operations database from backend."
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Cascading suspend actions
@@ -173,7 +231,7 @@ export function CompaniesPage({
             ? "Company reactivated successfully."
             : "Company suspended, all recruiters and jobs deactivated."
         );
-      } catch (err) {
+      } catch {
         alert("Action failed: suspension trigger error.");
       }
     }
@@ -188,7 +246,7 @@ export function CompaniesPage({
       setVerifyNotes("");
       await loadAllData();
       alert(`Company marked as ${status}.`);
-    } catch (err) {
+    } catch {
       alert("Verification update failed.");
     }
   };
@@ -222,7 +280,7 @@ export function CompaniesPage({
       setEmailBody("");
       await loadAllData();
       setTimeout(() => setEmailSentStatus(null), 5000);
-    } catch (err) {
+    } catch {
       alert("Failed to deliver campaign.");
     }
   };
@@ -242,7 +300,7 @@ export function CompaniesPage({
       setSettingsSavedMsg(true);
       await loadAllData();
       setTimeout(() => setSettingsSavedMsg(false), 3000);
-    } catch (err) {
+    } catch {
       alert("Failed to save settings.");
     }
   };
@@ -252,7 +310,7 @@ export function CompaniesPage({
     try {
       await toggleJobFeature(jobId);
       await loadAllData();
-    } catch (err) {
+    } catch {
       alert("Failed to feature job.");
     }
   };
@@ -263,7 +321,7 @@ export function CompaniesPage({
       const target = currentStatus === "active" ? "expired" : "active";
       await updateJobStatus(jobId, target);
       await loadAllData();
-    } catch (err) {
+    } catch {
       alert("Failed to toggle job listing status.");
     }
   };
@@ -274,7 +332,7 @@ export function CompaniesPage({
       await resolveCompanyReport(repId);
       await loadAllData();
       alert("Report ticket marked resolved.");
-    } catch (err) {
+    } catch {
       alert("Failed to resolve report.");
     }
   };
@@ -1050,7 +1108,14 @@ export function CompaniesPage({
                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">Target Recruiter Group</label>
                     <select
                       value={emailGroup}
-                      onChange={(e: any) => setEmailGroup(e.target.value)}
+                      onChange={(e) =>
+                        setEmailGroup(
+                          e.target.value as
+                            | "all"
+                            | "verified"
+                            | "pending"
+                        )
+                      }
                       className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs focus:border-blue-500 focus:outline-none"
                     >
                       <option value="all">All Registered Recruiters & Employers</option>
