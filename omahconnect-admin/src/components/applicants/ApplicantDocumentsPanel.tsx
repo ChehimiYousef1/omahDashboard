@@ -7,6 +7,7 @@ import {
 import {
   Archive,
   Download,
+  Eye,
   FileText,
   History,
   RefreshCcw,
@@ -18,6 +19,7 @@ import {
 import {
   applicantDocumentDownloadUrl,
   archiveApplicantDocumentRecord,
+  downloadApplicantDocumentFile,
   fetchApplicantDocuments,
   fetchApplicantDocumentVersions,
   restoreApplicantDocumentRecord,
@@ -27,6 +29,10 @@ import {
   type ApplicantDocument,
   type ApplicantDocumentType,
 } from "../../services/api";
+
+import {
+  ApplicantDocumentPreviewModal,
+} from "./ApplicantDocumentPreviewModal";
 
 interface ApplicantDocumentsPanelProps {
   applicantId: string;
@@ -236,6 +242,15 @@ export function ApplicantDocumentsPanel({
         ApplicantDocument[]
       >
     >({});
+
+  const [
+    previewDocument,
+    setPreviewDocument,
+  ] =
+    useState<
+      ApplicantDocument |
+      null
+    >(null);
 
   async function loadDocuments() {
     try {
@@ -618,6 +633,34 @@ export function ApplicantDocumentsPanel({
     );
   }
 
+  function viewDocument(
+    item:
+      ApplicantDocument
+  ) {
+    setPreviewDocument(item);
+  }
+
+  async function downloadDocument(
+    item:
+      ApplicantDocument
+  ) {
+    try {
+      setBusy(true);
+
+      await downloadApplicantDocumentFile(
+        applicantId,
+        item._id,
+        item.file.originalFileName
+      );
+    } catch (error) {
+      window.alert(
+        errorMessage(error)
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function renderVersionActions(
     item:
       ApplicantDocument
@@ -948,19 +991,35 @@ export function ApplicantDocumentsPanel({
 
                     <div className="flex flex-wrap gap-2">
                       {!primary.lifecycle.archived && (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            openDocument(
-                              primary
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Download
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              viewDocument(
+                                primary
+                              )
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-40"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              void downloadDocument(
+                                primary
+                              )
+                            }
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download
+                          </button>
+                        </>
                       )}
 
                       <button
@@ -1135,6 +1194,16 @@ export function ApplicantDocumentsPanel({
             }
           )}
         </div>
+      )}
+
+      {previewDocument && (
+        <ApplicantDocumentPreviewModal
+          applicantId={applicantId}
+          document={previewDocument}
+          onClose={() =>
+            setPreviewDocument(null)
+          }
+        />
       )}
     </div>
   );

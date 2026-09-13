@@ -1508,3 +1508,52 @@ export const applicantDocumentDownloadUrl = (
   )}/documents/${encodeURIComponent(
     documentId
   )}/download`;
+
+export const fetchApplicantDocumentBlob = async (
+  applicantId: string,
+  documentId: string
+): Promise<Blob> => {
+  const response = await apiClient.get(
+    `/applicants/${encodeURIComponent(
+      applicantId
+    )}/documents/${encodeURIComponent(
+      documentId
+    )}/download`,
+    {
+      responseType: "blob",
+    }
+  );
+
+  return response.data as Blob;
+};
+
+export const downloadApplicantDocumentFile = async (
+  applicantId: string,
+  documentId: string,
+  fileName: string
+): Promise<void> => {
+  const blob =
+    await fetchApplicantDocumentBlob(
+      applicantId,
+      documentId
+    );
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const link =
+    window.document.createElement("a");
+
+  link.href = url;
+  link.download =
+    fileName || "document";
+
+  window.document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  window.setTimeout(
+    () => URL.revokeObjectURL(url),
+    1000
+  );
+};
