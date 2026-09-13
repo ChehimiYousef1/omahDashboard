@@ -139,6 +139,17 @@ const scheduleProperties = {
           format: 'email',
         },
 
+        participantType: {
+          type: 'string',
+
+          enum: [
+            'applicant',
+            'interviewer',
+            'organizer',
+            'guest',
+          ],
+        },
+
         role: {
           type: 'string',
         },
@@ -151,8 +162,101 @@ const scheduleProperties = {
   },
 };
 
+const availabilityProperties = {
+  scheduledStart: {
+    type: 'string',
+    format: 'date-time',
+  },
+
+  scheduledEnd: {
+    type: 'string',
+    format: 'date-time',
+  },
+
+  timezone: {
+    type: 'string',
+
+    example:
+      'Asia/Beirut',
+  },
+
+  participants:
+    scheduleProperties
+      .participants,
+
+  calendarIds: {
+    type: 'array',
+
+    items: {
+      type: 'string',
+    },
+
+    description:
+      'Optional explicit internal calendars to check. Applicant private calendars are not queried by default.',
+  },
+
+  excludeInterviewId: {
+    type: 'string',
+    nullable: true,
+
+    description:
+      'Interview ID to exclude while checking availability during rescheduling.',
+  },
+};
+
+
 module.exports = {
   paths: {
+    '/api/applicants/{id}/interviews/availability':
+      {
+        post: {
+          tags: [
+            'Applicants',
+          ],
+
+          summary:
+            'Check Applicant interview availability',
+
+          description:
+            'Read-only availability check. Detects overlapping OMAH interviews and, when Google Calendar is enabled and configured, checks internal organizer/interviewer calendars through Google Free/Busy. It does not create or modify an interview or Calendar event.',
+
+          parameters: [
+            idParameter,
+          ],
+
+          requestBody: {
+            required: true,
+
+            content: {
+              'application/json': {
+                schema: {
+                  type:
+                    'object',
+
+                  required: [
+                    'scheduledStart',
+                    'scheduledEnd',
+                  ],
+
+                  properties:
+                    availabilityProperties,
+                },
+              },
+            },
+          },
+
+          responses: {
+            200: {
+              description:
+                'Availability result',
+            },
+
+            ...commonResponses,
+          },
+        },
+      },
+
+
     '/api/applicants/{id}/interviews':
       {
         get: {

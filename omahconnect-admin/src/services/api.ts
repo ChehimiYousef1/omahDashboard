@@ -1313,16 +1313,28 @@ export type ApplicantInterviewOutcome =
   | "not_recommended"
   | "on_hold";
 
+export type ApplicantInterviewParticipantType =
+  | "applicant"
+  | "interviewer"
+  | "organizer"
+  | "guest";
+
+
 export interface ApplicantInterviewParticipant {
   userId?: string;
   name: string;
   email?: string;
+
+  participantType?:
+    ApplicantInterviewParticipantType;
+
   role?: string;
 }
 
 export interface ApplicantInterviewActor {
   userId: string;
   name: string;
+  email?: string;
   role: string;
 }
 
@@ -1424,6 +1436,88 @@ export interface ApplicantInterviewUpdatePayload {
   notes?: string;
 }
 
+export type ApplicantInterviewAvailabilityStatus =
+  | "busy"
+  | "available"
+  | "omah_available";
+
+
+export interface ApplicantInterviewAvailabilityConflict {
+  interviewId: string;
+  applicantId: string;
+  type: string;
+
+  scheduledStart: string;
+  scheduledEnd: string;
+
+  matchedPeople: Array<{
+    userId?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  }>;
+}
+
+
+export interface ApplicantInterviewAvailability {
+  status:
+    ApplicantInterviewAvailabilityStatus;
+
+  available: boolean;
+  fullyChecked: boolean;
+
+  scheduledStart: string;
+  scheduledEnd: string;
+  timezone: string;
+
+  calendarsRequested: string[];
+
+  local: {
+    available: boolean;
+
+    conflicts:
+      ApplicantInterviewAvailabilityConflict[];
+  };
+
+  google: {
+    enabled: boolean;
+    configured: boolean;
+    checked: boolean;
+
+    reason?: string;
+
+    busy: Array<{
+      calendarId: string;
+      start: string;
+      end: string;
+    }>;
+
+    errors: Array<
+      Record<string, unknown>
+    >;
+
+    calendars:
+      Record<string, unknown>;
+  };
+}
+
+
+export interface ApplicantInterviewAvailabilityPayload {
+  scheduledStart: string;
+  scheduledEnd: string;
+
+  timezone?: string;
+
+  participants?:
+    ApplicantInterviewParticipant[];
+
+  calendarIds?: string[];
+
+  excludeInterviewId?:
+    string | null;
+}
+
+
 export interface ApplicantInterviewCompletePayload {
   outcome?:
     ApplicantInterviewOutcome;
@@ -1431,6 +1525,22 @@ export interface ApplicantInterviewCompletePayload {
   feedback?: string;
   notes?: string;
 }
+
+
+export const checkApplicantInterviewAvailability =
+  async (
+    applicantId: string,
+    payload:
+      ApplicantInterviewAvailabilityPayload
+  ): Promise<ApplicantInterviewAvailability> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/interviews/availability`,
+        payload
+      );
+
+    return response.data.availability;
+  };
 
 
 export const fetchApplicantInterviews =

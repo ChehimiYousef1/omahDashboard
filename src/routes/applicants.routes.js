@@ -90,6 +90,13 @@ const {
 );
 
 
+const {
+  checkApplicantInterviewAvailability,
+} = require(
+  '../../services/applicantInterviewAvailabilityService'
+);
+
+
 /*
 |--------------------------------------------------------------------------
 | API Error Mapping
@@ -811,6 +818,90 @@ function createApplicantRouter({
         return res.json({
           success: true,
           interviews,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/interviews/availability
+   *
+   * Read-only availability check.
+   *
+   * Does not create or update an
+   * interview or Calendar event.
+   */
+  router.post(
+    '/:id/interviews/availability',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const availability =
+          await checkApplicantInterviewAvailability({
+            applicantId:
+              req.params.id,
+
+            scheduledStart:
+              req.body
+                ?.scheduledStart,
+
+            scheduledEnd:
+              req.body
+                ?.scheduledEnd,
+
+            timezone:
+              req.body
+                ?.timezone ||
+              'UTC',
+
+            participants:
+              req.body
+                ?.participants ||
+              [],
+
+            calendarIds:
+              req.body
+                ?.calendarIds ||
+              [],
+
+            excludeInterviewId:
+              req.body
+                ?.excludeInterviewId ||
+              null,
+
+            organizer: {
+              userId:
+                req.user.id,
+
+              name:
+                req.user.name ||
+                req.user.email ||
+                'Admin',
+
+              email:
+                req.user.email ||
+                '',
+
+              role:
+                req.user.role ||
+                'Admin',
+            },
+          });
+
+        return res.json({
+          success: true,
+          availability,
         });
       } catch (error) {
         return sendError(

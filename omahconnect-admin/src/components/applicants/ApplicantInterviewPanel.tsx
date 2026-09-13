@@ -24,6 +24,7 @@ import {
 import {
   archiveApplicantInterview,
   cancelApplicantInterview,
+  checkApplicantInterviewAvailability,
   completeApplicantInterview,
   createApplicantInterview,
   fetchApplicantInterviews,
@@ -31,6 +32,7 @@ import {
   updateApplicantInterview,
   type ApplicantFormSubmission,
   type ApplicantInterview,
+  type ApplicantInterviewAvailability,
   type ApplicantInterviewCompletePayload,
   type ApplicantInterviewFormat,
   type ApplicantInterviewOutcome,
@@ -75,6 +77,14 @@ interface ScheduleForm {
 
   participants:
     ApplicantInterviewParticipant[];
+}
+
+
+interface AvailabilitySnapshot {
+  signature: string;
+
+  result:
+    ApplicantInterviewAvailability;
 }
 
 
@@ -481,6 +491,43 @@ function emptyScheduleForm():
 }
 
 
+function availabilitySignature(
+  form: ScheduleForm,
+  interviewId = ""
+) {
+  return JSON.stringify({
+    scheduledStart:
+      form.scheduledStart,
+
+    scheduledEnd:
+      form.scheduledEnd,
+
+    timezone:
+      form.timezone,
+
+    interviewId,
+
+    participants:
+      form.participants.map(
+        (participant) => ({
+          userId:
+            participant.userId ||
+            "",
+
+          email:
+            participant.email ||
+            "",
+
+          participantType:
+            participant
+              .participantType ||
+            "interviewer",
+        })
+      ),
+  });
+}
+
+
 function participantLabel(
   participant:
     ApplicantInterviewParticipant
@@ -540,6 +587,20 @@ export function ApplicantInterviewPanel({
   ] = useState<ScheduleForm>(
     emptyScheduleForm()
   );
+
+
+  const [
+    availabilitySnapshot,
+    setAvailabilitySnapshot,
+  ] = useState<
+    AvailabilitySnapshot | null
+  >(null);
+
+
+  const [
+    checkingAvailability,
+    setCheckingAvailability,
+  ] = useState(false);
 
   const [
     completingInterview,
@@ -662,6 +723,10 @@ export function ApplicantInterviewPanel({
       emptyScheduleForm()
     );
 
+    setAvailabilitySnapshot(
+      null
+    );
+
     setScheduleMode(
       "create"
     );
@@ -674,6 +739,10 @@ export function ApplicantInterviewPanel({
   ) {
     setEditingInterview(
       interview
+    );
+
+    setAvailabilitySnapshot(
+      null
     );
 
     setScheduleForm({
@@ -749,6 +818,10 @@ export function ApplicantInterviewPanel({
     setScheduleMode(null);
 
     setEditingInterview(
+      null
+    );
+
+    setAvailabilitySnapshot(
       null
     );
   }
@@ -831,36 +904,190 @@ export function ApplicantInterviewPanel({
   }
 
 
+  function normalizedScheduleParticipants():
+    ApplicantInterviewParticipant[] {
+    return scheduleForm
+      .participants
+      .map(
+        (
+          participant
+        ) => ({
+          userId:
+            participant
+              .userId
+              ?.trim() ||
+            "",
+
+          name:
+            participant
+              .name
+              .trim(),
+
+          email:
+            participant
+              .email
+              ?.trim() ||
+            "",
+
+          participantType:
+            participant
+              .participantType ||
+            "interviewer",
+
+          role:
+            participant
+              .role
+              ?.trim() ||
+            "",
+        })
+      )
+      .filter(
+        (participant) =>
+          Boolean(
+            participant.name ||
+            participant.email ||
+            participant.userId
+          )
+      );
+  }
+
+
+  async function checkScheduleAvailability() {
+    const participants =
+      normalizedScheduleParticipants();
+
+    if (
+      participants.length === 0
+    ) {
+      window.alert(
+        "Add at least one interview participant."
+      );
+
+      return null;
+    }
+
+    if (
+      !scheduleForm
+        .scheduledStart ||
+      !scheduleForm
+        .scheduledEnd
+    ) {
+      window.alert(
+        "Select the interview start and end time."
+      );
+
+      return null;
+    }
+
+    let start: string;
+    let end: string;
+
+    try {
+      start =
+        toIso(
+          scheduleForm
+            .scheduledStart
+        );
+
+      end =
+        toIso(
+          scheduleForm
+            .scheduledEnd
+        );
+    } catch (
+      dateError
+    ) {
+      window.alert(
+        interviewErrorMessage(
+          dateError
+        )
+      );
+
+      return null;
+    }
+
+    if (
+      new Date(end).getTime() <=
+      new Date(start).getTime()
+    ) {
+      window.alert(
+        "Interview end time must be after the start time."
+      );
+
+      return null;
+    }
+
+    const signature =
+      availabilitySignature(
+        scheduleForm,
+
+        scheduleMode ===
+            "edit" &&
+          editingInterview
+          ? editingInterview._id
+          : ""
+      );
+
+    setCheckingAvailability(
+      true
+    );
+
+    try {
+      const result =
+        await checkApplicantInterviewAvailability(
+          applicant._id,
+
+          {
+            scheduledStart:
+              start,
+
+            scheduledEnd:
+              end,
+
+            timezone:
+              scheduleForm
+                .timezone,
+
+            participants,
+
+            excludeInterviewId:
+              scheduleMode ===
+                  "edit" &&
+                editingInterview
+                ? editingInterview
+                    ._id
+                : null,
+          }
+        );
+
+      setAvailabilitySnapshot({
+        signature,
+        result,
+      });
+
+      return result;
+    } catch (
+      availabilityError
+    ) {
+      window.alert(
+        interviewErrorMessage(
+          availabilityError
+        )
+      );
+
+      return null;
+    } finally {
+      setCheckingAvailability(
+        false
+      );
+    }
+  }
+
+
   async function saveSchedule() {
     const participants =
-      scheduleForm
-        .participants
-        .map(
-          (
-            participant
-          ) => ({
-            name:
-              participant.name
-                .trim(),
+      normalizedScheduleParticipants();
 
-            email:
-              participant.email
-                ?.trim() ||
-              "",
-
-            role:
-              participant.role
-                ?.trim() ||
-              "",
-          })
-        )
-        .filter(
-          (participant) =>
-            Boolean(
-              participant.name ||
-              participant.email
-            )
-        );
 
     if (
       participants.length === 0
@@ -922,6 +1149,27 @@ export function ApplicantInterviewPanel({
 
       return;
     }
+
+    const availabilityResult =
+      await checkScheduleAvailability();
+
+    if (
+      !availabilityResult
+    ) {
+      return;
+    }
+
+    if (
+      !availabilityResult
+        .available
+    ) {
+      window.alert(
+        "This interview time is unavailable. Choose another time before scheduling."
+      );
+
+      return;
+    }
+
 
     setBusy(true);
 
@@ -1536,6 +1784,24 @@ export function ApplicantInterviewPanel({
   }
 
 
+  const currentAvailability =
+    availabilitySnapshot &&
+    availabilitySnapshot
+      .signature ===
+      availabilitySignature(
+        scheduleForm,
+
+        scheduleMode ===
+            "edit" &&
+          editingInterview
+          ? editingInterview._id
+          : ""
+      )
+      ? availabilitySnapshot
+          .result
+      : null;
+
+
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1704,6 +1970,24 @@ export function ApplicantInterviewPanel({
                     }
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    busy ||
+                    checkingAvailability
+                  }
+                  onClick={() =>
+                    void checkScheduleAvailability()
+                  }
+                  className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700 disabled:opacity-50"
+                >
+                  {
+                    checkingAvailability
+                      ? "Checking..."
+                      : "Check Availability"
+                  }
+                </button>
 
                 <button
                   type="button"
@@ -2220,6 +2504,105 @@ export function ApplicantInterviewPanel({
               </div>
 
 
+              {
+                currentAvailability && (
+                  <div className="mx-6 mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-start gap-3">
+                      {
+                        currentAvailability
+                          .status ===
+                          "busy" ? (
+                          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-500" />
+                        ) : (
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                        )
+                      }
+
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">
+                          {
+                            currentAvailability
+                              .status ===
+                              "busy"
+                              ? "Time unavailable"
+                              : currentAvailability
+                                    .fullyChecked
+                                ? "Time available"
+                                : "OMAH availability clear"
+                          }
+                        </p>
+
+                        <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                          {
+                            currentAvailability
+                              .status ===
+                              "busy"
+                              ? "One or more organizer/interviewer conflicts were found."
+                              : currentAvailability
+                                    .fullyChecked
+                                ? "No OMAH or Google Calendar conflicts were found."
+                                : "No conflicting OMAH interview was found. Google Calendar has not been fully checked yet."
+                          }
+                        </p>
+
+                        {
+                          currentAvailability
+                            .local
+                            .conflicts
+                            .length > 0 && (
+                            <p className="mt-2 text-[11px] font-semibold text-rose-600">
+                              {
+                                currentAvailability
+                                  .local
+                                  .conflicts
+                                  .length
+                              }{" "}
+                              OMAH interview conflict
+                              {
+                                currentAvailability
+                                  .local
+                                  .conflicts
+                                  .length ===
+                                  1
+                                  ? ""
+                                  : "s"
+                              }
+                            </p>
+                          )
+                        }
+
+                        {
+                          currentAvailability
+                            .google
+                            .busy
+                            .length > 0 && (
+                            <p className="mt-1 text-[11px] font-semibold text-rose-600">
+                              {
+                                currentAvailability
+                                  .google
+                                  .busy
+                                  .length
+                              }{" "}
+                              Google Calendar busy interval
+                              {
+                                currentAvailability
+                                  .google
+                                  .busy
+                                  .length ===
+                                  1
+                                  ? ""
+                                  : "s"
+                              }
+                            </p>
+                          )
+                        }
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+
+
               <footer className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
                 <button
                   type="button"
@@ -2234,7 +2617,10 @@ export function ApplicantInterviewPanel({
 
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={
+                    busy ||
+                    checkingAvailability
+                  }
                   onClick={() =>
                     void saveSchedule()
                   }
