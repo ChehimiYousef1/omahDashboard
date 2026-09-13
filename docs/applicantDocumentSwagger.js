@@ -1,10 +1,18 @@
 'use strict';
 
+const security = [
+  {
+    cookieAuth: [],
+  },
+];
+
 const applicantId = {
-  name:
-    'applicantId',
+  name: 'applicantId',
   in: 'path',
   required: true,
+
+  description:
+    'Applicant MongoDB ObjectId',
 
   schema: {
     type: 'string',
@@ -12,13 +20,229 @@ const applicantId = {
 };
 
 const documentId = {
-  name:
-    'documentId',
+  name: 'documentId',
   in: 'path',
   required: true,
 
+  description:
+    'ApplicantDocument MongoDB ObjectId',
+
   schema: {
     type: 'string',
+  },
+};
+
+const errorResponses = {
+  400: {
+    $ref:
+      '#/components/responses/BadRequest',
+  },
+
+  401: {
+    $ref:
+      '#/components/responses/Unauthorized',
+  },
+
+  403: {
+    $ref:
+      '#/components/responses/Forbidden',
+  },
+
+  404: {
+    $ref:
+      '#/components/responses/NotFound',
+  },
+
+  409: {
+    $ref:
+      '#/components/responses/Conflict',
+  },
+
+  500: {
+    $ref:
+      '#/components/responses/InternalError',
+  },
+};
+
+const documentResponseSchema = {
+  type: 'object',
+
+  properties: {
+    _id: {
+      type: 'string',
+    },
+
+    applicantId: {
+      type: 'string',
+    },
+
+    documentGroupId: {
+      type: 'string',
+    },
+
+    documentType: {
+      type: 'string',
+
+      enum: [
+        'cv',
+        'cover_letter',
+        'certificate',
+        'transcript',
+        'portfolio',
+        'identity_document',
+        'other',
+      ],
+    },
+
+    title: {
+      type: 'string',
+    },
+
+    version: {
+      type: 'integer',
+      minimum: 1,
+    },
+
+    isCurrent: {
+      type: 'boolean',
+    },
+
+    file: {
+      type: 'object',
+
+      properties: {
+        originalFileName: {
+          type: 'string',
+        },
+
+        mimeType: {
+          type: 'string',
+        },
+
+        sizeBytes: {
+          type: 'integer',
+        },
+
+        checksumSha256: {
+          type: 'string',
+        },
+      },
+    },
+
+    storage: {
+      type: 'object',
+
+      properties: {
+        provider: {
+          type: 'string',
+
+          enum: [
+            'external',
+            'local',
+            's3',
+          ],
+        },
+      },
+    },
+
+    lifecycle: {
+      type: 'object',
+
+      properties: {
+        archived: {
+          type: 'boolean',
+        },
+
+        archivedAt: {
+          type: [
+            'string',
+            'null',
+          ],
+
+          format: 'date-time',
+        },
+      },
+    },
+
+    uploadedBy: {
+      type: 'string',
+    },
+
+    uploadedAt: {
+      type: 'string',
+      format: 'date-time',
+    },
+  },
+};
+
+const multipartUpload = {
+  required: true,
+
+  content: {
+    'multipart/form-data': {
+      schema: {
+        type: 'object',
+
+        required: [
+          'documentType',
+          'file',
+        ],
+
+        properties: {
+          documentType: {
+            type: 'string',
+
+            enum: [
+              'cv',
+              'cover_letter',
+              'certificate',
+              'transcript',
+              'portfolio',
+              'identity_document',
+              'other',
+            ],
+          },
+
+          title: {
+            type: 'string',
+            maxLength: 200,
+          },
+
+          file: {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      },
+    },
+  },
+};
+
+const replacementUpload = {
+  required: true,
+
+  content: {
+    'multipart/form-data': {
+      schema: {
+        type: 'object',
+
+        required: [
+          'file',
+        ],
+
+        properties: {
+          title: {
+            type: 'string',
+            maxLength: 200,
+          },
+
+          file: {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      },
+    },
   },
 };
 
@@ -29,7 +253,7 @@ module.exports = {
         'Applicant Documents',
 
       description:
-        'Secure Applicant CV and document management.',
+        'Admin-only secure CV and Applicant document management with immutable version history.',
     },
   ],
 
@@ -41,8 +265,16 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'listApplicantDocuments',
+
           summary:
             'List Applicant documents',
+
+          description:
+            'Returns document metadata. Archived versions are excluded unless explicitly requested.',
+
+          security,
 
           parameters: [
             applicantId,
@@ -50,11 +282,13 @@ module.exports = {
             {
               name:
                 'includeArchived',
+
               in: 'query',
 
               schema: {
                 type:
                   'boolean',
+
                 default:
                   false,
               },
@@ -64,8 +298,36 @@ module.exports = {
           responses: {
             200: {
               description:
-                'Document list',
+                'Applicant document list',
+
+              content: {
+                'application/json':
+                  {
+                    schema: {
+                      type:
+                        'object',
+
+                      properties: {
+                        success: {
+                          type:
+                            'boolean',
+                        },
+
+                        documents:
+                          {
+                            type:
+                              'array',
+
+                            items:
+                              documentResponseSchema,
+                          },
+                      },
+                    },
+                  },
+              },
             },
+
+            ...errorResponses,
           },
         },
 
@@ -74,68 +336,51 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'uploadApplicantDocument',
+
           summary:
             'Upload a new Applicant document',
+
+          description:
+            'Uploads a validated private document. Files are limited to 10 MB and accepted formats are PDF, DOCX, JPEG and PNG according to document type.',
+
+          security,
 
           parameters: [
             applicantId,
           ],
 
-          requestBody: {
-            required: true,
-
-            content: {
-              'multipart/form-data':
-                {
-                  schema: {
-                    type:
-                      'object',
-
-                    required: [
-                      'documentType',
-                      'file',
-                    ],
-
-                    properties: {
-                      documentType:
-                        {
-                          type:
-                            'string',
-
-                          enum: [
-                            'cv',
-                            'cover_letter',
-                            'certificate',
-                            'transcript',
-                            'portfolio',
-                            'identity_document',
-                            'other',
-                          ],
-                        },
-
-                      title: {
-                        type:
-                          'string',
-                      },
-
-                      file: {
-                        type:
-                          'string',
-
-                        format:
-                          'binary',
-                      },
-                    },
-                  },
-                },
-            },
-          },
+          requestBody:
+            multipartUpload,
 
           responses: {
             201: {
               description:
-                'Document uploaded',
+                'Document created',
+
+              content: {
+                'application/json':
+                  {
+                    schema: {
+                      type:
+                        'object',
+
+                      properties: {
+                        success: {
+                          type:
+                            'boolean',
+                        },
+
+                        document:
+                          documentResponseSchema,
+                      },
+                    },
+                  },
+              },
             },
+
+            ...errorResponses,
           },
         },
       },
@@ -147,8 +392,13 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'getApplicantDocumentVersions',
+
           summary:
-            'List document versions',
+            'Get immutable document version history',
+
+          security,
 
           parameters: [
             applicantId,
@@ -158,8 +408,35 @@ module.exports = {
           responses: {
             200: {
               description:
-                'Version history',
+                'Document version history',
+
+              content: {
+                'application/json':
+                  {
+                    schema: {
+                      type:
+                        'object',
+
+                      properties: {
+                        success: {
+                          type:
+                            'boolean',
+                        },
+
+                        versions: {
+                          type:
+                            'array',
+
+                          items:
+                            documentResponseSchema,
+                        },
+                      },
+                    },
+                  },
+              },
             },
+
+            ...errorResponses,
           },
         },
 
@@ -168,52 +445,32 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'uploadApplicantDocumentVersion',
+
           summary:
             'Upload a replacement version',
+
+          description:
+            'Creates version N+1 and preserves all previous versions.',
+
+          security,
 
           parameters: [
             applicantId,
             documentId,
           ],
 
-          requestBody: {
-            required: true,
-
-            content: {
-              'multipart/form-data':
-                {
-                  schema: {
-                    type:
-                      'object',
-
-                    required: [
-                      'file',
-                    ],
-
-                    properties: {
-                      title: {
-                        type:
-                          'string',
-                      },
-
-                      file: {
-                        type:
-                          'string',
-
-                        format:
-                          'binary',
-                      },
-                    },
-                  },
-                },
-            },
-          },
+          requestBody:
+            replacementUpload,
 
           responses: {
             201: {
               description:
-                'New immutable version created',
+                'New immutable document version created',
             },
+
+            ...errorResponses,
           },
         },
       },
@@ -225,8 +482,16 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'downloadApplicantDocument',
+
           summary:
-            'Download or securely redirect to a document',
+            'Securely download/view a document',
+
+          description:
+            'Local documents are streamed after authentication. S3 documents use a short-lived signed URL. Legacy external documents redirect to their preserved external URL.',
+
+          security,
 
           parameters: [
             applicantId,
@@ -236,13 +501,15 @@ module.exports = {
           responses: {
             200: {
               description:
-                'Local file download',
+                'Authenticated local document download',
             },
 
             302: {
               description:
-                'Signed S3 or legacy external URL redirect',
+                'Short-lived S3 signed URL or preserved legacy external URL',
             },
+
+            ...errorResponses,
           },
         },
       },
@@ -254,8 +521,16 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'setApplicantDocumentCurrentVersion',
+
           summary:
-            'Set this version as current',
+            'Set a version as current',
+
+          description:
+            'Changes which non-archived version represents the current document without deleting version history.',
+
+          security,
 
           parameters: [
             applicantId,
@@ -267,6 +542,8 @@ module.exports = {
               description:
                 'Current version updated',
             },
+
+            ...errorResponses,
           },
         },
       },
@@ -278,19 +555,54 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'archiveApplicantDocument',
+
           summary:
             'Archive a document version',
+
+          description:
+            'Soft-deletes the document metadata. No physical file is deleted.',
+
+          security,
 
           parameters: [
             applicantId,
             documentId,
           ],
 
+          requestBody: {
+            required:
+              false,
+
+            content: {
+              'application/json':
+                {
+                  schema: {
+                    type:
+                      'object',
+
+                    properties: {
+                      reason: {
+                        type:
+                          'string',
+
+                        maxLength:
+                          500,
+                      },
+                    },
+                  },
+                },
+            },
+          },
+
           responses: {
             200: {
               description:
                 'Document archived',
             },
+
+            ...errorResponses,
           },
         },
       },
@@ -302,8 +614,16 @@ module.exports = {
             'Applicant Documents',
           ],
 
+          operationId:
+            'restoreApplicantDocument',
+
           summary:
             'Restore an archived document version',
+
+          description:
+            'Restores the archived version. Restoration does not automatically make it the current version.',
+
+          security,
 
           parameters: [
             applicantId,
@@ -315,6 +635,8 @@ module.exports = {
               description:
                 'Document restored',
             },
+
+            ...errorResponses,
           },
         },
       },
