@@ -35,6 +35,7 @@ import {
   type ApplicantInterviewAvailability,
   type ApplicantInterviewCompletePayload,
   type ApplicantInterviewFormat,
+  type ApplicantInterviewMeetingProvider,
   type ApplicantInterviewOutcome,
   type ApplicantInterviewParticipant,
   type ApplicantInterviewType,
@@ -70,7 +71,10 @@ interface ScheduleForm {
 
   timezone: string;
 
-  meetingLink: string;
+  meetingProvider:
+    | ApplicantInterviewMeetingProvider
+    | "";
+
   location: string;
 
   notes: string;
@@ -149,6 +153,38 @@ const INTERVIEW_FORMATS: Array<{
   {
     value: "phone",
     label: "Phone",
+  },
+];
+
+
+const MEETING_PROVIDERS: Array<{
+  value:
+    ApplicantInterviewMeetingProvider;
+
+  label: string;
+}> = [
+  {
+    value:
+      "google_meet",
+
+    label:
+      "Google Meet",
+  },
+
+  {
+    value:
+      "zoom",
+
+    label:
+      "Zoom",
+  },
+
+  {
+    value:
+      "microsoft_teams",
+
+    label:
+      "Microsoft Teams",
   },
 ];
 
@@ -473,7 +509,8 @@ function emptyScheduleForm():
     timezone:
       defaultTimezone(),
 
-    meetingLink: "",
+    meetingProvider:
+      "google_meet",
 
     location: "",
 
@@ -630,7 +667,8 @@ export function ApplicantInterviewPanel({
         try {
           const result =
             await fetchApplicantInterviews(
-              applicant._id
+              applicant._id,
+              true
             );
 
           setInterviews(
@@ -676,6 +714,7 @@ export function ApplicantInterviewPanel({
         interviews
           .filter(
             (interview) =>
+              !interview.archived &&
               interview.status ===
                 "scheduled"
           )
@@ -698,6 +737,7 @@ export function ApplicantInterviewPanel({
         interviews
           .filter(
             (interview) =>
+              interview.archived ||
               interview.status !==
                 "scheduled"
           )
@@ -770,9 +810,23 @@ export function ApplicantInterviewPanel({
         interview.timezone ||
         defaultTimezone(),
 
-      meetingLink:
-        interview.meetingLink ||
-        "",
+      meetingProvider:
+        interview.format ===
+            "online" &&
+          (
+            interview.meeting
+              ?.provider ===
+              "google_meet" ||
+            interview.meeting
+              ?.provider ===
+              "zoom" ||
+            interview.meeting
+              ?.provider ===
+              "microsoft_teams"
+          )
+          ? interview.meeting
+              .provider
+          : "",
 
       location:
         interview.location ||
@@ -1150,6 +1204,20 @@ export function ApplicantInterviewPanel({
       return;
     }
 
+    if (
+      scheduleForm.format ===
+        "online" &&
+      !scheduleForm
+        .meetingProvider
+    ) {
+      window.alert(
+        "Choose a meeting provider: Google Meet, Zoom, or Microsoft Teams."
+      );
+
+      return;
+    }
+
+
     const availabilityResult =
       await checkScheduleAvailability();
 
@@ -1201,9 +1269,13 @@ export function ApplicantInterviewPanel({
               scheduleForm
                 .timezone,
 
-            meetingLink:
-              scheduleForm
-                .meetingLink,
+            meetingProvider:
+              scheduleForm.format ===
+                  "online"
+                ? scheduleForm
+                    .meetingProvider ||
+                  undefined
+                : undefined,
 
             location:
               scheduleForm
@@ -1241,9 +1313,13 @@ export function ApplicantInterviewPanel({
               scheduleForm
                 .timezone,
 
-            meetingLink:
-              scheduleForm
-                .meetingLink,
+            meetingProvider:
+              scheduleForm.format ===
+                  "online"
+                ? scheduleForm
+                    .meetingProvider ||
+                  undefined
+                : undefined,
 
             location:
               scheduleForm
@@ -1476,6 +1552,137 @@ export function ApplicantInterviewPanel({
     interview:
       ApplicantInterview;
   }) {
+    if (interview.archived) {
+      const generatedMeetingUrl =
+        interview.meeting
+          ?.joinUrl ||
+        interview.meetingLink ||
+        "";
+
+      const providerLabel =
+        interview.meeting
+          ?.provider ===
+          "google_meet"
+          ? "Google Meet"
+          : interview.meeting
+                ?.provider ===
+                "zoom"
+            ? "Zoom"
+            : interview.meeting
+                  ?.provider ===
+                  "microsoft_teams"
+              ? "Microsoft Teams"
+              : "";
+
+      return (
+        <article className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-sm font-bold capitalize text-slate-700">
+                  {
+                    INTERVIEW_TYPES.find(
+                      (item) =>
+                        item.value ===
+                        interview.type
+                    )?.label ||
+                    interview.type
+                  }{" "}
+                  Interview
+                </h4>
+
+                <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-600">
+                  Archived
+                </span>
+              </div>
+
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1">
+                  <CalendarDays className="h-3.5 w-3.5" />
+
+                  {
+                    formatDateTime(
+                      interview.scheduledStart
+                    )
+                  }
+                </span>
+
+                <span className="flex items-center gap-1 capitalize">
+                  {
+                    interview.format ===
+                      "online"
+                      ? (
+                        <Video className="h-3.5 w-3.5" />
+                      )
+                      : (
+                        <MapPin className="h-3.5 w-3.5" />
+                      )
+                  }
+
+                  {
+                    providerLabel ||
+                    interview.format
+                  }
+                </span>
+              </div>
+            </div>
+
+            <Archive className="h-5 w-5 text-slate-400" />
+          </div>
+
+          {
+            interview.archiveReason && (
+              <div className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  Archive reason
+                </p>
+
+                <p className="mt-1 text-xs text-slate-600">
+                  {
+                    interview.archiveReason
+                  }
+                </p>
+              </div>
+            )
+          }
+
+          {
+            interview.archivedAt && (
+              <p className="mt-3 text-[10px] text-slate-400">
+                Archived{" "}
+                {
+                  formatDateTime(
+                    interview.archivedAt
+                  )
+                }
+              </p>
+            )
+          }
+
+          {
+            generatedMeetingUrl && (
+              <a
+                href={
+                  generatedMeetingUrl
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+
+                View meeting link
+              </a>
+            )
+          }
+
+          <p className="mt-3 text-[10px] text-slate-400">
+            Archived records are preserved for interview history and audit purposes.
+          </p>
+        </article>
+      );
+    }
+
     return (
       <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2281,14 +2488,13 @@ export function ApplicantInterviewPanel({
                     "online" && (
                     <label className="sm:col-span-2">
                       <span className="text-xs font-bold text-slate-700">
-                        Meeting Link
+                        Meeting Provider
                       </span>
 
-                      <input
-                        type="url"
+                      <select
                         value={
                           scheduleForm
-                            .meetingLink
+                            .meetingProvider
                         }
                         onChange={(
                           event
@@ -2299,16 +2505,47 @@ export function ApplicantInterviewPanel({
                             ) => ({
                               ...previous,
 
-                              meetingLink:
+                              meetingProvider:
                                 event
                                   .target
-                                  .value,
+                                  .value as ApplicantInterviewMeetingProvider,
                             })
                           )
                         }
-                        placeholder="https://..."
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      />
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">
+                          Select provider
+                        </option>
+
+                        {
+                          MEETING_PROVIDERS.map(
+                            (
+                              provider
+                            ) => (
+                              <option
+                                key={
+                                  provider
+                                    .value
+                                }
+                                value={
+                                  provider
+                                    .value
+                                }
+                              >
+                                {
+                                  provider
+                                    .label
+                                }
+                              </option>
+                            )
+                          )
+                        }
+                      </select>
+
+                      <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                        The meeting link will be generated automatically by the selected provider. Manual meeting URLs are disabled.
+                      </p>
                     </label>
                   )
                 }

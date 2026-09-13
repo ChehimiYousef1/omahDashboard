@@ -109,8 +109,17 @@ const scheduleProperties = {
     ],
   },
 
-  meetingLink: {
+  meetingProvider: {
     type: 'string',
+
+    enum: [
+      'google_meet',
+      'zoom',
+      'microsoft_teams',
+    ],
+
+    description:
+      'Required for online interviews. The meeting URL is generated automatically by the selected provider integration.',
   },
 
   location: {

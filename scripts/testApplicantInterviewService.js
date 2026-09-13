@@ -401,8 +401,8 @@ async function main() {
       scheduledEnd:
         '2026-09-14T13:00:00Z',
 
-      meetingLink:
-        'https://example.com/new',
+      meetingProvider:
+        'google_meet',
 
       ApplicantModel,
 
@@ -423,9 +423,23 @@ async function main() {
   );
 
   assert.strictEqual(
+    updated.meeting
+      .provider,
+
+    'google_meet'
+  );
+
+  assert.strictEqual(
+    updated.meeting
+      .status,
+
+    'pending'
+  );
+
+  assert.strictEqual(
     updated.meetingLink,
 
-    'https://example.com/new'
+    ''
   );
 
   console.log(

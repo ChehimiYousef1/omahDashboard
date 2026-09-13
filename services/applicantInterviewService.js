@@ -312,13 +312,116 @@ async function validateOptionalSubmission({
 }
 
 
+const INTERVIEW_MEETING_PROVIDERS = [
+  'google_meet',
+  'zoom',
+  'microsoft_teams',
+];
+
+
+function validateInterviewMeetingProvider({
+  format,
+  meetingProvider,
+}) {
+  const normalizedFormat =
+    validateInterviewFormat(
+      format
+    );
+
+  /*
+   * Physical and phone interviews do
+   * not require an online provider.
+   */
+  if (
+    normalizedFormat !==
+    'online'
+  ) {
+    return 'none';
+  }
+
+  const provider =
+    cleanText(
+      meetingProvider
+    ).toLowerCase();
+
+  if (
+    !INTERVIEW_MEETING_PROVIDERS
+      .includes(provider)
+  ) {
+    throw serviceError(
+      'INTERVIEW_MEETING_PROVIDER_REQUIRED',
+
+      'Online interviews require Google Meet, Zoom, or Microsoft Teams.'
+    );
+  }
+
+  return provider;
+}
+
+
+function newMeetingState({
+  format,
+  provider,
+}) {
+  if (
+    format !==
+    'online'
+  ) {
+    return {
+      provider:
+        'none',
+
+      status:
+        'not_required',
+
+      providerMeetingId:
+        '',
+
+      providerEventId:
+        '',
+
+      joinUrl:
+        '',
+
+      lastSyncedAt:
+        null,
+
+      syncError:
+        '',
+    };
+  }
+
+  return {
+    provider,
+
+    status:
+      'pending',
+
+    providerMeetingId:
+      '',
+
+    providerEventId:
+      '',
+
+    joinUrl:
+      '',
+
+    lastSyncedAt:
+      null,
+
+    syncError:
+      '',
+  };
+}
+
+
 function buildInterviewScheduleData({
   type,
   scheduledStart,
   scheduledEnd,
   timezone = 'UTC',
   format = 'online',
-  meetingLink = '',
+  meetingProvider = 'google_meet',
   location = '',
   participants,
   organizer,
@@ -328,6 +431,19 @@ function buildInterviewScheduleData({
     validateInterviewSchedule({
       scheduledStart,
       scheduledEnd,
+    });
+
+  const normalizedFormat =
+    validateInterviewFormat(
+      format
+    );
+
+  const normalizedMeetingProvider =
+    validateInterviewMeetingProvider({
+      format:
+        normalizedFormat,
+
+      meetingProvider,
     });
 
   return {
@@ -353,14 +469,23 @@ function buildInterviewScheduleData({
       ) || 'UTC',
 
     format:
-      validateInterviewFormat(
-        format
-      ),
+      normalizedFormat,
 
-    meetingLink:
-      cleanText(
-        meetingLink
-      ),
+    meeting:
+      newMeetingState({
+        format:
+          normalizedFormat,
+
+        provider:
+          normalizedMeetingProvider,
+      }),
+
+    /*
+     * Legacy compatibility only.
+     * Generated provider URLs will be
+     * written by server integrations.
+     */
+    meetingLink: '',
 
     location:
       cleanText(
@@ -400,7 +525,7 @@ async function createApplicantInterview({
   scheduledEnd,
   timezone = 'UTC',
   format = 'online',
-  meetingLink = '',
+  meetingProvider = 'google_meet',
   location = '',
   participants,
   notes = '',
@@ -446,7 +571,7 @@ async function createApplicantInterview({
       scheduledEnd,
       timezone,
       format,
-      meetingLink,
+      meetingProvider,
       location,
       participants,
 
@@ -573,7 +698,7 @@ async function updateApplicantInterview({
   scheduledEnd,
   timezone,
   format,
-  meetingLink,
+  meetingProvider,
   location,
   participants,
   notes,
@@ -659,13 +784,102 @@ async function updateApplicantInterview({
       );
   }
 
+  /*
+   * meetingLink is deliberately NOT
+   * client-editable.
+   *
+   * Only provider integrations may
+   * generate/update the link.
+   */
   if (
-    meetingLink !== undefined
+    meetingProvider !== undefined ||
+    format !== undefined
   ) {
-    $set.meetingLink =
+    const nextFormat =
+      format === undefined
+        ? validateInterviewFormat(
+            cleanText(
+              current.interview
+                .format
+            ) || 'online'
+          )
+        : validateInterviewFormat(
+            format
+          );
+
+    const currentProvider =
       cleanText(
-        meetingLink
+        current.interview
+          .meeting
+          ?.provider
+      ).toLowerCase() ||
+      'none';
+
+    let nextProvider =
+      currentProvider;
+
+    if (
+      nextFormat !==
+      'online'
+    ) {
+      nextProvider =
+        'none';
+    } else if (
+      meetingProvider !==
+      undefined
+    ) {
+      nextProvider =
+        validateInterviewMeetingProvider({
+          format:
+            nextFormat,
+
+          meetingProvider,
+        });
+    } else if (
+      currentProvider ===
+      'none'
+    ) {
+      throw serviceError(
+        'INTERVIEW_MEETING_PROVIDER_REQUIRED',
+
+        'Choose Google Meet, Zoom, or Microsoft Teams for this online interview.'
       );
+    }
+
+    const formatChanged =
+      nextFormat !==
+      current.interview
+        .format;
+
+    const providerChanged =
+      nextProvider !==
+      currentProvider;
+
+    /*
+     * When switching provider or moving
+     * between online/non-online formats,
+     * clear stale generated meeting data.
+     *
+     * Later provider synchronization will
+     * handle deletion/cancellation of the
+     * external provider meeting.
+     */
+    if (
+      formatChanged ||
+      providerChanged
+    ) {
+      $set.meeting =
+        newMeetingState({
+          format:
+            nextFormat,
+
+          provider:
+            nextProvider,
+        });
+
+      $set.meetingLink =
+        '';
+    }
   }
 
   if (
@@ -1108,6 +1322,7 @@ async function archiveApplicantInterview({
 
 
 module.exports = {
+  validateInterviewMeetingProvider,
   normalizeActor,
   normalizeParticipants,
   buildInterviewScheduleData,

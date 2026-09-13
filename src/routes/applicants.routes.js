@@ -551,6 +551,10 @@ function createApplicantRouter({
                 req.user.email ||
                 '',
 
+              email:
+                req.user.email ||
+                '',
+
               role:
                 req.user.role ||
                 '',
@@ -956,10 +960,10 @@ function createApplicantRouter({
                 ?.format ||
               'online',
 
-            meetingLink:
+            meetingProvider:
               req.body
-                ?.meetingLink ||
-              '',
+                ?.meetingProvider ||
+              'google_meet',
 
             location:
               req.body
@@ -1049,9 +1053,9 @@ function createApplicantRouter({
               req.body
                 ?.format,
 
-            meetingLink:
+            meetingProvider:
               req.body
-                ?.meetingLink,
+                ?.meetingProvider,
 
             location:
               req.body
