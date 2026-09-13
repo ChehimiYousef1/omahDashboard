@@ -66,6 +66,15 @@ const {
   '../../services/applicantDuplicateCaseService'
 );
 
+const {
+  createApplicantEvaluation,
+  updateApplicantEvaluationDraft,
+  submitApplicantEvaluation,
+  listApplicantEvaluations,
+} = require(
+  '../../services/applicantEvaluationService'
+);
+
 /*
 |--------------------------------------------------------------------------
 | API Error Mapping
@@ -78,6 +87,7 @@ const NOT_FOUND_CODES =
     'SUBMISSION_NOT_FOUND',
     'APPROVED_SUBMISSION_NOT_FOUND',
     'DUPLICATE_CASE_NOT_FOUND',
+    'EVALUATION_NOT_FOUND',
   ]);
 
 const CONFLICT_CODES =
@@ -92,6 +102,11 @@ const CONFLICT_CODES =
     'APPROVED_SUBMISSION_RELATIONSHIP_INVALID',
     'DUPLICATE_CASE_ALREADY_RESOLVED',
     'SUBMISSION_NOT_LINKED_TO_APPLICANT',
+    'EVALUATION_ALREADY_EXISTS',
+    'EVALUATION_SUBMITTED_IMMUTABLE',
+    'EVALUATION_ALREADY_SUBMITTED',
+    'EVALUATION_UPDATE_CONFLICT',
+    'EVALUATION_SUBMIT_CONFLICT',
   ]);
 
 function statusForError(error) {
@@ -199,6 +214,18 @@ function createApplicantRouter({
 
   resolveDuplicate =
     resolveDuplicateCase,
+
+  createEvaluation =
+    createApplicantEvaluation,
+
+  updateEvaluation =
+    updateApplicantEvaluationDraft,
+
+  submitEvaluation =
+    submitApplicantEvaluation,
+
+  listEvaluations =
+    listApplicantEvaluations,
 } = {}) {
   if (
     typeof
@@ -412,6 +439,215 @@ function createApplicantRouter({
         return res.json({
           success: true,
           duplicateCase,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * ==================================================
+   * APPLICANT EVALUATIONS
+   * ==================================================
+   */
+
+  /*
+   * GET /api/applicants/:id/evaluations
+   */
+  router.get(
+    '/:id/evaluations',
+
+    requireApplicantPermission(
+      'applicant:evaluations:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const evaluations =
+          await listEvaluations({
+            applicantId:
+              req.params.id,
+          });
+
+        return res.json({
+          success: true,
+          evaluations,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST /api/applicants/:id/evaluations
+   */
+  router.post(
+    '/:id/evaluations',
+
+    requireApplicantPermission(
+      'applicant:evaluations:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const evaluation =
+          await createEvaluation({
+            applicantId:
+              req.params.id,
+
+            submissionId:
+              req.body?.submissionId,
+
+            evaluator: {
+              userId:
+                req.user.id,
+
+              name:
+                req.user.name ||
+                req.user.email ||
+                '',
+
+              role:
+                req.user.role ||
+                '',
+            },
+
+            criteria:
+              req.body?.criteria,
+
+            recommendation:
+              req.body?.recommendation,
+
+            strengths:
+              req.body?.strengths ||
+              '',
+
+            concerns:
+              req.body?.concerns ||
+              '',
+
+            summary:
+              req.body?.summary ||
+              '',
+
+            status:
+              req.body?.status ||
+              'draft',
+          });
+
+        return res
+          .status(201)
+          .json({
+            success: true,
+            evaluation,
+          });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PATCH
+   * /api/applicants/:id/evaluations/:evaluationId
+   */
+  router.patch(
+    '/:id/evaluations/:evaluationId',
+
+    requireApplicantPermission(
+      'applicant:evaluations:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await updateEvaluation({
+            applicantId:
+              req.params.id,
+
+            evaluationId:
+              req.params
+                .evaluationId,
+
+            evaluatorId:
+              req.user.id,
+
+            criteria:
+              req.body?.criteria,
+
+            recommendation:
+              req.body?.recommendation,
+
+            strengths:
+              req.body?.strengths ||
+              '',
+
+            concerns:
+              req.body?.concerns ||
+              '',
+
+            summary:
+              req.body?.summary ||
+              '',
+          });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/evaluations/:evaluationId/submit
+   */
+  router.post(
+    '/:id/evaluations/:evaluationId/submit',
+
+    requireApplicantPermission(
+      'applicant:evaluations:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await submitEvaluation({
+            applicantId:
+              req.params.id,
+
+            evaluationId:
+              req.params
+                .evaluationId,
+
+            evaluatorId:
+              req.user.id,
+          });
+
+        return res.json({
+          success: true,
+          result,
         });
       } catch (error) {
         return sendError(

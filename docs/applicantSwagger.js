@@ -26,6 +26,20 @@ const submissionIdParameter = {
     'ApplicantFormSubmission MongoDB ObjectId',
 };
 
+const evaluationIdParameter = {
+  name: 'evaluationId',
+  in: 'path',
+  required: true,
+
+  schema: {
+    type: 'string',
+  },
+
+  description:
+    'ApplicantEvaluation MongoDB ObjectId',
+};
+
+
 const successResponse = {
   description:
     'Successful operation',
@@ -850,6 +864,173 @@ module.exports = {
         },
       },
 
+    '/api/applicants/{id}/evaluations': {
+      get: {
+        tags: ['Applicants'],
+
+        summary:
+          'List Applicant evaluations',
+
+        description:
+          'Returns recruiter evaluation history for this Applicant, newest first.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        responses: {
+          200: {
+            description:
+              'Applicant evaluations',
+
+            content: {
+              'application/json': {
+                schema: {
+                  $ref:
+                    '#/components/schemas/ApplicantEvaluationListResponse',
+                },
+              },
+            },
+          },
+
+          ...errorResponses,
+        },
+      },
+
+      post: {
+        tags: ['Applicants'],
+
+        summary:
+          'Create an Applicant evaluation',
+
+        description:
+          'Creates a recruiter evaluation for one linked Applicant submission. Evaluator identity and calculated scores are controlled by the server.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                $ref:
+                  '#/components/schemas/ApplicantEvaluationCreateRequest',
+              },
+            },
+          },
+        },
+
+        responses: {
+          201: {
+            description:
+              'Evaluation created',
+
+            content: {
+              'application/json': {
+                schema: {
+                  $ref:
+                    '#/components/schemas/ApplicantEvaluationCreateResponse',
+                },
+              },
+            },
+          },
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/evaluations/{evaluationId}':
+      {
+        patch: {
+          tags: ['Applicants'],
+
+          summary:
+            'Update an Applicant evaluation draft',
+
+          description:
+            'Updates an evaluation owned by the authenticated evaluator. Submitted evaluations are immutable.',
+
+          parameters: [
+            idParameter,
+            evaluationIdParameter,
+          ],
+
+          requestBody: {
+            required: true,
+
+            content: {
+              'application/json': {
+                schema: {
+                  $ref:
+                    '#/components/schemas/ApplicantEvaluationUpdateRequest',
+                },
+              },
+            },
+          },
+
+          responses: {
+            200: {
+              description:
+                'Evaluation draft updated',
+
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref:
+                      '#/components/schemas/ApplicantEvaluationMutationResponse',
+                  },
+                },
+              },
+            },
+
+            ...errorResponses,
+          },
+        },
+      },
+
+
+    '/api/applicants/{id}/evaluations/{evaluationId}/submit':
+      {
+        post: {
+          tags: ['Applicants'],
+
+          summary:
+            'Submit an Applicant evaluation',
+
+          description:
+            'Transitions an evaluation from draft to submitted. Submitted evaluations cannot later be edited.',
+
+          parameters: [
+            idParameter,
+            evaluationIdParameter,
+          ],
+
+          responses: {
+            200: {
+              description:
+                'Evaluation submitted',
+
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref:
+                      '#/components/schemas/ApplicantEvaluationMutationResponse',
+                  },
+                },
+              },
+            },
+
+            ...errorResponses,
+          },
+        },
+      },
+
+
     '/api/applicants/{id}/relationship-integrity':
       {
         get: {
@@ -1089,6 +1270,356 @@ module.exports = {
           },
         },
       },
+
+      ApplicantEvaluationCriteria: {
+        type: 'object',
+
+        required: [
+          'technicalFit',
+          'relevantExperience',
+          'communication',
+          'motivationCommitment',
+          'learningPotential',
+        ],
+
+        additionalProperties:
+          false,
+
+        properties: {
+          technicalFit: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 5,
+          },
+
+          relevantExperience: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 5,
+          },
+
+          communication: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 5,
+          },
+
+          motivationCommitment: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 5,
+          },
+
+          learningPotential: {
+            type: 'integer',
+            minimum: 1,
+            maximum: 5,
+          },
+        },
+      },
+
+
+      ApplicantEvaluationEvaluator: {
+        type: 'object',
+
+        required: [
+          'userId',
+          'name',
+          'role',
+        ],
+
+        properties: {
+          userId: {
+            type: 'string',
+          },
+
+          name: {
+            type: 'string',
+          },
+
+          role: {
+            type: 'string',
+          },
+        },
+      },
+
+
+      ApplicantEvaluation: {
+        type: 'object',
+
+        required: [
+          '_id',
+          'applicantId',
+          'submissionId',
+          'evaluator',
+          'criteria',
+          'averageRating',
+          'weightedScore',
+          'recommendation',
+          'status',
+        ],
+
+        properties: {
+          _id: {
+            type: 'string',
+          },
+
+          applicantId: {
+            type: 'string',
+          },
+
+          submissionId: {
+            type: 'string',
+          },
+
+          evaluator: {
+            $ref:
+              '#/components/schemas/ApplicantEvaluationEvaluator',
+          },
+
+          criteria: {
+            $ref:
+              '#/components/schemas/ApplicantEvaluationCriteria',
+          },
+
+          averageRating: {
+            type: 'number',
+            minimum: 1,
+            maximum: 5,
+          },
+
+          weightedScore: {
+            type: 'number',
+            minimum: 0,
+            maximum: 100,
+          },
+
+          recommendation: {
+            type: 'string',
+
+            enum: [
+              'strong_yes',
+              'yes',
+              'hold',
+              'no',
+              'strong_no',
+            ],
+          },
+
+          strengths: {
+            type: 'string',
+          },
+
+          concerns: {
+            type: 'string',
+          },
+
+          summary: {
+            type: 'string',
+          },
+
+          status: {
+            type: 'string',
+
+            enum: [
+              'draft',
+              'submitted',
+            ],
+          },
+
+          submittedAt: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+          },
+
+          createdAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+
+          updatedAt: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+
+
+      ApplicantEvaluationCreateRequest: {
+        type: 'object',
+
+        required: [
+          'submissionId',
+          'criteria',
+          'recommendation',
+        ],
+
+        additionalProperties:
+          false,
+
+        properties: {
+          submissionId: {
+            type: 'string',
+          },
+
+          criteria: {
+            $ref:
+              '#/components/schemas/ApplicantEvaluationCriteria',
+          },
+
+          recommendation: {
+            type: 'string',
+
+            enum: [
+              'strong_yes',
+              'yes',
+              'hold',
+              'no',
+              'strong_no',
+            ],
+          },
+
+          strengths: {
+            type: 'string',
+          },
+
+          concerns: {
+            type: 'string',
+          },
+
+          summary: {
+            type: 'string',
+          },
+
+          status: {
+            type: 'string',
+
+            enum: [
+              'draft',
+              'submitted',
+            ],
+
+            default:
+              'draft',
+          },
+        },
+      },
+
+
+      ApplicantEvaluationUpdateRequest: {
+        type: 'object',
+
+        required: [
+          'criteria',
+          'recommendation',
+        ],
+
+        additionalProperties:
+          false,
+
+        properties: {
+          criteria: {
+            $ref:
+              '#/components/schemas/ApplicantEvaluationCriteria',
+          },
+
+          recommendation: {
+            type: 'string',
+
+            enum: [
+              'strong_yes',
+              'yes',
+              'hold',
+              'no',
+              'strong_no',
+            ],
+          },
+
+          strengths: {
+            type: 'string',
+          },
+
+          concerns: {
+            type: 'string',
+          },
+
+          summary: {
+            type: 'string',
+          },
+        },
+      },
+
+
+      ApplicantEvaluationListResponse: {
+        type: 'object',
+
+        required: [
+          'success',
+          'evaluations',
+        ],
+
+        properties: {
+          success: {
+            type: 'boolean',
+            example: true,
+          },
+
+          evaluations: {
+            type: 'array',
+
+            items: {
+              $ref:
+                '#/components/schemas/ApplicantEvaluation',
+            },
+          },
+        },
+      },
+
+
+      ApplicantEvaluationCreateResponse: {
+        type: 'object',
+
+        required: [
+          'success',
+          'evaluation',
+        ],
+
+        properties: {
+          success: {
+            type: 'boolean',
+            example: true,
+          },
+
+          evaluation: {
+            $ref:
+              '#/components/schemas/ApplicantEvaluation',
+          },
+        },
+      },
+
+
+      ApplicantEvaluationMutationResponse: {
+        type: 'object',
+
+        required: [
+          'success',
+          'result',
+        ],
+
+        properties: {
+          success: {
+            type: 'boolean',
+            example: true,
+          },
+
+          result: {
+            type: 'object',
+            additionalProperties: true,
+          },
+        },
+      },
+
 
       ProfileEditRequest: {
         type: 'object',

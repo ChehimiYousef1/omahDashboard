@@ -27,6 +27,8 @@ const APPLICANT_PERMISSIONS =
     'applicant:restore',
     'applicant:submissions:view',
     'applicant:documents:view',
+    'applicant:evaluations:view',
+    'applicant:evaluations:manage',
     'applicant:communicate',
     'applicant:sync',
   ]);

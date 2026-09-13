@@ -49,6 +49,7 @@ const actualRoutes =
 const expectedRoutes = [
   'GET /',
   'GET /:id',
+  'GET /:id/evaluations',
   'GET /:id/relationship-integrity',
   'GET /:id/submissions',
   'GET /duplicates',
@@ -56,11 +57,14 @@ const expectedRoutes = [
   'GET /search-options',
 
   'PATCH /:id/approve-profile',
+  'PATCH /:id/evaluations/:evaluationId',
   'PATCH /:id/profile',
   'PATCH /:id/status',
   'PATCH /duplicates/:caseId/resolve',
 
   'POST /:id/archive',
+  'POST /:id/evaluations',
+  'POST /:id/evaluations/:evaluationId/submit',
   'POST /:id/restore',
   'POST /:id/submissions/:submissionId/link',
 ].sort();
@@ -143,6 +147,21 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants/{id}/relationship-integrity',
+  ],
+
+  [
+    'get',
+    '/api/applicants/{id}/evaluations',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/evaluations/{evaluationId}',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/evaluations/{evaluationId}/submit',
   ],
 ];
 

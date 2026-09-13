@@ -1097,6 +1097,158 @@ export const checkApplicantRelationshipIntegrity = async (
 };
 
 /* =========================
+   APPLICANT EVALUATION API
+========================= */
+
+export type ApplicantEvaluationRecommendation =
+  | "strong_yes"
+  | "yes"
+  | "hold"
+  | "no"
+  | "strong_no";
+
+export type ApplicantEvaluationStatus =
+  | "draft"
+  | "submitted";
+
+export interface ApplicantEvaluationCriteria {
+  technicalFit: number;
+  relevantExperience: number;
+  communication: number;
+  motivationCommitment: number;
+  learningPotential: number;
+}
+
+export interface ApplicantEvaluationEvaluator {
+  userId: string;
+  name: string;
+  role: string;
+}
+
+export interface ApplicantEvaluation {
+  _id: string;
+  applicantId: string;
+  submissionId: string;
+
+  evaluator:
+    ApplicantEvaluationEvaluator;
+
+  criteria:
+    ApplicantEvaluationCriteria;
+
+  averageRating: number;
+  weightedScore: number;
+
+  recommendation:
+    ApplicantEvaluationRecommendation;
+
+  strengths: string;
+  concerns: string;
+  summary: string;
+
+  status:
+    ApplicantEvaluationStatus;
+
+  submittedAt:
+    string | null;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApplicantEvaluationCreatePayload {
+  submissionId: string;
+
+  criteria:
+    ApplicantEvaluationCriteria;
+
+  recommendation:
+    ApplicantEvaluationRecommendation;
+
+  strengths?: string;
+  concerns?: string;
+  summary?: string;
+
+  status?:
+    ApplicantEvaluationStatus;
+}
+
+export interface ApplicantEvaluationUpdatePayload {
+  criteria:
+    ApplicantEvaluationCriteria;
+
+  recommendation:
+    ApplicantEvaluationRecommendation;
+
+  strengths?: string;
+  concerns?: string;
+  summary?: string;
+}
+
+
+export const fetchApplicantEvaluations =
+  async (
+    applicantId: string
+  ): Promise<ApplicantEvaluation[]> => {
+    const response =
+      await apiClient.get(
+        `/applicants/${applicantId}/evaluations`
+      );
+
+    return response.data
+      .evaluations || [];
+  };
+
+
+export const createApplicantEvaluation =
+  async (
+    applicantId: string,
+    payload:
+      ApplicantEvaluationCreatePayload
+  ): Promise<ApplicantEvaluation> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/evaluations`,
+        payload
+      );
+
+    return response.data
+      .evaluation;
+  };
+
+
+export const updateApplicantEvaluation =
+  async (
+    applicantId: string,
+    evaluationId: string,
+    payload:
+      ApplicantEvaluationUpdatePayload
+  ) => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/evaluations/${evaluationId}`,
+        payload
+      );
+
+    return response.data.result;
+  };
+
+
+export const submitApplicantEvaluation =
+  async (
+    applicantId: string,
+    evaluationId: string
+  ) => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/evaluations/${evaluationId}/submit`
+      );
+
+    return response.data.result;
+  };
+
+
+/* =========================
    DEVELOPER TOOLS API
 ========================= */
 export interface DbSummary {

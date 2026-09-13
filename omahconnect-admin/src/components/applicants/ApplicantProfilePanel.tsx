@@ -34,6 +34,10 @@ import {
 } from "./ApplicantCurrentProfileView";
 
 import {
+  ApplicantEvaluationPanel,
+} from "./ApplicantEvaluationPanel";
+
+import {
   applicantManagementActions,
   type ApplicantManagementActionId,
 } from "./applicantManagementActions";
@@ -360,7 +364,8 @@ export function ApplicantProfilePanel({
     if (
       tab === "current-profile" ||
       tab === "submissions" ||
-      tab === "documents"
+      tab === "documents" ||
+      tab === "evaluations"
     ) {
       void loadSubmissions();
     }
@@ -1327,11 +1332,27 @@ export function ApplicantProfilePanel({
             </section>
           )}
 
+          {activeTab ===
+            "evaluations" && (
+            <ApplicantEvaluationPanel
+              applicant={
+                applicant
+              }
+              submissions={
+                submissions
+              }
+              loadingSubmissions={
+                submissionsLoading
+              }
+            />
+          )}
+
           {![
             "overview",
             "current-profile",
             "submissions",
             "documents",
+            "evaluations",
           ].includes(
             activeTab
           ) && (
