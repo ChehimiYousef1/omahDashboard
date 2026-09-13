@@ -30,6 +30,8 @@ const APPLICANT_PERMISSIONS =
     'applicant:documents:manage',
     'applicant:evaluations:view',
     'applicant:evaluations:manage',
+    'applicant:interviews:view',
+    'applicant:interviews:manage',
     'applicant:communicate',
     'applicant:sync',
   ]);

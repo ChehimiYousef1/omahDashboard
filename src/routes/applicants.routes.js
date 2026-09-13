@@ -77,6 +77,19 @@ const {
   '../../services/applicantEvaluationService'
 );
 
+const {
+  createApplicantInterview,
+  listApplicantInterviews,
+  updateApplicantInterview,
+  completeApplicantInterview,
+  cancelApplicantInterview,
+  markApplicantInterviewNoShow,
+  archiveApplicantInterview,
+} = require(
+  '../../services/applicantInterviewService'
+);
+
+
 /*
 |--------------------------------------------------------------------------
 | API Error Mapping
@@ -85,6 +98,7 @@ const {
 
 const NOT_FOUND_CODES =
   new Set([
+    'INTERVIEW_NOT_FOUND',
     'APPLICANT_NOT_FOUND',
     'SUBMISSION_NOT_FOUND',
     'APPROVED_SUBMISSION_NOT_FOUND',
@@ -94,6 +108,8 @@ const NOT_FOUND_CODES =
 
 const CONFLICT_CODES =
   new Set([
+    'INTERVIEW_STATUS_CONFLICT',
+    'INTERVIEW_NOT_EDITABLE',
     'APPLICANT_NOT_ARCHIVABLE',
     'APPLICANT_NOT_RESTORABLE',
     'SUBMISSION_ALREADY_LINKED',
@@ -758,7 +774,400 @@ function createApplicantRouter({
   );
 
 
+
+
   /*
+   * ==================================================
+   * APPLICANT INTERVIEWS
+   * ==================================================
+   */
+
+  /*
+   * GET /api/applicants/:id/interviews
+   */
+  router.get(
+    '/:id/interviews',
+
+    requireApplicantPermission(
+      'applicant:interviews:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const interviews =
+          await listApplicantInterviews({
+            applicantId:
+              req.params.id,
+
+            includeArchived:
+              String(
+                req.query
+                  ?.includeArchived ||
+                  'false'
+              ).toLowerCase() ===
+              'true',
+          });
+
+        return res.json({
+          success: true,
+          interviews,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST /api/applicants/:id/interviews
+   */
+  router.post(
+    '/:id/interviews',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const interview =
+          await createApplicantInterview({
+            applicantId:
+              req.params.id,
+
+            submissionId:
+              req.body
+                ?.submissionId ??
+              null,
+
+            type:
+              req.body?.type,
+
+            scheduledStart:
+              req.body
+                ?.scheduledStart,
+
+            scheduledEnd:
+              req.body
+                ?.scheduledEnd,
+
+            timezone:
+              req.body
+                ?.timezone ||
+              'UTC',
+
+            format:
+              req.body
+                ?.format ||
+              'online',
+
+            meetingLink:
+              req.body
+                ?.meetingLink ||
+              '',
+
+            location:
+              req.body
+                ?.location ||
+              '',
+
+            participants:
+              req.body
+                ?.participants,
+
+            notes:
+              req.body
+                ?.notes ||
+              '',
+
+            createdBy: {
+              userId:
+                req.user.id,
+
+              name:
+                req.user.name ||
+                req.user.email ||
+                '',
+
+              role:
+                req.user.role ||
+                '',
+            },
+          });
+
+        return res
+          .status(201)
+          .json({
+            success: true,
+            interview,
+          });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PATCH
+   * /api/applicants/:id/interviews/:interviewId
+   *
+   * Edit/reschedule only while scheduled.
+   */
+  router.patch(
+    '/:id/interviews/:interviewId',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const interview =
+          await updateApplicantInterview({
+            applicantId:
+              req.params.id,
+
+            interviewId:
+              req.params
+                .interviewId,
+
+            type:
+              req.body?.type,
+
+            scheduledStart:
+              req.body
+                ?.scheduledStart,
+
+            scheduledEnd:
+              req.body
+                ?.scheduledEnd,
+
+            timezone:
+              req.body
+                ?.timezone,
+
+            format:
+              req.body
+                ?.format,
+
+            meetingLink:
+              req.body
+                ?.meetingLink,
+
+            location:
+              req.body
+                ?.location,
+
+            participants:
+              req.body
+                ?.participants,
+
+            notes:
+              req.body?.notes,
+          });
+
+        return res.json({
+          success: true,
+          interview,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/interviews/:interviewId/complete
+   */
+  router.post(
+    '/:id/interviews/:interviewId/complete',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const interview =
+          await completeApplicantInterview({
+            applicantId:
+              req.params.id,
+
+            interviewId:
+              req.params
+                .interviewId,
+
+            outcome:
+              req.body
+                ?.outcome ||
+              'pending',
+
+            feedback:
+              req.body
+                ?.feedback ||
+              '',
+
+            notes:
+              req.body?.notes,
+          });
+
+        return res.json({
+          success: true,
+          interview,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/interviews/:interviewId/cancel
+   */
+  router.post(
+    '/:id/interviews/:interviewId/cancel',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const interview =
+          await cancelApplicantInterview({
+            applicantId:
+              req.params.id,
+
+            interviewId:
+              req.params
+                .interviewId,
+
+            reason:
+              req.body
+                ?.reason ||
+              '',
+          });
+
+        return res.json({
+          success: true,
+          interview,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/interviews/:interviewId/no-show
+   */
+  router.post(
+    '/:id/interviews/:interviewId/no-show',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const interview =
+          await markApplicantInterviewNoShow({
+            applicantId:
+              req.params.id,
+
+            interviewId:
+              req.params
+                .interviewId,
+
+            notes:
+              req.body?.notes,
+          });
+
+        return res.json({
+          success: true,
+          interview,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * DELETE
+   * /api/applicants/:id/interviews/:interviewId
+   *
+   * Soft-delete only.
+   */
+  router.delete(
+    '/:id/interviews/:interviewId',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const interview =
+          await archiveApplicantInterview({
+            applicantId:
+              req.params.id,
+
+            interviewId:
+              req.params
+                .interviewId,
+
+            archivedBy:
+              req.user.id,
+
+            reason:
+              req.body
+                ?.reason ||
+              '',
+          });
+
+        return res.json({
+          success: true,
+          interview,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+/*
    * PATCH /api/applicants/:id/profile
    */
   router.patch(

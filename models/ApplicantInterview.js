@@ -1,0 +1,312 @@
+'use strict';
+
+const mongoose =
+  require('mongoose');
+
+const {
+  INTERVIEW_TYPES,
+  INTERVIEW_STATUSES,
+  INTERVIEW_FORMATS,
+  INTERVIEW_OUTCOMES,
+} = require(
+  '../utils/applicantInterview'
+);
+
+const {
+  Schema,
+} = mongoose;
+
+
+const participantSchema =
+  new Schema(
+    {
+      userId: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      name: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      email: {
+        type: String,
+        default: '',
+        lowercase: true,
+        trim: true,
+      },
+
+      role: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+    },
+    {
+      _id: false,
+    }
+  );
+
+
+const actorSchema =
+  new Schema(
+    {
+      userId: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      name: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      role: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+    },
+    {
+      _id: false,
+    }
+  );
+
+
+const applicantInterviewSchema =
+  new Schema(
+    {
+      applicantId: {
+        type:
+          Schema.Types.ObjectId,
+
+        ref: 'Applicant',
+
+        required: true,
+
+        index: true,
+      },
+
+      /*
+       * Optional by design.
+       *
+       * Interviews belong primarily to an
+       * Applicant, not necessarily to one
+       * specific Form submission.
+       */
+      submissionId: {
+        type:
+          Schema.Types.ObjectId,
+
+        ref:
+          'ApplicantFormSubmission',
+
+        default: null,
+
+        index: true,
+      },
+
+      type: {
+        type: String,
+
+        enum:
+          INTERVIEW_TYPES,
+
+        required: true,
+
+        lowercase: true,
+
+        trim: true,
+      },
+
+      status: {
+        type: String,
+
+        enum:
+          INTERVIEW_STATUSES,
+
+        default:
+          'scheduled',
+
+        lowercase: true,
+
+        trim: true,
+
+        index: true,
+      },
+
+      scheduledStart: {
+        type: Date,
+        required: true,
+      },
+
+      scheduledEnd: {
+        type: Date,
+        required: true,
+      },
+
+      timezone: {
+        type: String,
+        default: 'UTC',
+        trim: true,
+      },
+
+      format: {
+        type: String,
+
+        enum:
+          INTERVIEW_FORMATS,
+
+        default: 'online',
+
+        lowercase: true,
+
+        trim: true,
+      },
+
+      meetingLink: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      location: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      participants: {
+        type: [
+          participantSchema,
+        ],
+
+        default: [],
+      },
+
+      organizer: {
+        type: actorSchema,
+        required: true,
+      },
+
+      outcome: {
+        type: String,
+
+        enum:
+          INTERVIEW_OUTCOMES,
+
+        default: 'pending',
+
+        lowercase: true,
+
+        trim: true,
+      },
+
+      feedback: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      notes: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      completedAt: {
+        type: Date,
+        default: null,
+      },
+
+      cancelledAt: {
+        type: Date,
+        default: null,
+      },
+
+      cancellationReason: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      archived: {
+        type: Boolean,
+        default: false,
+        index: true,
+      },
+
+      archivedAt: {
+        type: Date,
+        default: null,
+      },
+
+      archivedBy: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      archiveReason: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      createdBy: {
+        type: actorSchema,
+        required: true,
+      },
+    },
+    {
+      timestamps: true,
+
+      collection:
+        'applicant_interviews',
+    }
+  );
+
+
+applicantInterviewSchema.index(
+  {
+    applicantId: 1,
+    scheduledStart: -1,
+  }
+);
+
+applicantInterviewSchema.index(
+  {
+    applicantId: 1,
+    status: 1,
+    scheduledStart: -1,
+  }
+);
+
+applicantInterviewSchema.index(
+  {
+    'participants.userId': 1,
+    scheduledStart: 1,
+  }
+);
+
+applicantInterviewSchema.index(
+  {
+    archived: 1,
+    scheduledStart: -1,
+  }
+);
+
+
+module.exports =
+  mongoose.models
+    .ApplicantInterview ||
+  mongoose.model(
+    'ApplicantInterview',
+    applicantInterviewSchema
+  );
+

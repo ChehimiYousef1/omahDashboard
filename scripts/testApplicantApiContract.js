@@ -47,6 +47,13 @@ const actualRoutes =
     .sort();
 
 const expectedRoutes = [
+  'GET /:id/interviews',
+  'POST /:id/interviews',
+  'PATCH /:id/interviews/:interviewId',
+  'DELETE /:id/interviews/:interviewId',
+  'POST /:id/interviews/:interviewId/complete',
+  'POST /:id/interviews/:interviewId/cancel',
+  'POST /:id/interviews/:interviewId/no-show',
   'GET /',
   'GET /:id',
   'GET /:id/evaluations',

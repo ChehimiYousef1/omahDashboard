@@ -1,5 +1,8 @@
 'use strict';
 
+const applicantInterviewSwagger =
+  require('./applicantInterviewSwagger');
+
 const idParameter = {
   name: 'id',
   in: 'path',
@@ -109,6 +112,7 @@ module.exports = {
   ],
 
   paths: {
+    ...applicantInterviewSwagger.paths,
     '/api/applicants/duplicates': {
       get: {
         tags: [
