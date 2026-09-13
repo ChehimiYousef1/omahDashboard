@@ -19,6 +19,17 @@ const requireAdmin = require('./middleware/requireAdmin');
 const requireApplicantPermission = require('./middleware/requireApplicantPermission');
 const swaggerUi = require('swagger-ui-express');
 const applicantSwaggerSpec = require('./docs/applicantSwagger');
+const applicantDocumentSwagger = require('./docs/applicantDocumentSwagger');
+
+Object.assign(
+  applicantSwaggerSpec.paths,
+  applicantDocumentSwagger.paths
+);
+
+applicantSwaggerSpec.tags = [
+  ...(applicantSwaggerSpec.tags || []),
+  ...(applicantDocumentSwagger.tags || []),
+];
 
 const {
   syncApplicantForm,
@@ -615,6 +626,29 @@ app.use(
  * Legacy /api/applications remains untouched
  * during migration.
  */
+
+/*
+ * Applicant Document & CV Management.
+ *
+ * Files remain private and every action
+ * requires Applicant Management admin
+ * authorization.
+ */
+app.use(
+  '/api/applicants/:applicantId/documents',
+
+  authenticateToken,
+
+  requireAdmin,
+
+  require(
+    './src/routes/applicantDocuments.routes'
+  )({
+    requireApplicantPermission,
+  })
+);
+
+
 app.use(
   '/api/applicants',
 

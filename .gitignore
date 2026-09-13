@@ -10,3 +10,6 @@ data/db.json
 data/
 *.bak
 *.bak2
+
+# Private Applicant documents
+private-storage/

@@ -27,6 +27,7 @@ const APPLICANT_PERMISSIONS =
     'applicant:restore',
     'applicant:submissions:view',
     'applicant:documents:view',
+    'applicant:documents:manage',
     'applicant:evaluations:view',
     'applicant:evaluations:manage',
     'applicant:communicate',
