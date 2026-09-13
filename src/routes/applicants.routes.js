@@ -70,6 +70,8 @@ const {
   createApplicantEvaluation,
   updateApplicantEvaluationDraft,
   submitApplicantEvaluation,
+  reopenApplicantEvaluation,
+  archiveApplicantEvaluation,
   listApplicantEvaluations,
 } = require(
   '../../services/applicantEvaluationService'
@@ -107,6 +109,9 @@ const CONFLICT_CODES =
     'EVALUATION_ALREADY_SUBMITTED',
     'EVALUATION_UPDATE_CONFLICT',
     'EVALUATION_SUBMIT_CONFLICT',
+    'EVALUATION_ARCHIVE_CONFLICT',
+    'EVALUATION_REOPEN_CONFLICT',
+    'EVALUATION_ALREADY_DRAFT',
   ]);
 
 function statusForError(error) {
@@ -223,6 +228,12 @@ function createApplicantRouter({
 
   submitEvaluation =
     submitApplicantEvaluation,
+
+  reopenEvaluation =
+    reopenApplicantEvaluation,
+
+  archiveEvaluation =
+    archiveApplicantEvaluation,
 
   listEvaluations =
     listApplicantEvaluations,
@@ -643,6 +654,94 @@ function createApplicantRouter({
 
             evaluatorId:
               req.user.id,
+          });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/evaluations/:evaluationId/reopen
+   *
+   * submitted -> draft
+   */
+  router.post(
+    '/:id/evaluations/:evaluationId/reopen',
+
+    requireApplicantPermission(
+      'applicant:evaluations:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await reopenEvaluation({
+            applicantId:
+              req.params.id,
+
+            evaluationId:
+              req.params
+                .evaluationId,
+
+            evaluatorId:
+              req.user.id,
+          });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * DELETE
+   * /api/applicants/:id/evaluations/:evaluationId
+   *
+   * Soft-delete only.
+   */
+  router.delete(
+    '/:id/evaluations/:evaluationId',
+
+    requireApplicantPermission(
+      'applicant:evaluations:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await archiveEvaluation({
+            applicantId:
+              req.params.id,
+
+            evaluationId:
+              req.params
+                .evaluationId,
+
+            evaluatorId:
+              req.user.id,
+
+            reason:
+              req.body?.reason ||
+              '',
           });
 
         return res.json({

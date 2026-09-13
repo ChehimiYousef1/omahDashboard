@@ -991,7 +991,54 @@ module.exports = {
             ...errorResponses,
           },
         },
-      },
+
+
+        delete: {
+          tags: ['Applicants'],
+
+          summary:
+            'Delete an Applicant evaluation from active history',
+
+          description:
+            'Soft-archives the evaluation. The database record is retained for audit history and is never hard-deleted.',
+
+          parameters: [
+            idParameter,
+            evaluationIdParameter,
+          ],
+
+          requestBody: {
+            required: false,
+
+            content: {
+              'application/json': {
+                schema: {
+                  $ref:
+                    '#/components/schemas/ArchiveRequest',
+                },
+              },
+            },
+          },
+
+          responses: {
+            200: {
+              description:
+                'Evaluation archived',
+
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref:
+                      '#/components/schemas/ApplicantEvaluationMutationResponse',
+                  },
+                },
+              },
+            },
+
+            ...errorResponses,
+          },
+        },
+},
 
 
     '/api/applicants/{id}/evaluations/{evaluationId}/submit':
@@ -1014,6 +1061,43 @@ module.exports = {
             200: {
               description:
                 'Evaluation submitted',
+
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref:
+                      '#/components/schemas/ApplicantEvaluationMutationResponse',
+                  },
+                },
+              },
+            },
+
+            ...errorResponses,
+          },
+        },
+      },
+
+
+    '/api/applicants/{id}/evaluations/{evaluationId}/reopen':
+      {
+        post: {
+          tags: ['Applicants'],
+
+          summary:
+            'Reopen a submitted Applicant evaluation',
+
+          description:
+            'Transitions an evaluation from submitted back to draft so its original evaluator can edit it.',
+
+          parameters: [
+            idParameter,
+            evaluationIdParameter,
+          ],
+
+          responses: {
+            200: {
+              description:
+                'Evaluation reopened as draft',
 
               content: {
                 'application/json': {
@@ -1431,6 +1515,34 @@ module.exports = {
             type: 'string',
             format: 'date-time',
             nullable: true,
+          },
+
+          reopenedAt: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+          },
+
+          reopenedBy: {
+            type: 'string',
+          },
+
+          archived: {
+            type: 'boolean',
+          },
+
+          archivedAt: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+          },
+
+          archivedBy: {
+            type: 'string',
+          },
+
+          archiveReason: {
+            type: 'string',
           },
 
           createdAt: {

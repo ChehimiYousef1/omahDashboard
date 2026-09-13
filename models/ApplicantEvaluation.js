@@ -181,6 +181,40 @@ const applicantEvaluationSchema =
         type: Date,
         default: null,
       },
+
+      reopenedAt: {
+        type: Date,
+        default: null,
+      },
+
+      reopenedBy: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      archived: {
+        type: Boolean,
+        default: false,
+        index: true,
+      },
+
+      archivedAt: {
+        type: Date,
+        default: null,
+      },
+
+      archivedBy: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      archiveReason: {
+        type: String,
+        default: '',
+        trim: true,
+      },
     },
     {
       timestamps: true,

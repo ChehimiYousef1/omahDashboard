@@ -1248,6 +1248,40 @@ export const submitApplicantEvaluation =
   };
 
 
+export const reopenApplicantEvaluation =
+  async (
+    applicantId: string,
+    evaluationId: string
+  ) => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/evaluations/${evaluationId}/reopen`
+      );
+
+    return response.data.result;
+  };
+
+
+export const archiveApplicantEvaluation =
+  async (
+    applicantId: string,
+    evaluationId: string,
+    reason = ""
+  ) => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/evaluations/${evaluationId}`,
+        {
+          data: {
+            reason,
+          },
+        }
+      );
+
+    return response.data.result;
+  };
+
+
 /* =========================
    DEVELOPER TOOLS API
 ========================= */

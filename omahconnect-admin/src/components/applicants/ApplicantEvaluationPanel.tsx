@@ -8,14 +8,18 @@ import {
   ClipboardCheck,
   Clock3,
   Edit3,
+  RotateCcw,
   Save,
   Send,
   Star,
+  Trash2,
 } from "lucide-react";
 
 import {
+  archiveApplicantEvaluation,
   createApplicantEvaluation,
   fetchApplicantEvaluations,
+  reopenApplicantEvaluation,
   submitApplicantEvaluation,
   updateApplicantEvaluation,
   type ApplicantEvaluation,
@@ -681,7 +685,7 @@ export function ApplicantEvaluationPanel({
 
     if (
       !window.confirm(
-        "Submit this evaluation? Submitted evaluations become immutable."
+        "Submit this evaluation? You can reopen it later if an edit is required."
       )
     ) {
       return;
@@ -698,38 +702,39 @@ export function ApplicantEvaluationPanel({
         summary,
       };
 
-      let evaluationId =
-        editingEvaluationId;
-
       if (
-        evaluationId
+        editingEvaluationId
       ) {
         await updateApplicantEvaluation(
           applicant._id,
-          evaluationId,
+          editingEvaluationId,
           payload
         );
+
+        await submitApplicantEvaluation(
+          applicant._id,
+          editingEvaluationId
+        );
       } else {
-        const created =
-          await createApplicantEvaluation(
-            applicant._id,
-            {
-              submissionId:
-                effectiveSubmissionId,
-              ...payload,
-              status:
-                "draft",
-            }
-          );
+        /*
+         * Atomic new-submission workflow:
+         *
+         * Do not create a draft first and then
+         * require a second request.
+         */
+        await createApplicantEvaluation(
+          applicant._id,
+          {
+            submissionId:
+              effectiveSubmissionId,
 
-        evaluationId =
-          created._id;
+            ...payload,
+
+            status:
+              "submitted",
+          }
+        );
       }
-
-      await submitApplicantEvaluation(
-        applicant._id,
-        evaluationId
-      );
 
       await refresh();
 
@@ -739,6 +744,188 @@ export function ApplicantEvaluationPanel({
         "Evaluation submitted."
       );
     } catch (error) {
+      /*
+       * If the server persisted something before
+       * the browser received the failure, make it
+       * visible immediately instead of leaving a
+       * hidden draft.
+       */
+      await refresh()
+        .catch(
+          () =>
+            undefined
+        );
+
+      window.alert(
+        errorMessage(error)
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
+  async function submitDraft(
+    evaluation:
+      ApplicantEvaluation
+  ) {
+    if (
+      evaluation.status !==
+        "draft"
+    ) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Submit this draft evaluation?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await submitApplicantEvaluation(
+        applicant._id,
+        evaluation._id
+      );
+
+      await refresh();
+
+      if (
+        editingEvaluationId ===
+        evaluation._id
+      ) {
+        resetForm();
+      }
+
+      window.alert(
+        "Evaluation submitted."
+      );
+    } catch (error) {
+      await refresh()
+        .catch(
+          () =>
+            undefined
+        );
+
+      window.alert(
+        errorMessage(error)
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
+  async function reopenAndEdit(
+    evaluation:
+      ApplicantEvaluation
+  ) {
+    if (
+      evaluation.status !==
+        "submitted"
+    ) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Reopen this submitted evaluation for editing?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await reopenApplicantEvaluation(
+        applicant._id,
+        evaluation._id
+      );
+
+      await refresh();
+
+      editDraft({
+        ...evaluation,
+        status:
+          "draft",
+      });
+
+      window.alert(
+        "Evaluation reopened as a draft."
+      );
+    } catch (error) {
+      await refresh()
+        .catch(
+          () =>
+            undefined
+        );
+
+      window.alert(
+        errorMessage(error)
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
+  async function deleteEvaluation(
+    evaluation:
+      ApplicantEvaluation
+  ) {
+    if (
+      !window.confirm(
+        "Delete this evaluation? It will be archived for audit history rather than permanently erased."
+      )
+    ) {
+      return;
+    }
+
+    const reason =
+      window.prompt(
+        "Optional deletion reason:",
+        ""
+      );
+
+    if (
+      reason === null
+    ) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await archiveApplicantEvaluation(
+        applicant._id,
+        evaluation._id,
+        reason
+      );
+
+      await refresh();
+
+      if (
+        editingEvaluationId ===
+        evaluation._id
+      ) {
+        resetForm();
+      }
+
+      window.alert(
+        "Evaluation deleted from the active history."
+      );
+    } catch (error) {
+      await refresh()
+        .catch(
+          () =>
+            undefined
+        );
+
       window.alert(
         errorMessage(error)
       );
@@ -1567,24 +1754,58 @@ export function ApplicantEvaluationPanel({
                     {evaluation.status ===
                       "draft" && (
                       <div className="mt-4 border-t border-slate-100 pt-3">
-                        <button
-                          type="button"
-                          disabled={
-                            saving
-                          }
-                          onClick={() =>
-                            editDraft(
-                              evaluation
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          <Edit3 className="h-3.5 w-3.5" />
-                          Edit Draft
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={
+                              saving
+                            }
+                            onClick={() =>
+                              editDraft(
+                                evaluation
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                            Edit Draft
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              saving
+                            }
+                            onClick={() =>
+                              void submitDraft(
+                                evaluation
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Submit Draft
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              saving
+                            }
+                            onClick={() =>
+                              void deleteEvaluation(
+                                evaluation
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
 
                         <p className="mt-2 text-[10px] text-slate-400">
-                          The server permits draft editing only by the original evaluator.
+                          Full draft details are visible above. Only the original evaluator may modify this record.
                         </p>
                       </div>
                     )}
@@ -1592,11 +1813,53 @@ export function ApplicantEvaluationPanel({
 
                     {evaluation.status ===
                       "submitted" && (
-                      <div className="mt-4 flex items-center gap-1.5 border-t border-slate-100 pt-3 text-[10px] font-semibold text-emerald-700">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Submitted evaluation — immutable
+                      <div className="mt-4 border-t border-slate-100 pt-3">
+                        <div className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Submitted evaluation — read-only until reopened
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={
+                              saving
+                            }
+                            onClick={() =>
+                              void reopenAndEdit(
+                                evaluation
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Reopen & Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={
+                              saving
+                            }
+                            onClick={() =>
+                              void deleteEvaluation(
+                                evaluation
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+
+                        <p className="mt-2 text-[10px] text-slate-400">
+                          Full submitted evaluation details are visible above.
+                        </p>
                       </div>
                     )}
+
+
                   </article>
                 );
               }

@@ -137,12 +137,12 @@ assert.ok(
 
 assert.ok(
   panel.includes(
-    'Submitted evaluation — immutable'
+    'Submitted evaluation — read-only until reopened'
   )
 );
 
 console.log(
-  '✅ draft + submit + immutability UX represented'
+  '✅ draft + submit + reopen lifecycle UX represented'
 );
 
 

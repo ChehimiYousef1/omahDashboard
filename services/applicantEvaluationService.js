@@ -317,6 +317,10 @@ async function createApplicantEvaluation({
         evaluationData
           .evaluator
           .userId,
+
+      archived: {
+        $ne: true,
+      },
     });
 
   if (existing) {
@@ -393,6 +397,10 @@ async function updateApplicantEvaluationDraft({
 
       applicantId:
         applicantObjectId,
+
+      archived: {
+        $ne: true,
+      },
     });
 
   if (!evaluation) {
@@ -564,6 +572,10 @@ async function submitApplicantEvaluation({
 
       applicantId:
         applicantObjectId,
+
+      archived: {
+        $ne: true,
+      },
     });
 
   if (!evaluation) {
@@ -663,6 +675,295 @@ async function submitApplicantEvaluation({
 
 /*
 |--------------------------------------------------------------------------
+| Reopen Submitted Evaluation
+|--------------------------------------------------------------------------
+|
+| submitted -> draft
+|
+| The previous submittedAt timestamp remains as historical evidence.
+|--------------------------------------------------------------------------
+*/
+
+async function reopenApplicantEvaluation({
+  applicantId,
+  evaluationId,
+  evaluatorId,
+
+  EvaluationModel =
+    ApplicantEvaluation,
+
+  now =
+    () => new Date(),
+}) {
+  const applicantObjectId =
+    toObjectId(
+      applicantId,
+      'applicantId'
+    );
+
+  const evaluationObjectId =
+    toObjectId(
+      evaluationId,
+      'evaluationId'
+    );
+
+  const evaluation =
+    await EvaluationModel.findOne({
+      _id:
+        evaluationObjectId,
+
+      applicantId:
+        applicantObjectId,
+
+      archived: {
+        $ne: true,
+      },
+    });
+
+  if (!evaluation) {
+    throw serviceError(
+      'EVALUATION_NOT_FOUND',
+      'Applicant evaluation was not found.'
+    );
+  }
+
+  const ownerId =
+    cleanText(
+      evaluation.evaluator
+        ?.userId
+    );
+
+  const currentEvaluatorId =
+    cleanText(
+      evaluatorId
+    );
+
+  if (
+    !currentEvaluatorId ||
+    ownerId !==
+      currentEvaluatorId
+  ) {
+    throw serviceError(
+      'EVALUATION_EVALUATOR_MISMATCH',
+      'Only the evaluation author may reopen this evaluation.'
+    );
+  }
+
+  if (
+    evaluation.status ===
+      'draft'
+  ) {
+    throw serviceError(
+      'EVALUATION_ALREADY_DRAFT',
+      'Evaluation is already a draft.'
+    );
+  }
+
+  const reopenedAt =
+    now();
+
+  const result =
+    await EvaluationModel.updateOne(
+      {
+        _id:
+          evaluationObjectId,
+
+        applicantId:
+          applicantObjectId,
+
+        status:
+          'submitted',
+
+        archived: {
+          $ne: true,
+        },
+
+        'evaluator.userId':
+          currentEvaluatorId,
+      },
+      {
+        $set: {
+          status:
+            'draft',
+
+          reopenedAt,
+
+          reopenedBy:
+            currentEvaluatorId,
+        },
+      },
+      {
+        runValidators:
+          true,
+      }
+    );
+
+  if (
+    result.matchedCount !==
+      1
+  ) {
+    throw serviceError(
+      'EVALUATION_REOPEN_CONFLICT',
+      'Evaluation could not be reopened.'
+    );
+  }
+
+  return {
+    status:
+      'evaluation-reopened',
+
+    evaluationId:
+      String(
+        evaluationObjectId
+      ),
+
+    reopenedAt,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Archive Evaluation
+|--------------------------------------------------------------------------
+|
+| UI may call this "Delete", but records are never physically deleted.
+|--------------------------------------------------------------------------
+*/
+
+async function archiveApplicantEvaluation({
+  applicantId,
+  evaluationId,
+  evaluatorId,
+  reason = '',
+
+  EvaluationModel =
+    ApplicantEvaluation,
+
+  now =
+    () => new Date(),
+}) {
+  const applicantObjectId =
+    toObjectId(
+      applicantId,
+      'applicantId'
+    );
+
+  const evaluationObjectId =
+    toObjectId(
+      evaluationId,
+      'evaluationId'
+    );
+
+  const evaluation =
+    await EvaluationModel.findOne({
+      _id:
+        evaluationObjectId,
+
+      applicantId:
+        applicantObjectId,
+
+      archived: {
+        $ne: true,
+      },
+    });
+
+  if (!evaluation) {
+    throw serviceError(
+      'EVALUATION_NOT_FOUND',
+      'Applicant evaluation was not found.'
+    );
+  }
+
+  const ownerId =
+    cleanText(
+      evaluation.evaluator
+        ?.userId
+    );
+
+  const currentEvaluatorId =
+    cleanText(
+      evaluatorId
+    );
+
+  if (
+    !currentEvaluatorId ||
+    ownerId !==
+      currentEvaluatorId
+  ) {
+    throw serviceError(
+      'EVALUATION_EVALUATOR_MISMATCH',
+      'Only the evaluation author may delete this evaluation.'
+    );
+  }
+
+  const archivedAt =
+    now();
+
+  const result =
+    await EvaluationModel.updateOne(
+      {
+        _id:
+          evaluationObjectId,
+
+        applicantId:
+          applicantObjectId,
+
+        archived: {
+          $ne: true,
+        },
+
+        'evaluator.userId':
+          currentEvaluatorId,
+      },
+      {
+        $set: {
+          archived:
+            true,
+
+          archivedAt,
+
+          archivedBy:
+            currentEvaluatorId,
+
+          archiveReason:
+            cleanText(
+              reason
+            ),
+        },
+      },
+      {
+        runValidators:
+          true,
+      }
+    );
+
+  if (
+    result.matchedCount !==
+      1
+  ) {
+    throw serviceError(
+      'EVALUATION_ARCHIVE_CONFLICT',
+      'Evaluation could not be deleted.'
+    );
+  }
+
+  return {
+    status:
+      'evaluation-archived',
+
+    evaluationId:
+      String(
+        evaluationObjectId
+      ),
+
+    archivedAt,
+  };
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | List Applicant Evaluations
 |--------------------------------------------------------------------------
 |
@@ -686,6 +987,10 @@ async function listApplicantEvaluations({
     .find({
       applicantId:
         applicantObjectId,
+
+      archived: {
+        $ne: true,
+      },
     })
     .sort({
       createdAt: -1,
@@ -700,5 +1005,7 @@ module.exports = {
   createApplicantEvaluation,
   updateApplicantEvaluationDraft,
   submitApplicantEvaluation,
+  reopenApplicantEvaluation,
+  archiveApplicantEvaluation,
   listApplicantEvaluations,
 };
