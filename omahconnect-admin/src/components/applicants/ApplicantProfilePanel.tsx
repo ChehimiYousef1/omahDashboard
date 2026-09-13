@@ -30,6 +30,10 @@ import {
 } from "./ApplicantSubmissionHistoryPanel";
 
 import {
+  ApplicantCurrentProfileView,
+} from "./ApplicantCurrentProfileView";
+
+import {
   applicantManagementActions,
   type ApplicantManagementActionId,
 } from "./applicantManagementActions";
@@ -354,6 +358,7 @@ export function ApplicantProfilePanel({
     setActiveTab(tab);
 
     if (
+      tab === "current-profile" ||
       tab === "submissions" ||
       tab === "documents"
     ) {
@@ -1045,80 +1050,18 @@ export function ApplicantProfilePanel({
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  <ProfileField
-                    label="Full Name"
-                    value={
-                      applicant
-                        .identity
-                        .fullName
-                    }
-                  />
-
-                  <ProfileField
-                    label="Email"
-                    value={
-                      applicant
-                        .identity
-                        .email
-                    }
-                  />
-
-                  <ProfileField
-                    label="Phone"
-                    value={
-                      applicant
-                        .identity
-                        .phoneNumber
-                    }
-                  />
-
-                  <ProfileField
-                    label="WhatsApp"
-                    value={
-                      applicant
-                        .identity
-                        .whatsappNumber
-                    }
-                  />
-
-                  <ProfileField
-                    label="LinkedIn"
-                    value={
-                      applicant
-                        .profiles
-                        .linkedin
-                    }
-                  />
-
-                  <ProfileField
-                    label="GitHub"
-                    value={
-                      applicant
-                        .profiles
-                        .github
-                    }
-                  />
-
-                  <ProfileField
-                    label="Portfolio"
-                    value={
-                      applicant
-                        .profiles
-                        .portfolio
-                    }
-                  />
-
-                  <ProfileField
-                    label="Primary Skills"
-                    value={
-                      applicant
-                        .skills
-                        .primaryTechnical
-                        .join(", ")
-                    }
-                  />
-                </div>
+                <ApplicantCurrentProfileView
+                  applicant={applicant}
+                  submissions={submissions}
+                  loadingSubmissions={
+                    submissionsLoading
+                  }
+                  onViewAllDocuments={() =>
+                    openTab(
+                      "documents"
+                    )
+                  }
+                />
               )}
             </section>
           )}
@@ -1438,6 +1381,7 @@ function ProfileField({
     </div>
   );
 }
+
 
 function EditField({
   label,
