@@ -776,8 +776,19 @@ module.exports = {
         ],
 
         responses: {
-          200:
-            successResponse,
+          200: {
+            description:
+              'Immutable Applicant submission history with current-profile comparison metadata.',
+
+            content: {
+              'application/json': {
+                schema: {
+                  $ref:
+                    '#/components/schemas/ApplicantSubmissionHistoryResponse',
+                },
+              },
+            },
+          },
 
           ...errorResponses,
         },
@@ -892,6 +903,189 @@ module.exports = {
 
           error: {
             type: 'string',
+          },
+        },
+      },
+
+      ApplicantSubmissionChangedField: {
+        type: 'object',
+
+        required: [
+          'label',
+          'submissionPath',
+          'applicantPath',
+          'submittedValue',
+          'currentValue',
+        ],
+
+        properties: {
+          label: {
+            type: 'string',
+          },
+
+          submissionPath: {
+            type: 'string',
+          },
+
+          applicantPath: {
+            type: 'string',
+          },
+
+          submittedValue: {},
+
+          currentValue: {},
+        },
+      },
+
+      ApplicantSubmissionComparison: {
+        type: 'object',
+
+        required: [
+          'status',
+          'changeCount',
+          'matchedFieldCount',
+          'comparedFieldCount',
+          'changedFields',
+          'isLatestApprovedSource',
+        ],
+
+        properties: {
+          status: {
+            type: 'string',
+
+            enum: [
+              'initial',
+              'changed',
+              'matches_current',
+            ],
+          },
+
+          changeCount: {
+            type: 'integer',
+            minimum: 0,
+          },
+
+          matchedFieldCount: {
+            type: 'integer',
+            minimum: 0,
+          },
+
+          comparedFieldCount: {
+            type: 'integer',
+            minimum: 0,
+          },
+
+          changedFields: {
+            type: 'array',
+
+            items: {
+              $ref:
+                '#/components/schemas/ApplicantSubmissionChangedField',
+            },
+          },
+
+          isLatestApprovedSource: {
+            type: 'boolean',
+          },
+        },
+      },
+
+      ApplicantSubmissionHistoryItem: {
+        type: 'object',
+
+        required: [
+          'submission',
+          'comparison',
+        ],
+
+        properties: {
+          submission: {
+            type: 'object',
+
+            description:
+              'Immutable ApplicantFormSubmission record.',
+
+            additionalProperties:
+              true,
+          },
+
+          comparison: {
+            $ref:
+              '#/components/schemas/ApplicantSubmissionComparison',
+          },
+        },
+      },
+
+      ApplicantSubmissionHistorySummary: {
+        type: 'object',
+
+        required: [
+          'total',
+          'changed',
+          'matchesCurrent',
+          'initial',
+        ],
+
+        properties: {
+          total: {
+            type: 'integer',
+            minimum: 0,
+          },
+
+          changed: {
+            type: 'integer',
+            minimum: 0,
+          },
+
+          matchesCurrent: {
+            type: 'integer',
+            minimum: 0,
+          },
+
+          initial: {
+            type: 'integer',
+            minimum: 0,
+          },
+        },
+      },
+
+      ApplicantSubmissionHistoryResponse: {
+        type: 'object',
+
+        required: [
+          'success',
+          'submissions',
+          'history',
+          'summary',
+        ],
+
+        properties: {
+          success: {
+            type: 'boolean',
+            example: true,
+          },
+
+          submissions: {
+            type: 'array',
+
+            items: {
+              type: 'object',
+              additionalProperties: true,
+            },
+          },
+
+          history: {
+            type: 'array',
+
+            items: {
+              $ref:
+                '#/components/schemas/ApplicantSubmissionHistoryItem',
+            },
+          },
+
+          summary: {
+            $ref:
+              '#/components/schemas/ApplicantSubmissionHistorySummary',
           },
         },
       },

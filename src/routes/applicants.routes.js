@@ -40,6 +40,13 @@ const {
 );
 
 const {
+  getApplicantSubmissionHistory,
+} = require(
+  '../../services/applicantSubmissionHistoryService'
+);
+
+
+const {
   approveProfileFieldsFromSubmission,
 } = require(
   '../../services/applicantProfileService'
@@ -171,6 +178,9 @@ function createApplicantRouter({
 
   getSubmissions =
     getApplicantSubmissions,
+
+  getSubmissionHistory =
+    getApplicantSubmissionHistory,
 
   linkSubmission =
     linkSubmissionToApplicant,
@@ -563,15 +573,27 @@ function createApplicantRouter({
 
     async (req, res) => {
       try {
-        const submissions =
-          await getSubmissions({
+        const result =
+          await getSubmissionHistory({
             applicantId:
               req.params.id,
+
+            ApplicantModel,
+
+            getSubmissions,
           });
 
         return res.json({
           success: true,
-          submissions,
+
+          submissions:
+            result.submissions,
+
+          history:
+            result.history,
+
+          summary:
+            result.summary,
         });
       } catch (error) {
         return sendError(

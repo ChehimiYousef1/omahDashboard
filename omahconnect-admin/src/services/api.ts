@@ -978,6 +978,73 @@ export const restoreApplicant = async (
   return response.data.result;
 };
 
+
+export interface ApplicantSubmissionChangedField {
+  label: string;
+  submissionPath: string;
+  applicantPath: string;
+  submittedValue: unknown;
+  currentValue: unknown;
+}
+
+export type ApplicantSubmissionHistoryStatus =
+  | "initial"
+  | "changed"
+  | "matches_current";
+
+export interface ApplicantSubmissionComparison {
+  status: ApplicantSubmissionHistoryStatus;
+  changeCount: number;
+  matchedFieldCount: number;
+  comparedFieldCount: number;
+  changedFields: ApplicantSubmissionChangedField[];
+  isLatestApprovedSource: boolean;
+}
+
+export interface ApplicantSubmissionHistoryItem {
+  submission: ApplicantFormSubmission;
+  comparison: ApplicantSubmissionComparison;
+}
+
+export interface ApplicantSubmissionHistorySummary {
+  total: number;
+  changed: number;
+  matchesCurrent: number;
+  initial: number;
+}
+
+export interface ApplicantSubmissionHistoryResponse {
+  submissions: ApplicantFormSubmission[];
+  history: ApplicantSubmissionHistoryItem[];
+  summary: ApplicantSubmissionHistorySummary;
+}
+
+export const fetchApplicantSubmissionHistory = async (
+  id: string
+): Promise<ApplicantSubmissionHistoryResponse> => {
+  const response =
+    await apiClient.get(
+      `/applicants/${id}/submissions`
+    );
+
+  return {
+    submissions:
+      response.data.submissions || [],
+
+    history:
+      response.data.history || [],
+
+    summary:
+      response.data.summary || {
+        total: 0,
+        changed: 0,
+        matchesCurrent: 0,
+        initial: 0,
+      },
+  };
+};
+
+
 export const fetchApplicantSubmissions = async (
   id: string
 ): Promise<ApplicantFormSubmission[]> => {

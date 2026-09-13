@@ -13,15 +13,21 @@ import {
 
 import {
   archiveApplicant,
-  fetchApplicantSubmissions,
+  fetchApplicantSubmissionHistory,
   restoreApplicant,
   updateApplicantProfile,
   updateApplicantStatus,
   type ApplicantFormSubmission,
+  type ApplicantSubmissionHistoryItem,
+  type ApplicantSubmissionHistorySummary,
   type ApplicantMaster,
   type ApplicantProfileChanges,
   type ApplicantStatus,
 } from "../../services/api";
+
+import {
+  ApplicantSubmissionHistoryPanel,
+} from "./ApplicantSubmissionHistoryPanel";
 
 import {
   applicantManagementActions,
@@ -105,39 +111,6 @@ function initials(
     .join("")
     .toUpperCase();
 }
-
-function displayValue(
-  value: unknown
-): string {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
-    return "—";
-  }
-
-  if (Array.isArray(value)) {
-    return value.length
-      ? value
-          .map((item) =>
-            displayValue(item)
-          )
-          .join(", ")
-      : "—";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
-
-  return String(value);
-}
-
 
 function isSafeDocumentUrl(
   value: unknown
@@ -255,6 +228,27 @@ export function ApplicantProfilePanel({
     >([]);
 
   const [
+    submissionHistory,
+    setSubmissionHistory,
+  ] =
+    useState<
+      ApplicantSubmissionHistoryItem[]
+    >([]);
+
+  const [
+    submissionSummary,
+    setSubmissionSummary,
+  ] =
+    useState<
+      ApplicantSubmissionHistorySummary
+    >({
+      total: 0,
+      changed: 0,
+      matchesCurrent: 0,
+      initial: 0,
+    });
+
+  const [
     submissionsLoaded,
     setSubmissionsLoaded,
   ] =
@@ -325,11 +319,21 @@ export function ApplicantProfilePanel({
       );
 
       const data =
-        await fetchApplicantSubmissions(
+        await fetchApplicantSubmissionHistory(
           applicant._id
         );
 
-      setSubmissions(data);
+      setSubmissions(
+        data.submissions
+      );
+
+      setSubmissionHistory(
+        data.history
+      );
+
+      setSubmissionSummary(
+        data.summary
+      );
       setSubmissionsLoaded(
         true
       );
@@ -1121,110 +1125,20 @@ export function ApplicantProfilePanel({
 
           {activeTab ===
             "submissions" && (
-            <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900">
-                Immutable Submission History
-              </h3>
-
-              {submissionsLoading ? (
-                <p className="mt-4 text-xs text-slate-400">
-                  Loading submissions...
-                </p>
-              ) : submissions.length ===
-                0 ? (
-                <p className="mt-4 text-xs text-slate-400">
-                  No linked submissions.
-                </p>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {submissions.map(
-                    (submission) => (
-                      <div
-                        key={
-                          submission._id
-                        }
-                        className="rounded-lg border border-slate-100 p-4"
-                      >
-                        <p className="text-xs font-bold text-slate-800">
-                          {submission
-                            .personal
-                            ?.fullName ||
-                            "Submission"}
-                        </p>
-
-                        <p className="mt-1 text-[10px] text-slate-400">
-                          {submission
-                            .personal
-                            ?.email ||
-                            "No email"}
-                          {" · "}
-                          {submission
-                            .submittedAt
-                            ? new Date(
-                                submission.submittedAt
-                              ).toLocaleString()
-                            : "No submitted date"}
-                        </p>
-
-                        {submission
-                          .submissionKey && (
-                          <p className="mt-1 text-[10px] text-slate-400">
-                            Key:{" "}
-                            {
-                              submission
-                                .submissionKey
-                            }
-                          </p>
-                        )}
-
-                        {submission.rawResponse &&
-                          Object.keys(
-                            submission.rawResponse
-                          ).length > 0 && (
-                          <details className="mt-4 rounded-lg border border-slate-100 bg-slate-50">
-                            <summary className="cursor-pointer px-4 py-3 text-xs font-bold text-slate-700">
-                              View All Original Form Answers
-                            </summary>
-
-                            <div className="border-t border-slate-100 p-4">
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                {Object.entries(
-                                  submission.rawResponse
-                                ).map(
-                                  ([
-                                    question,
-                                    answer,
-                                  ]) => (
-                                    <div
-                                      key={
-                                        question
-                                      }
-                                      className="rounded-lg bg-white p-3"
-                                    >
-                                      <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                                        {
-                                          question
-                                        }
-                                      </span>
-
-                                      <span className="mt-1 block whitespace-pre-wrap break-words text-xs text-slate-700">
-                                        {displayValue(
-                                          answer
-                                        )}
-                                      </span>
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          </details>
-                        )}
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-            </section>
+            <ApplicantSubmissionHistoryPanel
+              submissions={
+                submissions
+              }
+              history={
+                submissionHistory
+              }
+              summary={
+                submissionSummary
+              }
+              loading={
+                submissionsLoading
+              }
+            />
           )}
 
           {activeTab ===
