@@ -39,6 +39,22 @@ const participantSchema =
         trim: true,
       },
 
+      participantType: {
+        type: String,
+
+        enum: [
+          'applicant',
+          'interviewer',
+          'organizer',
+          'guest',
+        ],
+
+        default: 'guest',
+
+        lowercase: true,
+        trim: true,
+      },
+
       role: {
         type: String,
         default: '',
@@ -66,7 +82,90 @@ const actorSchema =
         trim: true,
       },
 
+      email: {
+        type: String,
+        default: '',
+        lowercase: true,
+        trim: true,
+      },
+
       role: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+    },
+    {
+      _id: false,
+    }
+  );
+
+
+const interviewCalendarSchema =
+  new Schema(
+    {
+      provider: {
+        type: String,
+
+        enum: [
+          'none',
+          'google',
+        ],
+
+        default: 'none',
+
+        lowercase: true,
+        trim: true,
+      },
+
+      calendarId: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      eventId: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      eventUrl: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      meetingUrl: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      syncStatus: {
+        type: String,
+
+        enum: [
+          'not_configured',
+          'pending',
+          'synced',
+          'error',
+          'cancelled',
+        ],
+
+        default:
+          'not_configured',
+
+        lowercase: true,
+        trim: true,
+      },
+
+      lastSyncedAt: {
+        type: Date,
+        default: null,
+      },
+
+      syncError: {
         type: String,
         default: '',
         trim: true,
@@ -256,6 +355,18 @@ const applicantInterviewSchema =
         type: String,
         default: '',
         trim: true,
+      },
+
+      calendar: {
+        type:
+          interviewCalendarSchema,
+
+        default: () => ({
+          provider: 'none',
+
+          syncStatus:
+            'not_configured',
+        }),
       },
 
       createdBy: {

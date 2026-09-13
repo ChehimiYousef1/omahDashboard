@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.*
+!.env.example
 node_modules
 backup-mongo/
 backup-before-rebase/

@@ -89,6 +89,11 @@ function normalizeActor(
         actor.name
       ),
 
+    email:
+      cleanText(
+        actor.email
+      ).toLowerCase(),
+
     role:
       cleanText(
         actor.role
@@ -153,6 +158,12 @@ function normalizeParticipants(
           cleanText(
             participant.email
           ).toLowerCase(),
+
+        participantType:
+          cleanText(
+            participant.participantType
+          ).toLowerCase() ||
+          'guest',
 
         role:
           cleanText(
