@@ -1302,3 +1302,209 @@ export const fetchDbSummary = async (): Promise<DbSummary> => {
   const response = await apiClient.get('/dev/db-summary');
   return response.data.summary;
 };
+
+/* =========================
+   APPLICANT DOCUMENT MANAGEMENT API
+========================= */
+
+export type ApplicantDocumentType =
+  | "cv"
+  | "cover_letter"
+  | "certificate"
+  | "transcript"
+  | "portfolio"
+  | "identity_document"
+  | "other";
+
+export type ApplicantDocumentStorageProvider =
+  | "external"
+  | "local"
+  | "s3";
+
+export interface ApplicantDocument {
+  _id: string;
+  applicantId: string;
+  documentGroupId: string;
+  documentType: ApplicantDocumentType;
+  title: string;
+  version: number;
+  isCurrent: boolean;
+
+  file: {
+    originalFileName: string;
+    storedFileName?: string;
+    mimeType: string;
+    sizeBytes: number;
+    checksumSha256?: string;
+  };
+
+  storage: {
+    provider: ApplicantDocumentStorageProvider;
+    key?: string;
+    externalUrl?: string;
+  };
+
+  source:
+    | "admin_upload"
+    | "form_submission"
+    | "legacy_import";
+
+  sourceSubmissionId?: string | null;
+
+  uploadedBy: string;
+  uploadedAt: string;
+
+  lifecycle: {
+    archived: boolean;
+    archivedAt: string | null;
+    archivedBy: string;
+    archiveReason: string;
+  };
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApplicantDocumentUploadInput {
+  documentType: ApplicantDocumentType;
+  title?: string;
+  file: File;
+}
+
+export const fetchApplicantDocuments = async (
+  applicantId: string,
+  includeArchived = false
+): Promise<ApplicantDocument[]> => {
+  const response = await apiClient.get(
+    `/applicants/${applicantId}/documents`,
+    {
+      params: {
+        includeArchived,
+      },
+    }
+  );
+
+  return response.data.documents || [];
+};
+
+export const uploadApplicantDocument = async (
+  applicantId: string,
+  input: ApplicantDocumentUploadInput
+): Promise<ApplicantDocument> => {
+  const formData = new FormData();
+
+  formData.append(
+    "documentType",
+    input.documentType
+  );
+
+  if (input.title) {
+    formData.append(
+      "title",
+      input.title
+    );
+  }
+
+  formData.append(
+    "file",
+    input.file
+  );
+
+  const response = await apiClient.post(
+    `/applicants/${applicantId}/documents`,
+    formData
+  );
+
+  return response.data.document;
+};
+
+export const uploadApplicantDocumentVersion = async (
+  applicantId: string,
+  documentId: string,
+  file: File,
+  title?: string
+): Promise<ApplicantDocument> => {
+  const formData = new FormData();
+
+  if (title) {
+    formData.append(
+      "title",
+      title
+    );
+  }
+
+  formData.append(
+    "file",
+    file
+  );
+
+  const response = await apiClient.post(
+    `/applicants/${applicantId}/documents/${documentId}/versions`,
+    formData
+  );
+
+  return response.data.document;
+};
+
+export const fetchApplicantDocumentVersions = async (
+  applicantId: string,
+  documentId: string
+): Promise<ApplicantDocument[]> => {
+  const response = await apiClient.get(
+    `/applicants/${applicantId}/documents/${documentId}/versions`
+  );
+
+  return response.data.versions || [];
+};
+
+export const setApplicantDocumentCurrent = async (
+  applicantId: string,
+  documentId: string
+): Promise<ApplicantDocument> => {
+  const response = await apiClient.post(
+    `/applicants/${applicantId}/documents/${documentId}/current`
+  );
+
+  return response.data.document;
+};
+
+export const archiveApplicantDocumentRecord = async (
+  applicantId: string,
+  documentId: string,
+  reason = ""
+): Promise<{
+  archived: boolean;
+}> => {
+  const response = await apiClient.post(
+    `/applicants/${applicantId}/documents/${documentId}/archive`,
+    {
+      reason,
+    }
+  );
+
+  return response.data.result;
+};
+
+export const restoreApplicantDocumentRecord = async (
+  applicantId: string,
+  documentId: string
+): Promise<{
+  restored: boolean;
+  isCurrent: boolean;
+}> => {
+  const response = await apiClient.post(
+    `/applicants/${applicantId}/documents/${documentId}/restore`
+  );
+
+  return response.data.result;
+};
+
+export const applicantDocumentDownloadUrl = (
+  applicantId: string,
+  documentId: string
+): string =>
+  `/api/applicants/${encodeURIComponent(
+    applicantId
+  )}/documents/${encodeURIComponent(
+    documentId
+  )}/download`;

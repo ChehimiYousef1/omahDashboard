@@ -38,6 +38,10 @@ import {
 } from "./ApplicantEvaluationPanel";
 
 import {
+  ApplicantDocumentsPanel,
+} from "./ApplicantDocumentsPanel";
+
+import {
   applicantManagementActions,
   type ApplicantManagementActionId,
 } from "./applicantManagementActions";
@@ -1092,12 +1096,16 @@ export function ApplicantProfilePanel({
           {activeTab ===
             "documents" && (
             <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+              <ApplicantDocumentsPanel
+                applicantId={applicant._id}
+              />
+
               <h3 className="text-sm font-bold text-slate-900">
-                Documents & Supporting Files
+                Submission Documents & Supporting Files
               </h3>
 
               <p className="mt-1 text-xs text-slate-400">
-                Documents remain attached to their immutable submissions.
+                Historical documents remain attached to their immutable Form submissions and are preserved separately from managed documents.
               </p>
 
               {submissionsLoading ? (
