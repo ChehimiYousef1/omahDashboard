@@ -848,6 +848,67 @@ async function archiveApplicantDocument({
       'documentId'
     );
 
+  /*
+   * Load the target first so we know whether
+   * it is the current version and which
+   * document group it belongs to.
+   */
+  const target =
+    await queryLean(
+      DocumentModel.findOne({
+        _id:
+          documentObjectId,
+
+        applicantId:
+          applicantObjectId,
+
+        'lifecycle.archived': {
+          $ne: true,
+        },
+      })
+    );
+
+  if (!target) {
+    throw serviceError(
+      'DOCUMENT_NOT_FOUND',
+      'Active Applicant document was not found.'
+    );
+  }
+
+  /*
+   * If the current version is being archived,
+   * select the newest remaining active version
+   * before changing the target.
+   */
+  let replacementVersion =
+    null;
+
+  if (target.isCurrent) {
+    replacementVersion =
+      await queryLean(
+        DocumentModel
+          .findOne({
+            applicantId:
+              applicantObjectId,
+
+            documentGroupId:
+              target.documentGroupId,
+
+            _id: {
+              $ne:
+                documentObjectId,
+            },
+
+            'lifecycle.archived': {
+              $ne: true,
+            },
+          })
+          .sort({
+            version: -1,
+          })
+      );
+  }
+
   const result =
     await DocumentModel.updateOne(
       {
@@ -897,6 +958,84 @@ async function archiveApplicantDocument({
       'DOCUMENT_NOT_FOUND',
       'Active Applicant document was not found.'
     );
+  }
+
+  /*
+   * Preserve the invariant:
+   *
+   * If another active version exists after the
+   * current version is archived, promote the
+   * newest remaining active version.
+   *
+   * setCurrentDocumentVersion already contains
+   * the current-version conflict/rollback logic.
+   */
+  if (
+    target.isCurrent &&
+    replacementVersion
+  ) {
+    try {
+      await setCurrentDocumentVersion({
+        applicantId,
+        documentId:
+          replacementVersion._id,
+        ApplicantModel,
+        DocumentModel,
+      });
+    } catch (error) {
+      /*
+       * Best-effort rollback.
+       *
+       * There is no MongoDB transaction here,
+       * so if promotion fails we try to restore
+       * the archived current version.
+       */
+      try {
+        await DocumentModel.updateOne(
+          {
+            _id:
+              documentObjectId,
+
+            applicantId:
+              applicantObjectId,
+
+            'lifecycle.archived':
+              true,
+          },
+          {
+            $set: {
+              isCurrent:
+                true,
+
+              'lifecycle.archived':
+                false,
+
+              'lifecycle.archivedAt':
+                null,
+
+              'lifecycle.archivedBy':
+                '',
+
+              'lifecycle.archiveReason':
+                '',
+            },
+          },
+          {
+            runValidators:
+              true,
+          }
+        );
+      } catch (
+        rollbackError
+      ) {
+        console.error(
+          'Document archive rollback failed:',
+          rollbackError.message
+        );
+      }
+
+      throw error;
+    }
   }
 
   return {

@@ -562,7 +562,7 @@ module.exports = {
             'Archive a document version',
 
           description:
-            'Soft-deletes the document metadata. No physical file is deleted.',
+            'Soft-deletes the document metadata. If the current version is archived, the newest remaining active version becomes current. No physical file is deleted.',
 
           security,
 
