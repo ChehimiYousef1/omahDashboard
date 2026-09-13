@@ -38,6 +38,10 @@ import {
 } from "./ApplicantEvaluationPanel";
 
 import {
+  ApplicantInterviewPanel,
+} from "./ApplicantInterviewPanel";
+
+import {
   ApplicantDocumentsPanel,
 } from "./ApplicantDocumentsPanel";
 
@@ -1355,12 +1359,21 @@ export function ApplicantProfilePanel({
             />
           )}
 
+          {activeTab ===
+            "interviews" && (
+            <ApplicantInterviewPanel
+              applicant={applicant}
+              submissions={submissions}
+            />
+          )}
+
           {![
             "overview",
             "current-profile",
             "submissions",
             "documents",
             "evaluations",
+            "interviews",
           ].includes(
             activeTab
           ) && (

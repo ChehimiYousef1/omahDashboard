@@ -1282,6 +1282,285 @@ export const archiveApplicantEvaluation =
   };
 
 
+
+/* =========================
+   APPLICANT INTERVIEW API
+========================= */
+
+export type ApplicantInterviewType =
+  | "screening"
+  | "hr"
+  | "technical"
+  | "behavioral"
+  | "managerial"
+  | "final"
+  | "other";
+
+export type ApplicantInterviewStatus =
+  | "scheduled"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+
+export type ApplicantInterviewFormat =
+  | "online"
+  | "onsite"
+  | "phone";
+
+export type ApplicantInterviewOutcome =
+  | "pending"
+  | "recommended"
+  | "not_recommended"
+  | "on_hold";
+
+export interface ApplicantInterviewParticipant {
+  userId?: string;
+  name: string;
+  email?: string;
+  role?: string;
+}
+
+export interface ApplicantInterviewActor {
+  userId: string;
+  name: string;
+  role: string;
+}
+
+export interface ApplicantInterview {
+  _id: string;
+
+  applicantId: string;
+  submissionId?: string | null;
+
+  type: ApplicantInterviewType;
+  status: ApplicantInterviewStatus;
+
+  scheduledStart: string;
+  scheduledEnd: string;
+
+  timezone: string;
+
+  format:
+    ApplicantInterviewFormat;
+
+  meetingLink: string;
+  location: string;
+
+  participants:
+    ApplicantInterviewParticipant[];
+
+  organizer:
+    ApplicantInterviewActor;
+
+  outcome:
+    ApplicantInterviewOutcome;
+
+  feedback: string;
+  notes: string;
+
+  completedAt:
+    string | null;
+
+  cancelledAt:
+    string | null;
+
+  cancellationReason:
+    string;
+
+  archived: boolean;
+  archivedAt:
+    string | null;
+  archivedBy: string;
+  archiveReason: string;
+
+  createdBy:
+    ApplicantInterviewActor;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApplicantInterviewCreatePayload {
+  submissionId?: string | null;
+
+  type:
+    ApplicantInterviewType;
+
+  scheduledStart: string;
+  scheduledEnd: string;
+
+  timezone?: string;
+
+  format?:
+    ApplicantInterviewFormat;
+
+  meetingLink?: string;
+  location?: string;
+
+  participants:
+    ApplicantInterviewParticipant[];
+
+  notes?: string;
+}
+
+export interface ApplicantInterviewUpdatePayload {
+  type?:
+    ApplicantInterviewType;
+
+  scheduledStart?: string;
+  scheduledEnd?: string;
+
+  timezone?: string;
+
+  format?:
+    ApplicantInterviewFormat;
+
+  meetingLink?: string;
+  location?: string;
+
+  participants?:
+    ApplicantInterviewParticipant[];
+
+  notes?: string;
+}
+
+export interface ApplicantInterviewCompletePayload {
+  outcome?:
+    ApplicantInterviewOutcome;
+
+  feedback?: string;
+  notes?: string;
+}
+
+
+export const fetchApplicantInterviews =
+  async (
+    applicantId: string,
+    includeArchived = false
+  ): Promise<ApplicantInterview[]> => {
+    const response =
+      await apiClient.get(
+        `/applicants/${applicantId}/interviews`,
+        {
+          params: {
+            includeArchived,
+          },
+        }
+      );
+
+    return (
+      response.data.interviews ||
+      []
+    );
+  };
+
+
+export const createApplicantInterview =
+  async (
+    applicantId: string,
+    payload:
+      ApplicantInterviewCreatePayload
+  ): Promise<ApplicantInterview> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/interviews`,
+        payload
+      );
+
+    return response.data.interview;
+  };
+
+
+export const updateApplicantInterview =
+  async (
+    applicantId: string,
+    interviewId: string,
+    payload:
+      ApplicantInterviewUpdatePayload
+  ): Promise<ApplicantInterview> => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/interviews/${interviewId}`,
+        payload
+      );
+
+    return response.data.interview;
+  };
+
+
+export const completeApplicantInterview =
+  async (
+    applicantId: string,
+    interviewId: string,
+    payload:
+      ApplicantInterviewCompletePayload
+  ): Promise<ApplicantInterview> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/interviews/${interviewId}/complete`,
+        payload
+      );
+
+    return response.data.interview;
+  };
+
+
+export const cancelApplicantInterview =
+  async (
+    applicantId: string,
+    interviewId: string,
+    reason = ""
+  ): Promise<ApplicantInterview> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/interviews/${interviewId}/cancel`,
+        {
+          reason,
+        }
+      );
+
+    return response.data.interview;
+  };
+
+
+export const markApplicantInterviewNoShow =
+  async (
+    applicantId: string,
+    interviewId: string,
+    notes = ""
+  ): Promise<ApplicantInterview> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/interviews/${interviewId}/no-show`,
+        {
+          notes,
+        }
+      );
+
+    return response.data.interview;
+  };
+
+
+export const archiveApplicantInterview =
+  async (
+    applicantId: string,
+    interviewId: string,
+    reason = ""
+  ): Promise<ApplicantInterview> => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/interviews/${interviewId}`,
+        {
+          data: {
+            reason,
+          },
+        }
+      );
+
+    return response.data.interview;
+  };
+
+
 /* =========================
    DEVELOPER TOOLS API
 ========================= */
