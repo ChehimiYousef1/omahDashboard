@@ -36,6 +36,12 @@ const {
   './applicantInterviewMeetingSyncService'
 );
 
+const {
+  sendApplicantInterviewNotification,
+} = require(
+  './applicantInterviewNotificationService'
+);
+
 
 function serviceError(
   code,
@@ -551,6 +557,15 @@ async function createApplicantInterview({
 
   syncInterviewMeeting =
     createInterviewMeeting,
+
+  notifyInterview =
+    sendApplicantInterviewNotification,
+
+  notificationTransporter =
+    null,
+
+  notificationLogger =
+    console,
 }) {
   const target =
     await requireApplicant({
@@ -621,14 +636,50 @@ async function createApplicantInterview({
    * service safely returns without calling
    * an external provider.
    */
-  return syncInterviewMeeting({
-    interview,
+  const syncedInterview =
+    await syncInterviewMeeting({
+      interview,
 
-    applicant:
-      target.applicant,
+      applicant:
+        target.applicant,
 
-    InterviewModel,
-  });
+      InterviewModel,
+    });
+
+  /*
+   * Transactional notification is secondary
+   * to interview/meeting persistence.
+   *
+   * Email delivery must never roll back an
+   * already-created interview or provider event.
+   */
+  try {
+    await notifyInterview({
+      interview:
+        syncedInterview,
+
+      applicant:
+        target.applicant,
+
+      eventType:
+        'scheduled',
+
+      transporter:
+        notificationTransporter,
+
+      logger:
+        notificationLogger,
+    });
+  } catch (error) {
+    notificationLogger
+      ?.error?.(
+        'Interview notification failed after scheduling:',
+        error?.message ||
+          error
+      );
+  }
+
+  return syncedInterview;
 }
 
 

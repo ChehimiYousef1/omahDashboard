@@ -211,6 +211,9 @@ module.exports =
 function createApplicantRouter({
   requireApplicantPermission,
 
+  transporter =
+    null,
+
   ApplicantModel =
     Applicant,
 
@@ -1032,6 +1035,9 @@ function createApplicantRouter({
                 req.user.role ||
                 '',
             },
+
+            notificationTransporter:
+              transporter,
           });
 
         return res

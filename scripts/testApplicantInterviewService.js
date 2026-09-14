@@ -273,6 +273,325 @@ async function main() {
 
 
   /*
+   * Create notification wiring.
+   *
+   * Meeting synchronization must complete
+   * before the notification receives the
+   * interview.
+   */
+  const notificationOrder =
+    [];
+
+  let notificationPayload =
+    null;
+
+  const testTransporter = {
+    label:
+      'fake-interview-transporter',
+  };
+
+  const notifiedInterview =
+    await createApplicantInterview({
+      applicantId:
+        String(
+          applicantId
+        ),
+
+      submissionId:
+        null,
+
+      type:
+        'technical',
+
+      scheduledStart:
+        '2026-09-16T10:00:00Z',
+
+      scheduledEnd:
+        '2026-09-16T11:00:00Z',
+
+      timezone:
+        'Asia/Beirut',
+
+      format:
+        'online',
+
+      meetingProvider:
+        'google_meet',
+
+      participants: [
+        {
+          userId:
+            'admin-1',
+
+          name:
+            'Admin User',
+
+          email:
+            'interviewer@example.com',
+
+          role:
+            'Interviewer',
+        },
+      ],
+
+      createdBy: {
+        userId:
+          'admin-1',
+
+        name:
+          'Admin User',
+
+        role:
+          'Admin',
+      },
+
+      ApplicantModel,
+
+      InterviewModel:
+        CreateInterviewModel,
+
+      syncInterviewMeeting:
+        async ({
+          interview,
+        }) => {
+          notificationOrder.push(
+            'sync'
+          );
+
+          return {
+            ...interview,
+
+            meeting: {
+              provider:
+                'google_meet',
+
+              status:
+                'created',
+
+              joinUrl:
+                'https://meet.google.com/synced-test',
+            },
+
+            meetingLink:
+              'https://meet.google.com/synced-test',
+          };
+        },
+
+      notifyInterview:
+        async (payload) => {
+          notificationOrder.push(
+            'notify'
+          );
+
+          notificationPayload =
+            payload;
+
+          return {
+            status:
+              'sent',
+          };
+        },
+
+      notificationTransporter:
+        testTransporter,
+
+      notificationLogger: {
+        error() {},
+      },
+    });
+
+
+  assert.deepStrictEqual(
+    notificationOrder,
+
+    [
+      'sync',
+      'notify',
+    ]
+  );
+
+  assert.strictEqual(
+    notificationPayload
+      .interview
+      .meeting
+      .joinUrl,
+
+    'https://meet.google.com/synced-test'
+  );
+
+  assert.strictEqual(
+    notificationPayload
+      .eventType,
+
+    'scheduled'
+  );
+
+  assert.strictEqual(
+    notificationPayload
+      .transporter,
+
+    testTransporter
+  );
+
+  assert.strictEqual(
+    notificationPayload
+      .applicant,
+
+    activeApplicant
+  );
+
+  assert.strictEqual(
+    notifiedInterview
+      .meeting
+      .joinUrl,
+
+    'https://meet.google.com/synced-test'
+  );
+
+  console.log(
+    '✅ notification runs after meeting sync with generated Meet URL'
+  );
+
+
+  /*
+   * Notification delivery is secondary.
+   *
+   * A notification exception must never
+   * roll back an already-created interview
+   * or synchronized meeting.
+   */
+  let notificationFailureLog =
+    '';
+
+  const notificationFailureCreated =
+    await createApplicantInterview({
+      applicantId:
+        String(
+          applicantId
+        ),
+
+      submissionId:
+        null,
+
+      type:
+        'screening',
+
+      scheduledStart:
+        '2026-09-17T10:00:00Z',
+
+      scheduledEnd:
+        '2026-09-17T10:30:00Z',
+
+      timezone:
+        'Asia/Beirut',
+
+      format:
+        'online',
+
+      meetingProvider:
+        'google_meet',
+
+      participants: [
+        {
+          name:
+            'Interviewer',
+
+          email:
+            'interviewer@example.com',
+
+          role:
+            'Interviewer',
+        },
+      ],
+
+      createdBy: {
+        userId:
+          'admin-1',
+      },
+
+      ApplicantModel,
+
+      InterviewModel:
+        CreateInterviewModel,
+
+      syncInterviewMeeting:
+        async ({
+          interview,
+        }) => ({
+          ...interview,
+
+          meeting: {
+            provider:
+              'google_meet',
+
+            status:
+              'created',
+
+            joinUrl:
+              'https://meet.google.com/preserved-test',
+          },
+
+          meetingLink:
+            'https://meet.google.com/preserved-test',
+        }),
+
+      notifyInterview:
+        async () => {
+          throw new Error(
+            'Synthetic notification failure'
+          );
+        },
+
+      notificationTransporter:
+        testTransporter,
+
+      notificationLogger: {
+        error(...args) {
+          notificationFailureLog =
+            args
+              .map(String)
+              .join(' ');
+        },
+      },
+    });
+
+
+  assert.strictEqual(
+    notificationFailureCreated
+      .status,
+
+    'scheduled'
+  );
+
+  assert.strictEqual(
+    notificationFailureCreated
+      .meeting
+      .status,
+
+    'created'
+  );
+
+  assert.strictEqual(
+    notificationFailureCreated
+      .meeting
+      .joinUrl,
+
+    'https://meet.google.com/preserved-test'
+  );
+
+  assert(
+    notificationFailureLog
+      .includes(
+        'Synthetic notification failure'
+      )
+  );
+
+  console.log(
+    '✅ notification failure does not fail interview creation'
+  );
+
+
+  /*
    * Optional submission.
    */
   let optionalSubmissionCalls =
