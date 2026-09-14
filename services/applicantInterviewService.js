@@ -28,6 +28,14 @@ const {
   '../utils/applicantInterview'
 );
 
+const {
+  createInterviewMeeting,
+  updateInterviewMeeting,
+  cancelInterviewMeeting,
+} = require(
+  './applicantInterviewMeetingSyncService'
+);
+
 
 function serviceError(
   code,
@@ -540,6 +548,9 @@ async function createApplicantInterview({
 
   InterviewModel =
     ApplicantInterview,
+
+  syncInterviewMeeting =
+    createInterviewMeeting,
 }) {
   const target =
     await requireApplicant({
@@ -580,18 +591,43 @@ async function createApplicantInterview({
       notes,
     });
 
-  return InterviewModel.create({
-    applicantId:
-      target
-        .applicantObjectId,
+  /*
+   * OMAH remains the source of truth.
+   *
+   * Persist the interview locally first.
+   * External meeting synchronization happens
+   * only after the local interview exists.
+   */
+  const interview =
+    await InterviewModel.create({
+      applicantId:
+        target
+          .applicantObjectId,
 
-    submissionId:
-      linkedSubmissionId,
+      submissionId:
+        linkedSubmissionId,
 
-    ...data,
+      ...data,
 
-    createdBy:
-      actor,
+      createdBy:
+        actor,
+    });
+
+  /*
+   * For online interviews this may create
+   * the external provider meeting.
+   *
+   * For onsite/phone interviews the sync
+   * service safely returns without calling
+   * an external provider.
+   */
+  return syncInterviewMeeting({
+    interview,
+
+    applicant:
+      target.applicant,
+
+    InterviewModel,
   });
 }
 
@@ -708,6 +744,9 @@ async function updateApplicantInterview({
 
   InterviewModel =
     ApplicantInterview,
+
+  syncInterviewMeeting =
+    updateInterviewMeeting,
 }) {
   const current =
     await getActiveInterview({
@@ -855,6 +894,34 @@ async function updateApplicantInterview({
       nextProvider !==
       currentProvider;
 
+    const synchronizedEventId =
+      cleanText(
+        current.interview
+          .meeting
+          ?.providerEventId
+      );
+
+    /*
+     * Do not reset meeting metadata while a
+     * synchronized external event still exists.
+     *
+     * Provider/format transition cleanup will be
+     * implemented as a separate controlled flow.
+     */
+    if (
+      synchronizedEventId &&
+      (
+        formatChanged ||
+        providerChanged
+      )
+    ) {
+      throw serviceError(
+        'INTERVIEW_MEETING_TRANSITION_REQUIRES_CLEANUP',
+
+        'Cancel the existing synchronized meeting before changing the interview format or meeting provider.'
+      );
+    }
+
     /*
      * When switching provider or moving
      * between online/non-online formats,
@@ -946,7 +1013,24 @@ async function updateApplicantInterview({
     );
   }
 
-  return updated;
+  /*
+   * OMAH remains the source of truth.
+   *
+   * Local changes are committed first. The
+   * provider event is then synchronized using
+   * its existing providerEventId.
+   */
+  return syncInterviewMeeting({
+    interview:
+      updated,
+
+    applicant:
+      current
+        .target
+        .applicant,
+
+    InterviewModel,
+  });
 }
 
 
@@ -1065,6 +1149,9 @@ async function cancelApplicantInterview({
   InterviewModel =
     ApplicantInterview,
 
+  syncInterviewMeeting =
+    cancelInterviewMeeting,
+
   now =
     () => new Date(),
 }) {
@@ -1137,7 +1224,19 @@ async function cancelApplicantInterview({
     );
   }
 
-  return updated;
+  /*
+   * OMAH remains the source of truth.
+   *
+   * Record the cancellation locally first,
+   * then remove the synchronized provider
+   * event using its existing providerEventId.
+   */
+  return syncInterviewMeeting({
+    interview:
+      updated,
+
+    InterviewModel,
+  });
 }
 
 

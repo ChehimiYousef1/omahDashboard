@@ -21,6 +21,7 @@ const {
   createApplicantInterview,
   updateApplicantInterview,
   completeApplicantInterview,
+  cancelApplicantInterview,
   archiveApplicantInterview,
 } = require(
   '../services/applicantInterviewService'
@@ -240,6 +241,10 @@ async function main() {
 
       InterviewModel:
         CreateInterviewModel,
+
+      syncInterviewMeeting:
+        async ({ interview }) =>
+          interview,
     });
 
   assert.strictEqual(
@@ -313,6 +318,10 @@ async function main() {
 
     InterviewModel:
       CreateInterviewModel,
+    syncInterviewMeeting:
+      async ({ interview }) =>
+        interview,
+
   });
 
   assert.strictEqual(
@@ -408,6 +417,10 @@ async function main() {
 
       InterviewModel:
         UpdateInterviewModel,
+      syncInterviewMeeting:
+        async ({ interview }) =>
+          interview,
+
     });
 
   assert.strictEqual(
@@ -520,6 +533,148 @@ async function main() {
 
   console.log(
     '✅ completion + outcome + feedback'
+  );
+
+
+  /*
+   * Cancel + provider cleanup handoff.
+   *
+   * Mock only:
+   * no Google request is made here.
+   */
+  let cancellationPayload =
+    null;
+
+  let cancellationSyncCalled =
+    false;
+
+  let cancellationSyncInterview =
+    null;
+
+  const scheduledInterviewForCancellation = {
+    _id:
+      interviewId,
+
+    applicantId,
+
+    status:
+      'scheduled',
+
+    archived:
+      false,
+
+    format:
+      'online',
+
+    meeting: {
+      provider:
+        'google_meet',
+
+      status:
+        'created',
+
+      providerMeetingId:
+        'test-meet',
+
+      providerEventId:
+        'google-event-test',
+
+      joinUrl:
+        'https://meet.google.com/test-meet',
+
+      syncError:
+        '',
+    },
+  };
+
+  const CancelInterviewModel = {
+    async findOne() {
+      return scheduledInterviewForCancellation;
+    },
+
+    async findOneAndUpdate(
+      filter,
+      update
+    ) {
+      cancellationPayload =
+        update.$set;
+
+      return {
+        ...scheduledInterviewForCancellation,
+        ...update.$set,
+      };
+    },
+  };
+
+  const cancelled =
+    await cancelApplicantInterview({
+      applicantId:
+        String(
+          applicantId
+        ),
+
+      interviewId:
+        String(
+          interviewId
+        ),
+
+      reason:
+        'Candidate unavailable',
+
+      ApplicantModel,
+
+      InterviewModel:
+        CancelInterviewModel,
+
+      syncInterviewMeeting:
+        async ({
+          interview,
+        }) => {
+          cancellationSyncCalled =
+            true;
+
+          cancellationSyncInterview =
+            interview;
+
+          return interview;
+        },
+
+      now:
+        () =>
+          new Date(
+            '2026-09-14T11:15:00Z'
+          ),
+    });
+
+  assert.strictEqual(
+    cancelled.status,
+    'cancelled'
+  );
+
+  assert.strictEqual(
+    cancellationPayload
+      .cancellationReason,
+
+    'Candidate unavailable'
+  );
+
+  assert.strictEqual(
+    cancellationSyncCalled,
+    true,
+    'Cancellation must hand off to meeting synchronization.'
+  );
+
+  assert.strictEqual(
+    cancellationSyncInterview
+      .meeting
+      .providerEventId,
+
+    'google-event-test',
+    'Cancellation synchronization must retain the existing provider event ID.'
+  );
+
+  console.log(
+    '✅ cancellation hands off existing provider event for cleanup'
   );
 
 
