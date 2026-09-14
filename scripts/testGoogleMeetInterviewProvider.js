@@ -36,7 +36,7 @@ const safeEnv = {
     'primary',
 
   GOOGLE_CALENDAR_SEND_UPDATES:
-    'all',
+    'none',
 };
 
 
@@ -347,7 +347,7 @@ async function main() {
     insertParams
       .sendUpdates,
 
-    'all'
+    'none'
   );
 
   assert.strictEqual(
@@ -420,7 +420,7 @@ async function main() {
     patchParams
       .sendUpdates,
 
-    'all'
+    'none'
   );
 
   assert.strictEqual(
@@ -472,7 +472,7 @@ async function main() {
     deleteParams
       .sendUpdates,
 
-    'all'
+    'none'
   );
 
   assert.strictEqual(
@@ -482,6 +482,83 @@ async function main() {
 
   console.log(
     '✅ cancellation deletes provider event'
+  );
+
+
+  /*
+   * Explicit invitation opt-in.
+   *
+   * Fake Calendar only:
+   * proves that notifications become "all"
+   * only when explicitly configured.
+   */
+  const invitationEnv = {
+    ...safeEnv,
+
+    GOOGLE_CALENDAR_SEND_UPDATES:
+      'all',
+  };
+
+  await createGoogleMeetInterview({
+    ...baseInput(),
+
+    conferenceRequestId:
+      'invitation-opt-in-create',
+
+    env:
+      invitationEnv,
+
+    calendarClient:
+      fakeCalendar,
+  });
+
+  assert.strictEqual(
+    insertParams
+      .sendUpdates,
+
+    'all'
+  );
+
+  await updateGoogleMeetInterview({
+    ...baseInput(),
+
+    providerEventId:
+      'google-event-1',
+
+    env:
+      invitationEnv,
+
+    calendarClient:
+      fakeCalendar,
+  });
+
+  assert.strictEqual(
+    patchParams
+      .sendUpdates,
+
+    'all'
+  );
+
+  await cancelGoogleMeetInterview({
+    providerEventId:
+      'google-event-1',
+
+    env:
+      invitationEnv,
+
+    calendarClient:
+      fakeCalendar,
+  });
+
+  assert.strictEqual(
+    deleteParams
+      .sendUpdates,
+
+    'all'
+  );
+
+  console.log(
+    '✅ Calendar invitations require explicit sendUpdates=all opt-in'
   );
 
 
