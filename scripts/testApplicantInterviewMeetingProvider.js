@@ -120,6 +120,25 @@ assert.throws(
     validateInterviewMeetingProvider({
       format:
         'online',
+    }),
+
+  (
+    error
+  ) =>
+    error.code ===
+    'INTERVIEW_MEETING_PROVIDER_REQUIRED'
+);
+
+console.log(
+  '✅ online interview without provider rejected'
+);
+
+
+assert.throws(
+  () =>
+    validateInterviewMeetingProvider({
+      format:
+        'online',
 
       meetingProvider:
         'manual',

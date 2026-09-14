@@ -206,6 +206,9 @@ async function main() {
       format:
         'online',
 
+      meetingProvider:
+        'google_meet',
+
       meetingLink:
         'https://example.com/meeting',
 
@@ -292,6 +295,12 @@ async function main() {
 
     scheduledEnd:
       '2026-09-15T10:30:00Z',
+
+    format:
+      'online',
+
+    meetingProvider:
+      'google_meet',
 
     participants: [
       {
@@ -790,6 +799,12 @@ async function main() {
 
       scheduledEnd:
         '2026-09-20T15:00:00Z',
+
+      format:
+        'online',
+
+      meetingProvider:
+        'google_meet',
 
       participants: [
         {

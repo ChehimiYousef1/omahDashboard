@@ -1003,8 +1003,7 @@ function createApplicantRouter({
 
             meetingProvider:
               req.body
-                ?.meetingProvider ||
-              'google_meet',
+                ?.meetingProvider,
 
             location:
               req.body
