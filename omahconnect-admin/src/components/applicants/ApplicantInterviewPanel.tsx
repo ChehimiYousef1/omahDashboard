@@ -28,6 +28,7 @@ import {
   completeApplicantInterview,
   createApplicantInterview,
   fetchApplicantInterviews,
+  fetchApplicantInterviewMeetingProviders,
   markApplicantInterviewNoShow,
   updateApplicantInterview,
   type ApplicantFormSubmission,
@@ -36,6 +37,7 @@ import {
   type ApplicantInterviewCompletePayload,
   type ApplicantInterviewFormat,
   type ApplicantInterviewMeetingProvider,
+  type ApplicantInterviewMeetingProviderStatus,
   type ApplicantInterviewOutcome,
   type ApplicantInterviewParticipant,
   type ApplicantInterviewType,
@@ -187,6 +189,26 @@ const MEETING_PROVIDERS: Array<{
       "Microsoft Teams",
   },
 ];
+
+
+function meetingProviderRuntimeLabel(
+  status:
+    ApplicantInterviewMeetingProviderStatus["status"]
+) {
+  switch (status) {
+    case "ready":
+      return "Ready";
+
+    case "read_only":
+      return "Connected · Read-only";
+
+    case "setup_required":
+      return "Setup required";
+
+    case "not_implemented":
+      return "Coming soon";
+  }
+}
 
 
 const OUTCOMES: Array<{
@@ -510,7 +532,7 @@ function emptyScheduleForm():
       defaultTimezone(),
 
     meetingProvider:
-      "google_meet",
+      "",
 
     location: "",
 
@@ -627,6 +649,39 @@ export function ApplicantInterviewPanel({
 
 
   const [
+    meetingProviderStatuses,
+    setMeetingProviderStatuses,
+  ] = useState<
+    ApplicantInterviewMeetingProviderStatus[]
+  >([]);
+
+  const [
+    meetingProviderStatusLoading,
+    setMeetingProviderStatusLoading,
+  ] = useState(true);
+
+  const [
+    meetingProviderStatusError,
+    setMeetingProviderStatusError,
+  ] = useState("");
+
+
+  const meetingProviderStatusById =
+    useMemo(
+      () =>
+        new Map(
+          meetingProviderStatuses.map(
+            (provider) => [
+              provider.provider,
+              provider,
+            ]
+          )
+        ),
+      [meetingProviderStatuses]
+    );
+
+
+  const [
     availabilitySnapshot,
     setAvailabilitySnapshot,
   ] = useState<
@@ -656,6 +711,53 @@ export function ApplicantInterviewPanel({
     feedback: "",
     notes: "",
   });
+
+
+  const loadMeetingProviderStatuses =
+    useCallback(
+      async () => {
+        setMeetingProviderStatusLoading(
+          true
+        );
+
+        setMeetingProviderStatusError(
+          ""
+        );
+
+        try {
+          const result =
+            await fetchApplicantInterviewMeetingProviders();
+
+          setMeetingProviderStatuses(
+            result
+          );
+        } catch (
+          providerStatusError
+        ) {
+          setMeetingProviderStatusError(
+            interviewErrorMessage(
+              providerStatusError
+            )
+          );
+
+          /*
+           * Fail closed.
+           *
+           * If provider configuration
+           * cannot be determined, online
+           * providers stay unavailable.
+           */
+          setMeetingProviderStatuses(
+            []
+          );
+        } finally {
+          setMeetingProviderStatusLoading(
+            false
+          );
+        }
+      },
+      []
+    );
 
 
   const loadInterviews =
@@ -705,6 +807,26 @@ export function ApplicantInterviewPanel({
       };
     },
     [loadInterviews]
+  );
+
+
+  useEffect(
+    () => {
+      const timerId =
+        window.setTimeout(
+          () => {
+            void loadMeetingProviderStatuses();
+          },
+          0
+        );
+
+      return () => {
+        window.clearTimeout(
+          timerId
+        );
+      };
+    },
+    [loadMeetingProviderStatuses]
   );
 
 
@@ -2522,26 +2644,71 @@ export function ApplicantInterviewPanel({
                           MEETING_PROVIDERS.map(
                             (
                               provider
-                            ) => (
-                              <option
-                                key={
-                                  provider
-                                    .value
-                                }
-                                value={
-                                  provider
-                                    .value
-                                }
-                              >
-                                {
-                                  provider
-                                    .label
-                                }
-                              </option>
-                            )
+                            ) => {
+                              const runtimeStatus =
+                                meetingProviderStatusById.get(
+                                  provider.value
+                                );
+
+                              const disabled =
+                                !runtimeStatus
+                                  ?.readyForScheduling;
+
+                              const suffix =
+                                runtimeStatus
+                                  ? meetingProviderRuntimeLabel(
+                                      runtimeStatus.status
+                                    )
+                                  : meetingProviderStatusLoading
+                                    ? "Checking..."
+                                    : "Unavailable";
+
+                              return (
+                                <option
+                                  key={
+                                    provider
+                                      .value
+                                  }
+                                  value={
+                                    provider
+                                      .value
+                                  }
+                                  disabled={
+                                    disabled
+                                  }
+                                >
+                                  {
+                                    `${provider.label} — ${suffix}`
+                                  }
+                                </option>
+                              );
+                            }
                           )
                         }
                       </select>
+
+                      {
+                        meetingProviderStatusError && (
+                          <p className="mt-1 text-[11px] leading-5 text-rose-600">
+                            Meeting-provider status could not be loaded. Automatic online meeting providers are disabled until the status can be verified.
+                          </p>
+                        )
+                      }
+
+                      {
+                        !meetingProviderStatusLoading &&
+                        !meetingProviderStatusError &&
+                        meetingProviderStatuses.length >
+                          0 &&
+                        !meetingProviderStatuses.some(
+                          (provider) =>
+                            provider.readyForScheduling
+                        ) && (
+                          <p className="mt-1 text-[11px] leading-5 text-amber-600">
+                            No automatic meeting provider is currently ready for scheduling.
+                          </p>
+                        )
+                      }
 
                       <p className="mt-1 text-[11px] leading-5 text-slate-400">
                         The meeting link will be generated automatically by the selected provider. Manual meeting URLs are disabled.

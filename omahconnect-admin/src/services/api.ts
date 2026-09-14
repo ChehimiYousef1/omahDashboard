@@ -1574,6 +1574,49 @@ export interface ApplicantInterviewCompletePayload {
 }
 
 
+export type ApplicantInterviewMeetingProviderRuntimeStatus =
+  | "setup_required"
+  | "read_only"
+  | "ready"
+  | "not_implemented";
+
+
+export interface ApplicantInterviewMeetingProviderStatus {
+  provider:
+    ApplicantInterviewMeetingProvider;
+
+  label: string;
+
+  implemented: boolean;
+  enabled: boolean;
+  configured: boolean;
+  writeEnabled: boolean;
+
+  readyForScheduling: boolean;
+
+  status:
+    ApplicantInterviewMeetingProviderRuntimeStatus;
+
+  missing: string[];
+}
+
+
+export const fetchApplicantInterviewMeetingProviders =
+  async (): Promise<
+    ApplicantInterviewMeetingProviderStatus[]
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/interviews/providers"
+      );
+
+    return (
+      response.data.providers ||
+      []
+    );
+  };
+
+
 export const checkApplicantInterviewAvailability =
   async (
     applicantId: string,

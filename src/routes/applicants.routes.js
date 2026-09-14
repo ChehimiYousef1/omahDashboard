@@ -97,6 +97,13 @@ const {
 );
 
 
+const {
+  getMeetingProviderStatuses,
+} = require(
+  '../../services/interviewMeetingProviderService'
+);
+
+
 /*
 |--------------------------------------------------------------------------
 | API Error Mapping
@@ -792,6 +799,40 @@ function createApplicantRouter({
    * APPLICANT INTERVIEWS
    * ==================================================
    */
+
+  /*
+   * GET /api/applicants/interviews/providers
+   *
+   * Read-only runtime meeting-provider
+   * configuration status.
+   *
+   * Does not expose OAuth secrets.
+   */
+  router.get(
+    '/interviews/providers',
+
+    requireApplicantPermission(
+      'applicant:interviews:view'
+    ),
+
+    (req, res) => {
+      try {
+        const providers =
+          getMeetingProviderStatuses();
+
+        return res.json({
+          success: true,
+          providers,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
 
   /*
    * GET /api/applicants/:id/interviews
