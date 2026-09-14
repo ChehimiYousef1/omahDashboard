@@ -789,6 +789,200 @@ async function main() {
 
 
   /*
+   * Reschedule lifecycle:
+   * provider synchronization must finish before
+   * the reschedule notification is dispatched.
+   */
+  const rescheduleNotificationOrder =
+    [];
+
+  let rescheduleNotificationPayload =
+    null;
+
+  const rescheduleTransporter = {
+    name:
+      'fake-reschedule-transporter',
+  };
+
+  const rescheduleBaseInterview = {
+    _id:
+      interviewId,
+
+    applicantId,
+
+    status:
+      'scheduled',
+
+    archived:
+      false,
+
+    scheduledStart:
+      new Date(
+        '2026-09-18T10:00:00Z'
+      ),
+
+    scheduledEnd:
+      new Date(
+        '2026-09-18T11:00:00Z'
+      ),
+
+    timezone:
+      'Asia/Beirut',
+
+    format:
+      'online',
+
+    meeting: {
+      provider:
+        'google_meet',
+
+      status:
+        'created',
+
+      providerEventId:
+        'reschedule-event-test',
+
+      joinUrl:
+        'https://meet.google.com/original-test',
+    },
+  };
+
+  const RescheduleNotificationModel = {
+    async findOne() {
+      return rescheduleBaseInterview;
+    },
+
+    async findOneAndUpdate(
+      filter,
+      update
+    ) {
+      return {
+        ...rescheduleBaseInterview,
+        ...update.$set,
+      };
+    },
+  };
+
+  const rescheduledWithNotification =
+    await updateApplicantInterview({
+      applicantId:
+        String(
+          applicantId
+        ),
+
+      interviewId:
+        String(
+          interviewId
+        ),
+
+      scheduledStart:
+        '2026-09-18T12:00:00Z',
+
+      scheduledEnd:
+        '2026-09-18T13:00:00Z',
+
+      meetingProvider:
+        'google_meet',
+
+      ApplicantModel,
+
+      InterviewModel:
+        RescheduleNotificationModel,
+
+      syncInterviewMeeting:
+        async ({
+          interview,
+        }) => {
+          rescheduleNotificationOrder
+            .push(
+              'sync'
+            );
+
+          return {
+            ...interview,
+
+            meeting: {
+              ...interview.meeting,
+
+              status:
+                'created',
+
+              joinUrl:
+                'https://meet.google.com/rescheduled-test',
+            },
+          };
+        },
+
+      notifyInterview:
+        async (payload) => {
+          rescheduleNotificationOrder
+            .push(
+              'notify'
+            );
+
+          rescheduleNotificationPayload =
+            payload;
+
+          return {
+            status:
+              'sent',
+          };
+        },
+
+      notificationTransporter:
+        rescheduleTransporter,
+
+      notificationLogger: {
+        error() {},
+      },
+    });
+
+  assert.deepStrictEqual(
+    rescheduleNotificationOrder,
+
+    [
+      'sync',
+      'notify',
+    ]
+  );
+
+  assert.strictEqual(
+    rescheduleNotificationPayload
+      .eventType,
+
+    'rescheduled'
+  );
+
+  assert.strictEqual(
+    rescheduleNotificationPayload
+      .interview
+      .meeting
+      .joinUrl,
+
+    'https://meet.google.com/rescheduled-test'
+  );
+
+  assert.strictEqual(
+    rescheduleNotificationPayload
+      .transporter,
+
+    rescheduleTransporter
+  );
+
+  assert.strictEqual(
+    rescheduledWithNotification
+      .meeting
+      .joinUrl,
+
+    'https://meet.google.com/rescheduled-test'
+  );
+
+  console.log(
+    '✅ reschedule sync completes before notification'
+  );
+
+
+  /*
    * Complete + outcome/feedback.
    */
   let completionPayload =
@@ -1003,6 +1197,168 @@ async function main() {
 
   console.log(
     '✅ cancellation hands off existing provider event for cleanup'
+  );
+
+
+  /*
+   * Cancellation lifecycle:
+   * provider cleanup must complete before
+   * the cancellation notification.
+   */
+  const cancellationNotificationOrder =
+    [];
+
+  let cancellationNotificationPayload =
+    null;
+
+  const cancellationTransporter = {
+    name:
+      'fake-cancellation-transporter',
+  };
+
+  const CancellationNotificationModel = {
+    async findOne() {
+      return scheduledInterviewForCancellation;
+    },
+
+    async findOneAndUpdate(
+      filter,
+      update
+    ) {
+      return {
+        ...scheduledInterviewForCancellation,
+        ...update.$set,
+      };
+    },
+  };
+
+  const cancelledWithNotification =
+    await cancelApplicantInterview({
+      applicantId:
+        String(
+          applicantId
+        ),
+
+      interviewId:
+        String(
+          interviewId
+        ),
+
+      reason:
+        'Schedule changed',
+
+      ApplicantModel,
+
+      InterviewModel:
+        CancellationNotificationModel,
+
+      syncInterviewMeeting:
+        async ({
+          interview,
+        }) => {
+          cancellationNotificationOrder
+            .push(
+              'sync'
+            );
+
+          return {
+            ...interview,
+
+            meeting: {
+              ...interview.meeting,
+
+              status:
+                'cancelled',
+
+              joinUrl:
+                '',
+            },
+
+            meetingLink:
+              '',
+          };
+        },
+
+      notifyInterview:
+        async (payload) => {
+          cancellationNotificationOrder
+            .push(
+              'notify'
+            );
+
+          cancellationNotificationPayload =
+            payload;
+
+          return {
+            status:
+              'sent',
+          };
+        },
+
+      notificationTransporter:
+        cancellationTransporter,
+
+      notificationLogger: {
+        error() {},
+      },
+
+      now:
+        () =>
+          new Date(
+            '2026-09-18T11:15:00Z'
+          ),
+    });
+
+  assert.deepStrictEqual(
+    cancellationNotificationOrder,
+
+    [
+      'sync',
+      'notify',
+    ]
+  );
+
+  assert.strictEqual(
+    cancellationNotificationPayload
+      .eventType,
+
+    'cancelled'
+  );
+
+  assert.strictEqual(
+    cancellationNotificationPayload
+      .interview
+      .meeting
+      .status,
+
+    'cancelled'
+  );
+
+  assert.strictEqual(
+    cancellationNotificationPayload
+      .interview
+      .meeting
+      .joinUrl,
+
+    ''
+  );
+
+  assert.strictEqual(
+    cancellationNotificationPayload
+      .transporter,
+
+    cancellationTransporter
+  );
+
+  assert.strictEqual(
+    cancelledWithNotification
+      .status,
+
+    'cancelled'
+  );
+
+  console.log(
+    '✅ cancellation cleanup completes before notification'
   );
 
 

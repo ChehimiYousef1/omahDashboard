@@ -798,6 +798,15 @@ async function updateApplicantInterview({
 
   syncInterviewMeeting =
     updateInterviewMeeting,
+
+  notifyInterview =
+    sendApplicantInterviewNotification,
+
+  notificationTransporter =
+    null,
+
+  notificationLogger =
+    console,
 }) {
   const current =
     await getActiveInterview({
@@ -1071,17 +1080,91 @@ async function updateApplicantInterview({
    * provider event is then synchronized using
    * its existing providerEventId.
    */
-  return syncInterviewMeeting({
-    interview:
-      updated,
+  const syncedInterview =
+    await syncInterviewMeeting({
+      interview:
+        updated,
 
-    applicant:
+      applicant:
+        current
+          .target
+          .applicant,
+
+      InterviewModel,
+    });
+
+  const previousStartMs =
+    new Date(
       current
-        .target
-        .applicant,
+        .interview
+        .scheduledStart
+    ).getTime();
 
-    InterviewModel,
-  });
+  const previousEndMs =
+    new Date(
+      current
+        .interview
+        .scheduledEnd
+    ).getTime();
+
+  const syncedStartMs =
+    new Date(
+      syncedInterview
+        .scheduledStart
+    ).getTime();
+
+  const syncedEndMs =
+    new Date(
+      syncedInterview
+        .scheduledEnd
+    ).getTime();
+
+  const scheduleChanged =
+    previousStartMs !==
+      syncedStartMs ||
+    previousEndMs !==
+      syncedEndMs ||
+    cleanText(
+      current
+        .interview
+        .timezone
+    ) !==
+      cleanText(
+        syncedInterview
+          .timezone
+      );
+
+  if (scheduleChanged) {
+    try {
+      await notifyInterview({
+        interview:
+          syncedInterview,
+
+        applicant:
+          current
+            .target
+            .applicant,
+
+        eventType:
+          'rescheduled',
+
+        transporter:
+          notificationTransporter,
+
+        logger:
+          notificationLogger,
+      });
+    } catch (error) {
+      notificationLogger
+        ?.error?.(
+          'Interview notification failed after rescheduling:',
+          error?.message ||
+            error
+        );
+    }
+  }
+
+  return syncedInterview;
 }
 
 
@@ -1203,6 +1286,15 @@ async function cancelApplicantInterview({
   syncInterviewMeeting =
     cancelInterviewMeeting,
 
+  notifyInterview =
+    sendApplicantInterviewNotification,
+
+  notificationTransporter =
+    null,
+
+  notificationLogger =
+    console,
+
   now =
     () => new Date(),
 }) {
@@ -1282,12 +1374,43 @@ async function cancelApplicantInterview({
    * then remove the synchronized provider
    * event using its existing providerEventId.
    */
-  return syncInterviewMeeting({
-    interview:
-      updated,
+  const syncedInterview =
+    await syncInterviewMeeting({
+      interview:
+        updated,
 
-    InterviewModel,
-  });
+      InterviewModel,
+    });
+
+  try {
+    await notifyInterview({
+      interview:
+        syncedInterview,
+
+      applicant:
+        current
+          .target
+          .applicant,
+
+      eventType:
+        'cancelled',
+
+      transporter:
+        notificationTransporter,
+
+      logger:
+        notificationLogger,
+    });
+  } catch (error) {
+    notificationLogger
+      ?.error?.(
+        'Interview notification failed after cancellation:',
+        error?.message ||
+          error
+      );
+  }
+
+  return syncedInterview;
 }
 
 

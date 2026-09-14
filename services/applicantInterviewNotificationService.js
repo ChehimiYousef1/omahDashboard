@@ -305,6 +305,24 @@ function buildInterviewNotificationMessage({
   }
 
 
+  const cancellationReason =
+    cleanText(
+      interview
+        ?.cancellationReason
+    );
+
+  if (
+    eventType ===
+      'cancelled' &&
+    cancellationReason
+  ) {
+    lines.push(
+      '',
+      `Cancellation reason: ${cancellationReason}`
+    );
+  }
+
+
   const notes =
     cleanText(
       interview?.notes
@@ -360,7 +378,13 @@ async function sendApplicantInterviewNotification({
    * Never announce an online interview
    * before the generated meeting exists.
    */
-  if (!onlineMeetingReady(interview)) {
+  if (
+    eventType !==
+      'cancelled' &&
+    !onlineMeetingReady(
+      interview
+    )
+  ) {
     return {
       status:
         'meeting_not_ready',

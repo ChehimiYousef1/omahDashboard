@@ -358,6 +358,94 @@ async function main() {
   );
 
 
+  /*
+   * Cancellation notifications remain valid
+   * after the external meeting is cancelled
+   * and its join URL is cleared.
+   */
+  const cancelledMessages =
+    [];
+
+  const cancelled =
+    await sendApplicantInterviewNotification({
+      interview: {
+        ...interview,
+
+        status:
+          'cancelled',
+
+        cancellationReason:
+          'Candidate unavailable',
+
+        meeting: {
+          provider:
+            'google_meet',
+
+          status:
+            'cancelled',
+
+          joinUrl:
+            '',
+        },
+      },
+
+      applicant,
+
+      eventType:
+        'cancelled',
+
+      env,
+
+      transporter: {
+        async sendMail(message) {
+          cancelledMessages.push(
+            message
+          );
+        },
+      },
+
+      logger: {
+        error() {},
+      },
+    });
+
+
+  assert.strictEqual(
+    cancelled.status,
+    'sent'
+  );
+
+  assert.strictEqual(
+    cancelled.sent,
+    3
+  );
+
+  assert.strictEqual(
+    cancelledMessages.length,
+    3
+  );
+
+  assert(
+    cancelledMessages[0]
+      .subject
+      .includes(
+        'Cancelled'
+      )
+  );
+
+  assert(
+    cancelledMessages[0]
+      .text
+      .includes(
+        'Candidate unavailable'
+      )
+  );
+
+  console.log(
+    '✅ cancellation email works after meeting cleanup'
+  );
+
+
   const failure =
     await sendApplicantInterviewNotification({
       interview,

@@ -1113,6 +1113,9 @@ function createApplicantRouter({
 
             notes:
               req.body?.notes,
+
+            notificationTransporter:
+              transporter,
           });
 
         return res.json({
@@ -1205,6 +1208,9 @@ function createApplicantRouter({
               req.body
                 ?.reason ||
               '',
+
+            notificationTransporter:
+              transporter,
           });
 
         return res.json({
