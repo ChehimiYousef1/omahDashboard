@@ -9,7 +9,7 @@ const DEFAULT_CALENDAR_ID =
   'primary';
 
 const DEFAULT_SEND_UPDATES =
-  'all';
+  'none';
 
 
 function envEnabled(value) {
