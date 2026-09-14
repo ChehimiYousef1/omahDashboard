@@ -49,8 +49,10 @@ const actualRoutes =
 const expectedRoutes = [
   'GET /:id/interviews',
   'POST /:id/interviews',
+  'POST /:id/interviews/availability',
   'PATCH /:id/interviews/:interviewId',
   'DELETE /:id/interviews/:interviewId',
+  'DELETE /:id/interviews/:interviewId/permanent',
   'POST /:id/interviews/:interviewId/complete',
   'POST /:id/interviews/:interviewId/cancel',
   'POST /:id/interviews/:interviewId/no-show',
@@ -61,6 +63,7 @@ const expectedRoutes = [
   'GET /:id/submissions',
   'GET /duplicates',
   'GET /duplicates/:caseId',
+  'GET /interviews/providers',
   'GET /search-options',
   'PATCH /:id/approve-profile',
   'PATCH /:id/evaluations/:evaluationId',
@@ -254,7 +257,7 @@ for (
 }
 
 console.log(
-  '✅ no hard-delete API introduced'
+  '✅ no unprotected route-level hard delete introduced'
 );
 
 console.log(

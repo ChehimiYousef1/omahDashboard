@@ -1594,6 +1594,169 @@ async function archiveApplicantInterview({
 }
 
 
+
+async function permanentlyDeleteApplicantInterview({
+  applicantId,
+  interviewId,
+
+  ApplicantModel =
+    Applicant,
+
+  InterviewModel =
+    ApplicantInterview,
+
+  syncInterviewMeeting =
+    cancelInterviewMeeting,
+}) {
+  const target =
+    await requireApplicant({
+      applicantId,
+      ApplicantModel,
+    });
+
+  const interviewObjectId =
+    toObjectId(
+      interviewId,
+      'interviewId'
+    );
+
+  const interview =
+    await InterviewModel.findOne({
+      _id:
+        interviewObjectId,
+
+      applicantId:
+        target
+          .applicantObjectId,
+    });
+
+  if (!interview) {
+    throw serviceError(
+      'INTERVIEW_NOT_FOUND',
+
+      'Interview was not found.'
+    );
+  }
+
+
+  /*
+   * Hard deletion is deliberately limited
+   * to records that are already cancelled
+   * or explicitly archived.
+   */
+  if (
+    interview.status !==
+      'cancelled' &&
+    interview.archived !==
+      true
+  ) {
+    throw serviceError(
+      'INTERVIEW_PERMANENT_DELETE_NOT_ALLOWED',
+
+      'Only cancelled or archived interviews can be permanently deleted.'
+    );
+  }
+
+
+  let safeInterview =
+    interview;
+
+  const format =
+    cleanText(
+      interview.format
+    ).toLowerCase();
+
+  const providerEventId =
+    cleanText(
+      interview
+        ?.meeting
+        ?.providerEventId
+    );
+
+  const meetingStatus =
+    cleanText(
+      interview
+        ?.meeting
+        ?.status
+    ).toLowerCase();
+
+
+  /*
+   * Never hard-delete a record while an
+   * external online event may still exist.
+   *
+   * This also protects archived scheduled
+   * interviews from leaving orphaned
+   * Google Calendar events.
+   */
+  const needsProviderCleanup =
+    format === 'online' &&
+    Boolean(
+      providerEventId
+    ) &&
+    meetingStatus !==
+      'cancelled';
+
+  if (needsProviderCleanup) {
+    safeInterview =
+      await syncInterviewMeeting({
+        interview,
+        InterviewModel,
+      });
+
+    const cleanupStatus =
+      cleanText(
+        safeInterview
+          ?.meeting
+          ?.status
+      ).toLowerCase();
+
+    if (
+      cleanupStatus !==
+        'cancelled'
+    ) {
+      throw serviceError(
+        'INTERVIEW_PERMANENT_DELETE_PROVIDER_CLEANUP_FAILED',
+
+        'The external interview meeting could not be safely removed. Permanent deletion was blocked.'
+      );
+    }
+  }
+
+
+  const deleted =
+    await InterviewModel
+      .findOneAndDelete({
+        _id:
+          interviewObjectId,
+
+        applicantId:
+          target
+            .applicantObjectId,
+      });
+
+  if (!deleted) {
+    throw serviceError(
+      'INTERVIEW_PERMANENT_DELETE_CONFLICT',
+
+      'Interview changed before it could be permanently deleted.'
+    );
+  }
+
+
+  return {
+    deleted:
+      true,
+
+    interviewId:
+      String(
+        interviewObjectId
+      ),
+  };
+}
+
+
+
 module.exports = {
   validateInterviewMeetingProvider,
   normalizeActor,
@@ -1606,5 +1769,6 @@ module.exports = {
   cancelApplicantInterview,
   markApplicantInterviewNoShow,
   archiveApplicantInterview,
+  permanentlyDeleteApplicantInterview,
 };
 

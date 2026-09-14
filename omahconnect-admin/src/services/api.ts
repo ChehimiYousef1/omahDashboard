@@ -1761,6 +1761,24 @@ export const archiveApplicantInterview =
   };
 
 
+
+export const permanentlyDeleteApplicantInterview =
+  async (
+    applicantId: string,
+    interviewId: string
+  ): Promise<{
+    deleted: boolean;
+    interviewId: string;
+  }> => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/interviews/${interviewId}/permanent`
+      );
+
+    return response.data.result;
+  };
+
+
 /* =========================
    DEVELOPER TOOLS API
 ========================= */

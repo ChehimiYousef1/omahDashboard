@@ -14,6 +14,7 @@ import {
   MapPin,
   Plus,
   RotateCcw,
+  Trash2,
   UserRound,
   Users,
   Video,
@@ -30,6 +31,7 @@ import {
   fetchApplicantInterviews,
   fetchApplicantInterviewMeetingProviders,
   markApplicantInterviewNoShow,
+  permanentlyDeleteApplicantInterview,
   updateApplicantInterview,
   type ApplicantFormSubmission,
   type ApplicantInterview,
@@ -1668,6 +1670,38 @@ export function ApplicantInterviewPanel({
   }
 
 
+
+  async function permanentlyDeleteInterview(
+    interview:
+      ApplicantInterview
+  ) {
+    if (
+      !window.confirm(
+        "Permanently delete this interview? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await permanentlyDeleteApplicantInterview(
+        applicant._id,
+        interview._id
+      );
+
+      await loadInterviews();
+    } catch (
+      deleteError
+    ) {
+      window.alert(
+        interviewErrorMessage(
+          deleteError
+        )
+      );
+    }
+  }
+
+
   function InterviewCard({
     interview,
   }: {
@@ -1797,6 +1831,21 @@ export function ApplicantInterviewPanel({
               </a>
             )
           }
+
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() =>
+                void permanentlyDeleteInterview(
+                  interview
+                )
+              }
+              className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-[11px] font-bold text-rose-700 hover:bg-rose-50"
+            >
+              <Trash2 className="mr-1 inline h-3.5 w-3.5" />
+              Delete Permanently
+            </button>
+          </div>
 
           <p className="mt-3 text-[10px] text-slate-400">
             Archived records are preserved for interview history and audit purposes.
@@ -2092,6 +2141,24 @@ export function ApplicantInterviewPanel({
                   Cancel
                 </button>
               </>
+            )
+          }
+
+          {
+            interview.status ===
+              "cancelled" && (
+              <button
+                type="button"
+                onClick={() =>
+                  void permanentlyDeleteInterview(
+                    interview
+                  )
+                }
+                className="rounded-lg border border-rose-200 px-3 py-2 text-[11px] font-bold text-rose-700 hover:bg-rose-50"
+              >
+                <Trash2 className="mr-1 inline h-3.5 w-3.5" />
+                Delete Permanently
+              </button>
             )
           }
 

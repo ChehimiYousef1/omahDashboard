@@ -448,6 +448,36 @@ module.exports = {
         },
       },
 
+    '/api/applicants/{id}/interviews/{interviewId}/permanent':
+      {
+        delete: {
+          tags: [
+            'Applicants',
+          ],
+
+          summary:
+            'Permanently delete an interview',
+
+          description:
+            'Irreversibly deletes an interview record. Only cancelled or archived interviews are eligible. If an archived online interview still has an external provider event, provider cleanup is attempted first. Permanent deletion is blocked if provider cleanup cannot be completed safely.',
+
+          parameters: [
+            idParameter,
+            interviewIdParameter,
+          ],
+
+          responses: {
+            200: {
+              description:
+                'Interview permanently deleted',
+            },
+
+            ...commonResponses,
+          },
+        },
+      },
+
+
     '/api/applicants/{id}/interviews/{interviewId}/complete':
       {
         post: {

@@ -85,6 +85,7 @@ const {
   cancelApplicantInterview,
   markApplicantInterviewNoShow,
   archiveApplicantInterview,
+  permanentlyDeleteApplicantInterview,
 } = require(
   '../../services/applicantInterviewService'
 );
@@ -124,6 +125,9 @@ const CONFLICT_CODES =
   new Set([
     'INTERVIEW_STATUS_CONFLICT',
     'INTERVIEW_NOT_EDITABLE',
+    'INTERVIEW_PERMANENT_DELETE_NOT_ALLOWED',
+    'INTERVIEW_PERMANENT_DELETE_PROVIDER_CLEANUP_FAILED',
+    'INTERVIEW_PERMANENT_DELETE_CONFLICT',
     'APPLICANT_NOT_ARCHIVABLE',
     'APPLICANT_NOT_RESTORABLE',
     'SUBMISSION_ALREADY_LINKED',
@@ -1256,6 +1260,46 @@ function createApplicantRouter({
         return res.json({
           success: true,
           interview,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * DELETE
+   * /api/applicants/:id/interviews/:interviewId/permanent
+   *
+   * Hard-delete only after lifecycle/provider
+   * safety checks succeed.
+   */
+  router.delete(
+    '/:id/interviews/:interviewId/permanent',
+
+    requireApplicantPermission(
+      'applicant:interviews:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await permanentlyDeleteApplicantInterview({
+            applicantId:
+              req.params.id,
+
+            interviewId:
+              req.params
+                .interviewId,
+          });
+
+        return res.json({
+          success: true,
+          result,
         });
       } catch (error) {
         return sendError(

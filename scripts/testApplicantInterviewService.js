@@ -23,6 +23,7 @@ const {
   completeApplicantInterview,
   cancelApplicantInterview,
   archiveApplicantInterview,
+  permanentlyDeleteApplicantInterview,
 } = require(
   '../services/applicantInterviewService'
 );
@@ -1429,38 +1430,339 @@ async function main() {
     'Duplicate schedule'
   );
 
-  const serviceSource =
-    require('fs')
-      .readFileSync(
-        require.resolve(
-          '../services/applicantInterviewService'
-        ),
-        'utf8'
-      );
-
-  for (
-    const forbidden
-    of [
-      'findByIdAndDelete',
-      'findOneAndDelete',
-      '.deleteOne(',
-      '.deleteMany(',
-    ]
-  ) {
-    assert.strictEqual(
-      serviceSource.includes(
-        forbidden
-      ),
-
-      false,
-
-      'Hard delete found: ' +
-        forbidden
-    );
-  }
+  /*
+   * Archive remains soft-delete.
+   * Hard-delete exists only through the
+   * explicitly protected permanent-delete
+   * service.
+   */
+  assert.strictEqual(
+    archivePayload.archived,
+    true
+  );
 
   console.log(
-    '✅ archive is soft-delete only'
+    '✅ archive remains soft-delete'
+  );
+
+
+  /*
+   * Active scheduled interviews cannot be
+   * permanently deleted.
+   */
+  const ScheduledDeleteModel = {
+    async findOne() {
+      return {
+        ...existingInterview,
+
+        status:
+          'scheduled',
+
+        archived:
+          false,
+      };
+    },
+
+    async findOneAndDelete() {
+      throw new Error(
+        'Scheduled interview must not be deleted.'
+      );
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      permanentlyDeleteApplicantInterview({
+        applicantId:
+          String(
+            applicantId
+          ),
+
+        interviewId:
+          String(
+            interviewId
+          ),
+
+        ApplicantModel,
+
+        InterviewModel:
+          ScheduledDeleteModel,
+      }),
+
+    /Only cancelled or archived interviews/
+  );
+
+
+  /*
+   * Cancelled interview can be permanently
+   * removed once provider cleanup is safe.
+   */
+  let permanentDeleteFilter =
+    null;
+
+  const CancelledDeleteModel = {
+    async findOne() {
+      return {
+        ...existingInterview,
+
+        status:
+          'cancelled',
+
+        archived:
+          false,
+
+        meeting: {
+          ...(
+            existingInterview
+              .meeting || {}
+          ),
+
+          provider:
+            'google_meet',
+
+          status:
+            'cancelled',
+
+          providerEventId:
+            'event-cancelled',
+
+          joinUrl:
+            '',
+        },
+      };
+    },
+
+    async findOneAndDelete(
+      filter
+    ) {
+      permanentDeleteFilter =
+        filter;
+
+      return {
+        _id:
+          interviewId,
+      };
+    },
+  };
+
+  const permanentlyDeleted =
+    await permanentlyDeleteApplicantInterview({
+      applicantId:
+        String(
+          applicantId
+        ),
+
+      interviewId:
+        String(
+          interviewId
+        ),
+
+      ApplicantModel,
+
+      InterviewModel:
+        CancelledDeleteModel,
+    });
+
+  assert.strictEqual(
+    permanentlyDeleted.deleted,
+    true
+  );
+
+  assert.ok(
+    permanentDeleteFilter
+  );
+
+
+  /*
+   * Archived online interviews with an
+   * existing provider event must clean up
+   * the external meeting before deletion.
+   */
+  const deleteOrder = [];
+
+  const ArchivedDeleteModel = {
+    async findOne() {
+      return {
+        ...existingInterview,
+
+        status:
+          'scheduled',
+
+        archived:
+          true,
+
+        format:
+          'online',
+
+        meeting: {
+          provider:
+            'google_meet',
+
+          status:
+            'created',
+
+          providerEventId:
+            'event-archived',
+
+          joinUrl:
+            'https://meet.google.com/test-archived',
+        },
+      };
+    },
+
+    async findOneAndDelete() {
+      deleteOrder.push(
+        'delete'
+      );
+
+      return {
+        _id:
+          interviewId,
+      };
+    },
+  };
+
+  await permanentlyDeleteApplicantInterview({
+    applicantId:
+      String(
+        applicantId
+      ),
+
+    interviewId:
+      String(
+        interviewId
+      ),
+
+    ApplicantModel,
+
+    InterviewModel:
+      ArchivedDeleteModel,
+
+    syncInterviewMeeting:
+      async ({
+        interview,
+      }) => {
+        deleteOrder.push(
+          'cleanup'
+        );
+
+        return {
+          ...interview,
+
+          meeting: {
+            ...interview.meeting,
+
+            status:
+              'cancelled',
+
+            joinUrl:
+              '',
+          },
+        };
+      },
+  });
+
+  assert.deepStrictEqual(
+    deleteOrder,
+
+    [
+      'cleanup',
+      'delete',
+    ]
+  );
+
+
+  /*
+   * Failed provider cleanup must block
+   * permanent deletion.
+   */
+  let unsafeDeleteCalled =
+    false;
+
+  const UnsafeArchivedDeleteModel = {
+    async findOne() {
+      return {
+        ...existingInterview,
+
+        status:
+          'scheduled',
+
+        archived:
+          true,
+
+        format:
+          'online',
+
+        meeting: {
+          provider:
+            'google_meet',
+
+          status:
+            'created',
+
+          providerEventId:
+            'event-unsafe',
+
+          joinUrl:
+            'https://meet.google.com/test-unsafe',
+        },
+      };
+    },
+
+    async findOneAndDelete() {
+      unsafeDeleteCalled =
+        true;
+
+      return {
+        _id:
+          interviewId,
+      };
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      permanentlyDeleteApplicantInterview({
+        applicantId:
+          String(
+            applicantId
+          ),
+
+        interviewId:
+          String(
+            interviewId
+          ),
+
+        ApplicantModel,
+
+        InterviewModel:
+          UnsafeArchivedDeleteModel,
+
+        syncInterviewMeeting:
+          async ({
+            interview,
+          }) => ({
+            ...interview,
+
+            meeting: {
+              ...interview.meeting,
+
+              status:
+                'error',
+            },
+          }),
+      }),
+
+    /could not be safely removed/
+  );
+
+  assert.strictEqual(
+    unsafeDeleteCalled,
+    false
+  );
+
+  console.log(
+    '✅ permanent delete is lifecycle + provider safe'
   );
 
 

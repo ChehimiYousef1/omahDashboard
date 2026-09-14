@@ -22,6 +22,7 @@ const routeSource =
 const expectedRoutes = [
   "'/:id/interviews'",
   "'/:id/interviews/:interviewId'",
+  "'/:id/interviews/:interviewId/permanent'",
   "'/:id/interviews/:interviewId/complete'",
   "'/:id/interviews/:interviewId/cancel'",
   "'/:id/interviews/:interviewId/no-show'",
@@ -65,6 +66,11 @@ const swaggerRoutes = [
   [
     'delete',
     '/api/applicants/{id}/interviews/{interviewId}',
+  ],
+
+  [
+    'delete',
+    '/api/applicants/{id}/interviews/{interviewId}/permanent',
   ],
 
   [
@@ -137,29 +143,15 @@ console.log(
 );
 
 
-for (
-  const forbidden
-  of [
-    'findByIdAndDelete',
-    'findOneAndDelete',
-    '.deleteOne(',
-    '.deleteMany(',
-  ]
-) {
-  assert.strictEqual(
-    routeSource.includes(
-      forbidden
-    ),
-
-    false,
-
-    'Hard-delete route operation found: ' +
-      forbidden
-  );
-}
+assert(
+  routeSource.includes(
+    "'/:id/interviews/:interviewId/permanent'"
+  ),
+  'Protected permanent-delete Interview API missing'
+);
 
 console.log(
-  '✅ no Interview hard-delete API introduced'
+  '✅ protected permanent-delete Interview API registered'
 );
 
 console.log(
