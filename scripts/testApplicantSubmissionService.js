@@ -54,6 +54,18 @@ async function testNewLink() {
 
   const result =
     await linkSubmissionToApplicant({
+      syncFormDocumentsFn:
+        async () => ({
+          status:
+            'synced',
+
+          inserted:
+            0,
+
+          alreadyManaged:
+            0,
+        }),
+
       applicantId: APPLICANT_A,
       submissionId: SUBMISSION,
       ApplicantModel,
@@ -108,6 +120,18 @@ async function testSameApplicantLink() {
 
   const result =
     await linkSubmissionToApplicant({
+      syncFormDocumentsFn:
+        async () => ({
+          status:
+            'synced',
+
+          inserted:
+            0,
+
+          alreadyManaged:
+            0,
+        }),
+
       applicantId: APPLICANT_A,
       submissionId: SUBMISSION,
       ApplicantModel,
@@ -148,6 +172,18 @@ async function testDifferentApplicantRejected() {
 
   try {
     await linkSubmissionToApplicant({
+      syncFormDocumentsFn:
+        async () => ({
+          status:
+            'synced',
+
+          inserted:
+            0,
+
+          alreadyManaged:
+            0,
+        }),
+
       applicantId: APPLICANT_B,
       submissionId: SUBMISSION,
       ApplicantModel,

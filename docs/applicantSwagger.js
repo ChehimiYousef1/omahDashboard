@@ -643,6 +643,450 @@ module.exports = {
       },
     },
 
+    '/api/applicants/documents/library': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get centralized Applicant document library',
+
+        description:
+          'Returns a read-only paginated inventory combining managed Applicant documents and immutable Form-submission documents for the current Applicant cohort. Managed document mutation continues to use the dedicated protected Applicant Document APIs.',
+
+        parameters: [
+          {
+            in: 'query',
+            name: 'q',
+            schema: {
+              type: 'string',
+            },
+            description:
+              'Applicant search text.',
+          },
+
+          {
+            in: 'query',
+            name: 'from',
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'to',
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'status',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'positionTrack',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'positionType',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'country',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'city',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'source',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'skill',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'tag',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'archived',
+            schema: {
+              type: 'string',
+              enum: [
+                'false',
+                'true',
+                'all',
+              ],
+              default: 'false',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'origin',
+            schema: {
+              type: 'string',
+              enum: [
+                'all',
+                'managed',
+                'form_submission',
+              ],
+              default: 'all',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'category',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'state',
+            schema: {
+              type: 'string',
+              enum: [
+                'current',
+                'historical',
+                'archived',
+                'all',
+              ],
+              default: 'current',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'fileQ',
+            schema: {
+              type: 'string',
+            },
+            description:
+              'Search document title, filename, category or managed source.',
+          },
+
+          {
+            in: 'query',
+            name: 'page',
+            schema: {
+              type: 'integer',
+              minimum: 1,
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'limit',
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 50,
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/analytics/drilldown': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get exact Applicant analytics drill-down',
+
+        description:
+          'Returns read-only exact operational Applicant or duplicate-case rows for a selected analytics condition. The endpoint uses the same Applicant cohort filters as the main Applicant analytics endpoint.',
+
+        parameters: [
+          {
+            in: 'query',
+            name: 'type',
+            required: true,
+            schema: {
+              type: 'string',
+              enum: [
+                'missing_cv',
+                'incomplete_profile',
+                'draft_evaluation',
+                'no_show',
+                'overdue_interview',
+                'no_submitted_evaluation',
+                'no_interview',
+                'high_confidence_duplicate',
+              ],
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'q',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'from',
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'to',
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'status',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'positionTrack',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'positionType',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'country',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'city',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'source',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'skill',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'tag',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'archived',
+            schema: {
+              type: 'string',
+              enum: [
+                'false',
+                'true',
+                'all',
+              ],
+              default: 'false',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'page',
+            schema: {
+              type: 'integer',
+              minimum: 1,
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'limit',
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 50,
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/analytics': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get Applicant recruitment analytics',
+
+        description:
+          'Returns professional server-side recruitment analytics including executive KPIs, all seven Applicant pipeline stages, current pipeline funnel data, recorded status-transition flow, Applicant trends, sources, evaluation averages and histograms, five evaluation criteria, interview status/outcome/type/format analytics, geography, education, skills, position segmentation, and cross-tab matrices. Historical time-in-stage and full historical conversion rates are intentionally excluded because legacy status-transition history is incomplete.',
+
+        parameters: [
+          {
+            in: 'query',
+            name: 'from',
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'to',
+            schema: {
+              type: 'string',
+              format: 'date',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'status',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'positionTrack',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'source',
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            in: 'query',
+            name: 'archived',
+            schema: {
+              type: 'string',
+              enum: [
+                'false',
+                'true',
+                'all',
+              ],
+              default: 'false',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
     '/api/applicants/pipeline': {
       get: {
         tags: [

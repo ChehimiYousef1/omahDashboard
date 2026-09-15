@@ -6,6 +6,7 @@ import {
 
 import {
   archiveApplicant,
+  fetchApplicantMaster,
   fetchApplicantPipeline,
   fetchApplicantSearchOptions,
   restoreApplicant,
@@ -25,6 +26,7 @@ import { ApplicantProfilePanel } from "../components/applicants/ApplicantProfile
 import { AdvancedApplicantFilters } from "../components/applicants/AdvancedApplicantFilters";
 import { DuplicateReviewPanel } from "../components/applicants/DuplicateReviewPanel";
 import { ApplicantPipelineBoard } from "../components/applicants/ApplicantPipelineBoard";
+import { ApplicantAnalyticsDashboard } from "../components/applicants/ApplicantAnalyticsDashboard";
 
 import {
   Archive,
@@ -156,8 +158,13 @@ export function ApplicationsPage({
     viewMode,
     setViewMode,
   ] = useState<
-    "table" | "pipeline"
+    "table" | "pipeline" | "analytics"
   >("table");
+
+  const [
+    duplicateReviewRequestKey,
+    setDuplicateReviewRequestKey,
+  ] = useState(0);
 
   const [
     pipelineApplicants,
@@ -406,6 +413,54 @@ export function ApplicationsPage({
     });
   }
 
+
+  function openApplicantsFromAnalytics(
+    filterPatch:
+      Partial<ApplicantSearchQuery>
+  ) {
+    setFilters(
+      current => ({
+        ...current,
+        ...filterPatch,
+        page: 1,
+      })
+    );
+
+    setViewMode(
+      "table"
+    );
+  }
+
+
+  function openDuplicateReviewFromAnalytics() {
+    setDuplicateReviewRequestKey(
+      current =>
+        current + 1
+    );
+  }
+
+
+  async function openApplicantFromAnalytics(
+    applicantId: string
+  ) {
+    try {
+      const applicant =
+        await fetchApplicantMaster(
+          applicantId
+        );
+
+      setSelectedApplicant(
+        applicant
+      );
+    } catch (openError) {
+      window.alert(
+        errorMessage(
+          openError
+        )
+      );
+    }
+  }
+
   function changePage(
     nextPage: number
   ) {
@@ -593,7 +648,7 @@ export function ApplicationsPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Header title="Applicants" />
 
       <div className="-mt-3 flex flex-col gap-4 border-b border-slate-100 pb-3 sm:flex-row sm:items-center sm:justify-between">
@@ -662,19 +717,44 @@ export function ApplicationsPage({
           >
             Pipeline View
           </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setViewMode(
+                "analytics"
+              )
+            }
+            className={
+              `rounded-md px-3 py-1.5 text-xs font-semibold ${
+                viewMode ===
+                "analytics"
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`
+            }
+          >
+            Analytics View
+          </button>
         </div>
 
-        {
-          viewMode ===
-            "pipeline" && (
-            <p className="text-[10px] text-slate-400">
-              Drag cards only to allowed stages.
-            </p>
-          )
-        }
-      </div>
+        <div className="flex items-center gap-3">
+          {
+            viewMode ===
+              "pipeline" && (
+              <p className="hidden text-[10px] text-slate-400 lg:block">
+                Drag cards only to allowed stages.
+              </p>
+            )
+          }
 
-      <DuplicateReviewPanel />
+          <DuplicateReviewPanel
+            openRequestKey={
+              duplicateReviewRequestKey
+            }
+          />
+        </div>
+      </div>
 
       <AdvancedApplicantFilters
         filters={filters}
@@ -693,7 +773,25 @@ export function ApplicationsPage({
         </p>
       )}
 
-      {viewMode === "pipeline" ? (
+      {viewMode === "analytics" ? (
+        <ApplicantAnalyticsDashboard
+          filters={
+            requestFilters
+          }
+
+          onViewApplicants={
+            openApplicantsFromAnalytics
+          }
+
+          onOpenDuplicateReview={
+            openDuplicateReviewFromAnalytics
+          }
+
+          onOpenApplicant={
+            openApplicantFromAnalytics
+          }
+        />
+      ) : viewMode === "pipeline" ? (
         <ApplicantPipelineBoard
           applicants={
             pipelineApplicants

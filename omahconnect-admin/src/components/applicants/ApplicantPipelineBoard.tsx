@@ -342,7 +342,7 @@ export function ApplicantPipelineBoard({
 
 
       <div className="overflow-x-auto pb-3">
-        <div className="grid min-w-[1960px] grid-cols-7 gap-3">
+        <div className="grid min-w-[1680px] grid-cols-7 gap-3">
           {stages.map(
             (stage) => {
               const stageApplicants =

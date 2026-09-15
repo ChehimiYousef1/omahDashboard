@@ -34,6 +34,10 @@ import {
   ApplicantDocumentPreviewModal,
 } from "./ApplicantDocumentPreviewModal";
 
+import {
+  ApplicantFormDocumentsSection,
+} from "./ApplicantFormDocumentsSection";
+
 interface ApplicantDocumentsPanelProps {
   applicantId: string;
 }
@@ -637,6 +641,22 @@ export function ApplicantDocumentsPanel({
     item:
       ApplicantDocument
   ) {
+    /*
+     * External Form documents must not be fetched
+     * as Blobs through Axios because their backend
+     * download endpoint redirects cross-origin.
+     *
+     * Open through the protected backend route
+     * instead.
+     */
+    if (
+      item.storage.provider ===
+      "external"
+    ) {
+      openDocument(item);
+      return;
+    }
+
     setPreviewDocument(item);
   }
 
@@ -891,7 +911,7 @@ export function ApplicantDocumentsPanel({
           </p>
 
           <p className="mt-1 text-[11px] text-slate-400">
-            Historical Form submission documents remain available below.
+            Original Form submission documents are shown in the section below.
           </p>
         </div>
       ) : (
@@ -1195,6 +1215,16 @@ export function ApplicantDocumentsPanel({
           )}
         </div>
       )}
+
+      <ApplicantFormDocumentsSection
+        applicantId={
+          applicantId
+        }
+
+        managedDocuments={
+          documents
+        }
+      />
 
       {previewDocument && (
         <ApplicantDocumentPreviewModal

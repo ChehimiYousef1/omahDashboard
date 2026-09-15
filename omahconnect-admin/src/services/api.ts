@@ -482,6 +482,593 @@ export interface ApplicantPipelineDefinition {
 }
 
 
+export interface ApplicantAnalyticsBreakdown {
+  key: string;
+  label: string;
+  count: number;
+  percent?: number;
+}
+
+
+export interface ApplicantAnalyticsPipelineStage {
+  status: ApplicantStatus;
+  label: string;
+  order: number;
+  terminal?: boolean;
+  count: number;
+  percent: number;
+}
+
+
+export interface ApplicantAnalyticsVolumePoint {
+  period: string;
+  count: number;
+  cumulative: number;
+}
+
+
+export interface ApplicantAnalyticsHistogramBin {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+  percent: number;
+}
+
+
+export interface ApplicantAnalyticsMatrixRow {
+  key: string;
+  label: string;
+  total: number;
+
+  values:
+    Record<
+      string,
+      number
+    >;
+}
+
+
+export interface ApplicantAnalyticsStatusFlow {
+  nodes:
+    Array<{
+      name: string;
+      status: ApplicantStatus;
+    }>;
+
+  links:
+    Array<{
+      source: number;
+      target: number;
+      value: number;
+      previousStatus: ApplicantStatus;
+      nextStatus: ApplicantStatus;
+    }>;
+
+  recordedTransitions: number;
+  firstRecordedAt: string | null;
+  lastRecordedAt: string | null;
+  historicalCoverage: string;
+}
+
+
+export interface ApplicantAnalyticsEvaluation {
+  total: number;
+  submitted: number;
+  draft: number;
+
+  averageRating:
+    number | null;
+
+  averageWeightedScore:
+    number | null;
+
+  minimumRating:
+    number | null;
+
+  maximumRating:
+    number | null;
+
+  minimumWeightedScore:
+    number | null;
+
+  maximumWeightedScore:
+    number | null;
+
+  positiveRecommendationRate:
+    number;
+
+  criteriaAverages:
+    Array<{
+      key: string;
+      label: string;
+      weight: number;
+
+      average:
+        number | null;
+    }>;
+
+  statuses:
+    ApplicantAnalyticsBreakdown[];
+
+  recommendations:
+    ApplicantAnalyticsBreakdown[];
+
+  ratingHistogram:
+    ApplicantAnalyticsHistogramBin[];
+
+  scoreHistogram:
+    ApplicantAnalyticsHistogramBin[];
+
+  trend:
+    ApplicantAnalyticsVolumePoint[];
+}
+
+
+export interface ApplicantAnalyticsInterviewTrendPoint {
+  period: string;
+  total: number;
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+  no_show: number;
+}
+
+
+export interface ApplicantAnalyticsInterview {
+  total: number;
+  completed: number;
+  noShow: number;
+
+  completionRate:
+    number;
+
+  noShowRate:
+    number;
+
+  recommendedOutcomeRate:
+    number;
+
+  statuses:
+    ApplicantAnalyticsBreakdown[];
+
+  outcomes:
+    ApplicantAnalyticsBreakdown[];
+
+  types:
+    ApplicantAnalyticsBreakdown[];
+
+  formats:
+    ApplicantAnalyticsBreakdown[];
+
+  trend:
+    ApplicantAnalyticsInterviewTrendPoint[];
+}
+
+
+export interface ApplicantAnalyticsSegmentation {
+  positions: {
+    tracks:
+      ApplicantAnalyticsBreakdown[];
+
+    types:
+      ApplicantAnalyticsBreakdown[];
+  };
+
+  geography: {
+    countries:
+      ApplicantAnalyticsBreakdown[];
+
+    cities:
+      ApplicantAnalyticsBreakdown[];
+  };
+
+  education: {
+    degreeLevels:
+      ApplicantAnalyticsBreakdown[];
+
+    universities:
+      ApplicantAnalyticsBreakdown[];
+
+    majors:
+      ApplicantAnalyticsBreakdown[];
+
+    studyStatuses:
+      ApplicantAnalyticsBreakdown[];
+  };
+
+  experience: {
+    technicalLevels:
+      ApplicantAnalyticsBreakdown[];
+  };
+
+  skills: {
+    primaryTechnical:
+      ApplicantAnalyticsBreakdown[];
+
+    programmingLanguages:
+      ApplicantAnalyticsBreakdown[];
+
+    frameworks:
+      ApplicantAnalyticsBreakdown[];
+
+    databases:
+      ApplicantAnalyticsBreakdown[];
+
+    cloudDevOps:
+      ApplicantAnalyticsBreakdown[];
+
+    dataAnalytics:
+      ApplicantAnalyticsBreakdown[];
+
+    dataEngineering:
+      ApplicantAnalyticsBreakdown[];
+
+    aiMl:
+      ApplicantAnalyticsBreakdown[];
+
+    softSkills:
+      ApplicantAnalyticsBreakdown[];
+  };
+}
+
+
+export interface ApplicantAnalyticsActivityItem {
+  id: string;
+  applicantId: string;
+  type: string;
+  category: string;
+  title: string;
+  description: string;
+  occurredAt: string | null;
+
+  actor: {
+    name: string;
+    role: string;
+  };
+}
+
+
+export interface ApplicantAnalyticsUpcomingInterview {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  type: string;
+  format: string;
+  status: string;
+  outcome: string;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+
+  organizer: {
+    name: string;
+    role: string;
+  };
+}
+
+
+export interface ApplicantAnalyticsRecentFeedback {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+
+  evaluator: {
+    name: string;
+    role: string;
+  };
+
+  recommendation: string;
+
+  averageRating:
+    number | null;
+
+  weightedScore:
+    number | null;
+
+  strengths: string;
+  concerns: string;
+  summary: string;
+  submittedAt: string | null;
+}
+
+
+export interface ApplicantAnalyticsManagement {
+  actionCenter: {
+    newNeedingReview: number;
+    draftEvaluations: number;
+    upcomingInterviews: number;
+    upcomingInterviewWindowDays: number;
+    overdueScheduledInterviews: number;
+    interviewNoShows: number;
+    awaitingOfferDecision: number;
+    unresolvedDuplicateCases: number;
+    highConfidenceDuplicateCases: number;
+    incompleteProfiles: number;
+    applicantsMissingCv: number;
+    applicantsWithoutSubmittedEvaluation: number;
+    applicantsWithoutInterview: number;
+  };
+
+  upcomingInterviews:
+    ApplicantAnalyticsUpcomingInterview[];
+
+  dataQuality: {
+    definition:
+      Array<{
+        key: string;
+        label: string;
+      }>;
+
+    fields:
+      Array<{
+        key: string;
+        label: string;
+        missing: number;
+        present: number;
+        coveragePercent: number;
+      }>;
+
+    profileFieldCoveragePercent:
+      number;
+
+    completeProfiles:
+      number;
+
+    incompleteProfiles:
+      number;
+
+    cvCoverage: {
+      applicantsWithCv: number;
+      applicantsMissingCv: number;
+      coveragePercent: number;
+    };
+  };
+
+  duplicates: {
+    total: number;
+    unresolved: number;
+    highConfidenceUnresolved: number;
+
+    statuses:
+      ApplicantAnalyticsBreakdown[];
+
+    confidence:
+      ApplicantAnalyticsBreakdown[];
+
+    decisions:
+      ApplicantAnalyticsBreakdown[];
+
+    recentUnresolved:
+      Array<{
+        id: string;
+        sourceApplicantId: string;
+        candidateApplicantId: string;
+        status: string;
+        confidence: string;
+        strongMatchCount: number;
+        matchedSignals: string[];
+        detectedAt: string | null;
+      }>;
+  };
+
+  submissions: {
+    total: number;
+    applicantsWithSubmissions: number;
+    applicantsWithMultipleSubmissions: number;
+    averageSubmissionsPerApplicant: number;
+
+    sources:
+      ApplicantAnalyticsBreakdown[];
+
+    historicalStatuses:
+      ApplicantAnalyticsBreakdown[];
+
+    trend:
+      ApplicantAnalyticsVolumePoint[];
+  };
+
+  documents: {
+    totalVersions: number;
+    currentActive: number;
+    archived: number;
+    applicantsWithCv: number;
+    applicantsMissingCv: number;
+    cvCoveragePercent: number;
+
+    types:
+      ApplicantAnalyticsBreakdown[];
+
+    sources:
+      ApplicantAnalyticsBreakdown[];
+
+    trend:
+      ApplicantAnalyticsVolumePoint[];
+  };
+
+  feedback: {
+    recent:
+      ApplicantAnalyticsRecentFeedback[];
+  };
+
+  communications: {
+    total: number;
+    emailSent: number;
+    whatsappSent: number;
+
+    trend:
+      Array<{
+        period: string;
+        email: number;
+        whatsapp: number;
+        total: number;
+      }>;
+
+    recent:
+      Array<{
+        id: string;
+        applicantId: string;
+        type: string;
+        title: string;
+        occurredAt: string | null;
+
+        actor: {
+          name: string;
+          role: string;
+        };
+
+        subject: string;
+        provider: string;
+      }>;
+  };
+
+  recentActivity:
+    ApplicantAnalyticsActivityItem[];
+}
+
+
+export interface ApplicantRecruitmentAnalytics {
+  analyticsVersion: number;
+
+  summary: {
+    totalApplicants: number;
+    activeApplicants: number;
+    archivedApplicants: number;
+
+    newApplicants: number;
+    underReview: number;
+    shortlisted: number;
+    interviewStage: number;
+    offered: number;
+    hired: number;
+    rejected: number;
+
+    interviews: number;
+    submittedEvaluations: number;
+
+    averageEvaluationRating:
+      number | null;
+
+    averageWeightedScore:
+      number | null;
+
+    interviewCompletionRate:
+      number;
+
+    interviewNoShowRate:
+      number;
+
+    positiveRecommendationRate:
+      number;
+
+    recordedStatusTransitions:
+      number;
+  };
+
+  pipeline:
+    ApplicantAnalyticsPipelineStage[];
+
+  volumeOverTime:
+    ApplicantAnalyticsVolumePoint[];
+
+  sources:
+    ApplicantAnalyticsBreakdown[];
+
+  evaluations:
+    ApplicantAnalyticsEvaluation;
+
+  interviews:
+    ApplicantAnalyticsInterview;
+
+  pipelineAnalytics: {
+    stages:
+      ApplicantAnalyticsPipelineStage[];
+
+    funnel:
+      Array<
+        ApplicantAnalyticsPipelineStage & {
+          relativeWidth: number;
+        }
+      >;
+
+    positionByStage:
+      ApplicantAnalyticsMatrixRow[];
+
+    sourceByStage:
+      ApplicantAnalyticsMatrixRow[];
+
+    recordedFlow:
+      ApplicantAnalyticsStatusFlow;
+  };
+
+  trends: {
+    applications:
+      ApplicantAnalyticsVolumePoint[];
+
+    evaluations:
+      ApplicantAnalyticsVolumePoint[];
+
+    interviews:
+      ApplicantAnalyticsInterviewTrendPoint[];
+
+    activity:
+      ApplicantAnalyticsVolumePoint[];
+  };
+
+  segmentation:
+    ApplicantAnalyticsSegmentation;
+
+  activity: {
+    total: number;
+
+    categories:
+      ApplicantAnalyticsBreakdown[];
+
+    trend:
+      ApplicantAnalyticsVolumePoint[];
+
+    statusFlow:
+      ApplicantAnalyticsStatusFlow;
+  };
+
+  management:
+    ApplicantAnalyticsManagement;
+
+  filters: {
+    q: string;
+    from: string | null;
+    to: string | null;
+    status: string;
+    positionTrack: string;
+    positionType: string;
+    country: string;
+    city: string;
+    source: string;
+    skill: string;
+    tag: string;
+
+    archived:
+      ApplicantLifecycleFilter;
+  };
+
+  metadata: {
+    historicalStatusCoverage: string;
+
+    firstRecordedStatusTransitionAt:
+      string | null;
+
+    lastRecordedStatusTransitionAt:
+      string | null;
+
+    timeInStageAvailable:
+      boolean;
+
+    historicalConversionAvailable:
+      boolean;
+  };
+}
+
+
 export type ApplicantLifecycleFilter =
   | "false"
   | "true"
@@ -939,6 +1526,455 @@ export const resolveApplicantDuplicateCase =
 
     return response.data
       .duplicateCase;
+  };
+
+
+export type ApplicantAnalyticsDrilldownType =
+  | "missing_cv"
+  | "incomplete_profile"
+  | "draft_evaluation"
+  | "no_show"
+  | "overdue_interview"
+  | "no_submitted_evaluation"
+  | "no_interview"
+  | "high_confidence_duplicate";
+
+
+export interface ApplicantAnalyticsDrilldownApplicant {
+  id: string;
+  applicantCode: string;
+  fullName: string;
+  email: string;
+  country: string;
+  city: string;
+  positionTrack: string;
+  positionType: string;
+  status: string;
+  firstAppliedAt: string | null;
+}
+
+
+export interface ApplicantAnalyticsDrilldownApplicantItem {
+  kind: "applicant";
+
+  applicant:
+    ApplicantAnalyticsDrilldownApplicant;
+
+  reason: string;
+  recordCount: number;
+  latestAt: string | null;
+  missingFields: string[];
+}
+
+
+export interface ApplicantAnalyticsDrilldownDuplicateItem {
+  kind: "duplicate";
+
+  id: string;
+  status: string;
+  confidence: string;
+  strongMatchCount: number;
+  matchedSignals: string[];
+  detectedAt: string | null;
+
+  sourceApplicant:
+    ApplicantAnalyticsDrilldownApplicant |
+    null;
+
+  candidateApplicant:
+    ApplicantAnalyticsDrilldownApplicant |
+    null;
+}
+
+
+export type ApplicantAnalyticsDrilldownItem =
+  | ApplicantAnalyticsDrilldownApplicantItem
+  | ApplicantAnalyticsDrilldownDuplicateItem;
+
+
+export interface ApplicantAnalyticsDrilldownResponse {
+  type:
+    ApplicantAnalyticsDrilldownType;
+
+  label: string;
+  description: string;
+  recordCount: number;
+  applicantCount: number;
+
+  items:
+    ApplicantAnalyticsDrilldownItem[];
+
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+
+  filters:
+    Record<string, unknown>;
+}
+
+
+export const fetchApplicantAnalyticsDrilldown =
+  async (
+    type:
+      ApplicantAnalyticsDrilldownType,
+
+    query:
+      ApplicantSearchQuery = {},
+
+    page = 1,
+
+    limit = 50
+  ): Promise<
+    ApplicantAnalyticsDrilldownResponse
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/analytics/drilldown",
+        {
+          params: {
+            type,
+
+            q:
+              query.q,
+
+            from:
+              query.appliedFrom,
+
+            to:
+              query.appliedTo,
+
+            status:
+              query.status,
+
+            positionTrack:
+              query.positionTrack,
+
+            positionType:
+              query.positionType,
+
+            country:
+              query.country,
+
+            city:
+              query.city,
+
+            source:
+              query.source,
+
+            skill:
+              query.skill,
+
+            tag:
+              query.tag,
+
+            archived:
+              query.archived ||
+              "false",
+
+            page,
+            limit,
+          },
+        }
+      );
+
+    return response
+      .data
+      .drilldown;
+  };
+
+
+
+export type ApplicantDocumentLibraryOrigin =
+  | "all"
+  | "managed"
+  | "form_submission";
+
+export type ApplicantDocumentLibraryState =
+  | "current"
+  | "historical"
+  | "archived"
+  | "all";
+
+export interface ApplicantDocumentLibraryApplicant {
+  id: string;
+  applicantCode: string;
+  fullName: string;
+  email: string;
+  country: string;
+  city: string;
+  positionTrack: string;
+  positionType: string;
+  status: string;
+}
+
+export interface ApplicantDocumentLibraryManagedInfo {
+  documentId: string;
+  documentGroupId: string;
+  documentType: string;
+  source: string;
+  version: number;
+  isCurrent: boolean;
+  archived: boolean;
+  archiveReason: string;
+}
+
+export interface ApplicantDocumentLibraryFormInfo {
+  submissionId: string;
+  field: string;
+  externalUrl: string | null;
+  readOnly: boolean;
+}
+
+export interface ApplicantDocumentLibraryItem {
+  id: string;
+
+  origin:
+    | "managed"
+    | "form_submission";
+
+  state:
+    | "current"
+    | "historical"
+    | "archived"
+    | "submitted";
+
+  category: string;
+  categoryLabel: string;
+
+  title: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+
+  date: string | null;
+
+  applicant:
+    ApplicantDocumentLibraryApplicant;
+
+  managed:
+    ApplicantDocumentLibraryManagedInfo |
+    null;
+
+  form:
+    ApplicantDocumentLibraryFormInfo |
+    null;
+
+  available: boolean;
+}
+
+export interface ApplicantDocumentLibraryBreakdown {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ApplicantDocumentLibraryResponse {
+  summary: {
+    totalApplicants: number;
+    applicantsWithAnyDocument: number;
+    applicantsWithoutAnyDocument: number;
+    applicantsWithCv: number;
+    applicantsMissingCv: number;
+
+    totalManagedVersions: number;
+    managedCurrent: number;
+    managedHistorical: number;
+    managedArchived: number;
+
+    formSubmitted: number;
+    currentInventoryFiles: number;
+  };
+
+  items:
+    ApplicantDocumentLibraryItem[];
+
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+
+  breakdowns: {
+    categories:
+      ApplicantDocumentLibraryBreakdown[];
+
+    origins:
+      ApplicantDocumentLibraryBreakdown[];
+
+    managedSources:
+      ApplicantDocumentLibraryBreakdown[];
+  };
+
+  filterOptions: {
+    categories: string[];
+    origins:
+      ApplicantDocumentLibraryOrigin[];
+    states:
+      ApplicantDocumentLibraryState[];
+  };
+
+  filters:
+    Record<string, unknown>;
+}
+
+export interface ApplicantDocumentLibraryQuery {
+  origin?:
+    ApplicantDocumentLibraryOrigin;
+
+  category?: string;
+
+  state?:
+    ApplicantDocumentLibraryState;
+
+  fileQ?: string;
+
+  page?: number;
+  limit?: number;
+}
+
+export const fetchApplicantDocumentLibrary =
+  async (
+    applicantQuery:
+      ApplicantSearchQuery = {},
+
+    libraryQuery:
+      ApplicantDocumentLibraryQuery = {}
+  ): Promise<
+    ApplicantDocumentLibraryResponse
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/documents/library",
+        {
+          params: {
+            q:
+              applicantQuery.q,
+
+            from:
+              applicantQuery.appliedFrom,
+
+            to:
+              applicantQuery.appliedTo,
+
+            status:
+              applicantQuery.status,
+
+            positionTrack:
+              applicantQuery.positionTrack,
+
+            positionType:
+              applicantQuery.positionType,
+
+            country:
+              applicantQuery.country,
+
+            city:
+              applicantQuery.city,
+
+            source:
+              applicantQuery.source,
+
+            skill:
+              applicantQuery.skill,
+
+            tag:
+              applicantQuery.tag,
+
+            archived:
+              applicantQuery.archived ||
+              "false",
+
+            origin:
+              libraryQuery.origin ||
+              "all",
+
+            category:
+              libraryQuery.category ||
+              "all",
+
+            state:
+              libraryQuery.state ||
+              "current",
+
+            fileQ:
+              libraryQuery.fileQ,
+
+            page:
+              libraryQuery.page ||
+              1,
+
+            limit:
+              libraryQuery.limit ||
+              25,
+          },
+        }
+      );
+
+    return response
+      .data
+      .library;
+  };
+
+
+export const fetchApplicantAnalytics =
+  async (
+    query:
+      ApplicantSearchQuery = {}
+  ): Promise<
+    ApplicantRecruitmentAnalytics
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/analytics",
+        {
+          params: {
+            q:
+              query.q,
+
+            from:
+              query.appliedFrom,
+
+            to:
+              query.appliedTo,
+
+            status:
+              query.status,
+
+            positionTrack:
+              query.positionTrack,
+
+            positionType:
+              query.positionType,
+
+            country:
+              query.country,
+
+            city:
+              query.city,
+
+            source:
+              query.source,
+
+            skill:
+              query.skill,
+
+            tag:
+              query.tag,
+
+            archived:
+              query.archived ||
+              "false",
+          },
+        }
+      );
+
+    return response
+      .data
+      .analytics;
   };
 
 
@@ -2214,12 +3250,27 @@ export const restoreApplicantDocumentRecord = async (
 export const applicantDocumentDownloadUrl = (
   applicantId: string,
   documentId: string
-): string =>
-  `/api/applicants/${encodeURIComponent(
+): string => {
+  /*
+   * This URL is used by window.open()/normal browser
+   * navigation, not by Axios.
+   *
+   * Therefore it must include the configured backend
+   * origin. A relative /api URL would be resolved
+   * against the frontend Vite/dashboard origin.
+   */
+  const apiBaseUrl =
+    (
+      import.meta.env.VITE_API_URL ||
+      "http://localhost:5000/api"
+    ).replace(/\/+$/, "");
+
+  return `${apiBaseUrl}/applicants/${encodeURIComponent(
     applicantId
   )}/documents/${encodeURIComponent(
     documentId
   )}/download`;
+};
 
 export const fetchApplicantDocumentBlob = async (
   applicantId: string,
@@ -2244,28 +3295,42 @@ export const downloadApplicantDocumentFile = async (
   documentId: string,
   fileName: string
 ): Promise<void> => {
-  const blob =
-    await fetchApplicantDocumentBlob(
+  /*
+   * Always navigate through the protected backend
+   * document endpoint instead of fetching a Blob
+   * through Axios.
+   *
+   * Why:
+   * - local  -> backend returns the file
+   * - s3     -> backend redirects to signed URL
+   * - external -> backend redirects to original URL
+   *
+   * Browser navigation can safely follow cross-origin
+   * redirects without the CORS failure caused by an
+   * XMLHttpRequest / Axios Blob request.
+   */
+  const link =
+    window.document.createElement("a");
+
+  link.href =
+    applicantDocumentDownloadUrl(
       applicantId,
       documentId
     );
 
-  const url =
-    URL.createObjectURL(blob);
-
-  const link =
-    window.document.createElement("a");
-
-  link.href = url;
   link.download =
     fileName || "document";
 
-  window.document.body.appendChild(link);
+  link.target =
+    "_blank";
+
+  link.rel =
+    "noopener noreferrer";
+
+  window.document.body.appendChild(
+    link
+  );
+
   link.click();
   link.remove();
-
-  window.setTimeout(
-    () => URL.revokeObjectURL(url),
-    1000
-  );
 };

@@ -30,6 +30,12 @@ const {
   './applicantDuplicateCaseService'
 );
 
+const {
+  syncFormSubmissionDocuments,
+} = require(
+  './applicantFormDocumentMigrationService'
+);
+
 function serviceError(
   code,
   message
@@ -106,6 +112,9 @@ async function ensureApplicantIngestion({
 
   createDuplicateCaseFn =
     createOrReuseDuplicateCase,
+
+  syncFormDocumentsFn =
+    syncFormSubmissionDocuments,
 }) {
   if (!submissionId) {
     throw serviceError(
@@ -196,6 +205,29 @@ async function ensureApplicantIngestion({
     }
   }
 
+  /*
+   * Once the Applicant relationship is guaranteed,
+   * synchronize Form attachments into the managed
+   * document system.
+   *
+   * If this fails, the immutable submission and
+   * Applicant link remain preserved. A later replay
+   * can safely repair the missing document records.
+   */
+  const documentSync =
+    await syncFormDocumentsFn({
+      submissionId,
+
+      applicantId:
+        creation.applicantId,
+
+      SubmissionModel,
+
+      uploadedBy:
+        'system:applicant-ingestion',
+    });
+
+
   return {
     submissionId:
       String(submissionId),
@@ -207,6 +239,8 @@ async function ensureApplicantIngestion({
 
     applicantStatus:
       creation.status,
+
+    documentSync,
 
     duplicateCandidates:
       candidates.length,

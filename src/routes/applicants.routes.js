@@ -12,6 +12,28 @@ const {
   '../../services/applicantSearchService'
 );
 
+
+const {
+  getApplicantAnalytics,
+} = require(
+  '../../services/applicantAnalyticsService'
+);
+
+
+const {
+  APPLICANT_ANALYTICS_DRILLDOWN_TYPES,
+  getApplicantAnalyticsDrilldown,
+} = require(
+  '../../services/applicantAnalyticsDrilldownService'
+);
+
+
+const {
+  getApplicantDocumentLibrary,
+} = require(
+  '../../services/applicantDocumentLibraryService'
+);
+
 const {
   editApplicantProfile,
 } = require(
@@ -366,6 +388,15 @@ function createApplicantRouter({
   getTimeline =
     getApplicantTimeline,
 
+  getAnalytics =
+    getApplicantAnalytics,
+
+  getAnalyticsDrilldown =
+    getApplicantAnalyticsDrilldown,
+
+  getDocumentLibrary =
+    getApplicantDocumentLibrary,
+
   recordActivity =
     recordApplicantActivity,
 
@@ -540,6 +571,141 @@ function createApplicantRouter({
         success: true,
         pipeline,
       });
+    }
+  );
+
+
+  /*
+   * GET /api/applicants/documents/library
+   *
+   * Central read-only document inventory.
+   *
+   * Combines current/versioned ApplicantDocument
+   * records with immutable Form submission
+   * document references.
+   */
+  router.get(
+    '/documents/library',
+
+    requireApplicantPermission(
+      'applicant:documents:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const library =
+          await getDocumentLibrary({
+            query:
+              req.query,
+          });
+
+        return res.json({
+          success: true,
+          library,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * GET /api/applicants/analytics/drilldown
+   *
+   * Read-only operational Applicant analytics
+   * drill-down. Uses the same Applicant cohort
+   * filters as the main analytics endpoint.
+   */
+  router.get(
+    '/analytics/drilldown',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const type =
+          String(
+            req.query
+              ?.type ||
+            ''
+          ).trim();
+
+        if (
+          !APPLICANT_ANALYTICS_DRILLDOWN_TYPES
+            .includes(
+              type
+            )
+        ) {
+          return res
+            .status(400)
+            .json({
+              success: false,
+              error:
+                'Unsupported Applicant analytics drill-down type.',
+            });
+        }
+
+        const drilldown =
+          await getAnalyticsDrilldown({
+            query:
+              req.query,
+          });
+
+        return res.json({
+          success: true,
+          drilldown,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * GET /api/applicants/analytics
+   *
+   * Server-side recruitment analytics.
+   *
+   * Historical time-in-stage and time-to-hire
+   * are intentionally not calculated because
+   * legacy Applicants do not have complete
+   * status-transition history.
+   */
+  router.get(
+    '/analytics',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const analytics =
+          await getAnalytics({
+            query:
+              req.query,
+          });
+
+        return res.json({
+          success: true,
+          analytics,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
     }
   );
 

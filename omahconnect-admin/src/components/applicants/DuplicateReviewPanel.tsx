@@ -1,6 +1,4 @@
-import {
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import {
   AlertTriangle,
@@ -111,7 +109,14 @@ function ApplicantComparisonCard({
 }
 
 
-export function DuplicateReviewPanel() {
+interface DuplicateReviewPanelProps {
+  openRequestKey?: number;
+}
+
+
+export function DuplicateReviewPanel({
+  openRequestKey = 0,
+}: DuplicateReviewPanelProps) {
   const [
     open,
     setOpen,
@@ -164,6 +169,23 @@ export function DuplicateReviewPanel() {
         string
       >
     >({});
+
+
+  useEffect(() => {
+    if (
+      openRequestKey <= 0
+    ) {
+      return;
+    }
+
+    setOpen(true);
+
+    void loadCases(
+      status
+    );
+  }, [
+    openRequestKey,
+  ]);
 
 
   async function loadCases(
@@ -270,7 +292,7 @@ export function DuplicateReviewPanel() {
 
   return (
     <>
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={

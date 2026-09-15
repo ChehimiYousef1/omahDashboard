@@ -85,6 +85,18 @@ async function testNewApplicantNoDuplicates() {
       findDuplicateCandidatesFn:
         async () => [],
 
+      syncFormDocumentsFn:
+        async () => ({
+          status:
+            'synced',
+
+          inserted:
+            0,
+
+          alreadyManaged:
+            0,
+        }),
+
       createDuplicateCaseFn:
         async () => {
           throw new Error(
@@ -196,6 +208,18 @@ async function testDuplicateCaseCreated() {
           },
         ],
 
+      syncFormDocumentsFn:
+        async () => ({
+          status:
+            'synced',
+
+          inserted:
+            0,
+
+          alreadyManaged:
+            0,
+        }),
+
       createDuplicateCaseFn:
         async ({
           sourceApplicant,
@@ -305,6 +329,18 @@ async function testReplayReusesExistingCase() {
               CANDIDATE_ID,
           },
         ],
+
+      syncFormDocumentsFn:
+        async () => ({
+          status:
+            'synced',
+
+          inserted:
+            0,
+
+          alreadyManaged:
+            0,
+        }),
 
       createDuplicateCaseFn:
         async () => ({

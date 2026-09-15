@@ -6,6 +6,12 @@ const Applicant = require('../models/Applicant');
 const ApplicantFormSubmission =
   require('../models/ApplicantFormSubmission');
 
+const {
+  syncFormSubmissionDocuments,
+} = require(
+  './applicantFormDocumentMigrationService'
+);
+
 /*
 |--------------------------------------------------------------------------
 | Errors
@@ -62,6 +68,9 @@ async function linkSubmissionToApplicant({
   submissionId,
   ApplicantModel = Applicant,
   SubmissionModel = ApplicantFormSubmission,
+
+  syncFormDocumentsFn =
+    syncFormSubmissionDocuments,
 }) {
   const applicantObjectId =
     toObjectId(applicantId, 'applicantId');
@@ -102,6 +111,19 @@ async function linkSubmissionToApplicant({
       existingApplicantId ===
       String(applicantObjectId)
     ) {
+      await syncFormDocumentsFn({
+        submissionId:
+          submissionObjectId,
+
+        applicantId:
+          applicantObjectId,
+
+        SubmissionModel,
+
+        uploadedBy:
+          'system:manual-submission-link',
+      });
+
       return {
         status: 'already-linked',
         applicantId:
@@ -137,6 +159,19 @@ async function linkSubmissionToApplicant({
       'Submission could not be linked because its relationship changed.'
     );
   }
+
+  await syncFormDocumentsFn({
+    submissionId:
+      submissionObjectId,
+
+    applicantId:
+      applicantObjectId,
+
+    SubmissionModel,
+
+    uploadedBy:
+      'system:manual-submission-link',
+  });
 
   return {
     status: 'linked',
