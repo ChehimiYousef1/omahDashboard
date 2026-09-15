@@ -28,9 +28,9 @@ export const applicantManagementActions:
   ApplicantManagementAction[] = [
     {
       id: "send-email",
-      label: "Send Email",
+      label: "Communicate",
       description:
-        "Communication will be connected in the dedicated Email & WhatsApp enhancement.",
+        "Contact this Applicant by Email or WhatsApp.",
       availability:
         "available",
     },

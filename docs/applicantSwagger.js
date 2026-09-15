@@ -663,6 +663,223 @@ module.exports = {
       },
     },
 
+    '/api/applicants/communications/providers': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get Applicant communication provider status',
+
+        description:
+          'Returns safe runtime readiness information for Applicant email and WhatsApp communication providers. No credentials, access tokens, passwords, or provider identifiers are exposed.',
+
+        responses: {
+          200: {
+            description:
+              'Communication provider readiness status',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/communications/email': {
+      post: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Send an email to an Applicant',
+
+        description:
+          'Sends an email to the address stored on the Applicant master profile. The recipient email cannot be supplied by the client.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'subject',
+                  'body',
+                ],
+
+                properties: {
+                  subject: {
+                    type:
+                      'string',
+
+                    minLength:
+                      1,
+                  },
+
+                  body: {
+                    type:
+                      'string',
+
+                    minLength:
+                      1,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200: {
+            description:
+              'Email sent successfully',
+          },
+
+          400: {
+            description:
+              'Invalid email communication request',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          404: {
+            $ref:
+              '#/components/responses/NotFound',
+          },
+
+          503: {
+            description:
+              'Email delivery provider is not configured or unavailable',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/communications/whatsapp': {
+      post: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Send a WhatsApp message to an Applicant',
+
+        description:
+          'Sends a WhatsApp message through the configured WhatsApp Business provider. The recipient number is resolved from the Applicant master profile and cannot be supplied by the client.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'message',
+                ],
+
+                properties: {
+                  message: {
+                    type:
+                      'string',
+
+                    minLength:
+                      1,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200: {
+            description:
+              'WhatsApp message accepted by the configured provider',
+          },
+
+          400: {
+            description:
+              'Invalid WhatsApp communication request',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          404: {
+            $ref:
+              '#/components/responses/NotFound',
+          },
+
+          502: {
+            description:
+              'WhatsApp provider rejected the request or could not be reached',
+          },
+
+          503: {
+            description:
+              'WhatsApp delivery is disabled or not configured',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
     '/api/applicants/{id}/profile': {
       patch: {
         tags: ['Applicants'],

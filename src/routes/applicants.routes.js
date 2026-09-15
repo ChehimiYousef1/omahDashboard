@@ -105,6 +105,21 @@ const {
 );
 
 
+const {
+  sendApplicantEmail,
+  sendApplicantWhatsApp,
+} = require(
+  '../../services/applicantCommunicationService'
+);
+
+
+const {
+  getWhatsAppCloudStatus,
+} = require(
+  '../../services/whatsappCloudService'
+);
+
+
 /*
 |--------------------------------------------------------------------------
 | API Error Mapping
@@ -120,6 +135,21 @@ const NOT_FOUND_CODES =
     'DUPLICATE_CASE_NOT_FOUND',
     'EVALUATION_NOT_FOUND',
   ]);
+
+const SERVICE_UNAVAILABLE_CODES =
+  new Set([
+    'APPLICANT_EMAIL_TRANSPORT_UNAVAILABLE',
+    'APPLICANT_EMAIL_SENDER_REQUIRED',
+    'WHATSAPP_DISABLED',
+    'WHATSAPP_NOT_CONFIGURED',
+  ]);
+
+
+const BAD_GATEWAY_CODES =
+  new Set([
+    'WHATSAPP_PROVIDER_ERROR',
+  ]);
+
 
 const CONFLICT_CODES =
   new Set([
@@ -163,6 +193,22 @@ function statusForError(error) {
     )
   ) {
     return 409;
+  }
+
+  if (
+    SERVICE_UNAVAILABLE_CODES.has(
+      error?.code
+    )
+  ) {
+    return 503;
+  }
+
+  if (
+    BAD_GATEWAY_CODES.has(
+      error?.code
+    )
+  ) {
+    return 502;
   }
 
   if (
@@ -217,6 +263,12 @@ function createApplicantRouter({
 
   transporter =
     null,
+
+  sendCommunicationEmail =
+    sendApplicantEmail,
+
+  sendCommunicationWhatsApp =
+    sendApplicantWhatsApp,
 
   ApplicantModel =
     Applicant,
@@ -1358,7 +1410,157 @@ function createApplicantRouter({
   );
 
 
-/*
+  /*
+   * GET
+   * /api/applicants/communications/providers
+   *
+   * Read-only communication provider status.
+   * Does not expose credentials or secrets.
+   */
+  router.get(
+    '/communications/providers',
+
+    requireApplicantPermission(
+      'applicant:communicate'
+    ),
+
+    (req, res) => {
+      try {
+        const whatsapp =
+          getWhatsAppCloudStatus();
+
+        const emailReady =
+          Boolean(
+            transporter &&
+            typeof transporter.sendMail ===
+              'function'
+          );
+
+        return res.json({
+          success: true,
+
+          providers: {
+            email: {
+              provider:
+                'smtp',
+
+              ready:
+                emailReady,
+            },
+
+            whatsapp: {
+              provider:
+                whatsapp.provider,
+
+              enabled:
+                whatsapp.enabled,
+
+              configured:
+                whatsapp.configured,
+
+              ready:
+                whatsapp.ready,
+            },
+          },
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/communications/email
+   *
+   * Sends an email to the address stored on the
+   * Applicant master profile.
+   */
+  router.post(
+    '/:id/communications/email',
+
+    requireApplicantPermission(
+      'applicant:communicate'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await sendCommunicationEmail({
+            applicantId:
+              req.params.id,
+
+            subject:
+              req.body?.subject,
+
+            body:
+              req.body?.body,
+
+            transporter,
+
+            ApplicantModel,
+          });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/:id/communications/whatsapp
+   *
+   * Sends a WhatsApp message directly through
+   * the configured WhatsApp provider.
+   */
+  router.post(
+    '/:id/communications/whatsapp',
+
+    requireApplicantPermission(
+      'applicant:communicate'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await sendCommunicationWhatsApp({
+            applicantId:
+              req.params.id,
+
+            message:
+              req.body?.message,
+
+            ApplicantModel,
+          });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
    * PATCH /api/applicants/:id/profile
    */
   router.patch(

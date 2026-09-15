@@ -1780,6 +1780,99 @@ export const permanentlyDeleteApplicantInterview =
 
 
 /* =========================
+   APPLICANT COMMUNICATIONS
+========================= */
+
+export interface ApplicantCommunicationProviders {
+  email: {
+    provider: string;
+    ready: boolean;
+  };
+
+  whatsapp: {
+    provider: string;
+    enabled: boolean;
+    configured: boolean;
+    ready: boolean;
+  };
+}
+
+export const fetchApplicantCommunicationProviders =
+  async (): Promise<ApplicantCommunicationProviders> => {
+    const response =
+      await apiClient.get(
+        "/applicants/communications/providers"
+      );
+
+    return response.data.providers;
+  };
+
+
+export interface ApplicantEmailPayload {
+  subject: string;
+  body: string;
+}
+
+export interface ApplicantEmailResult {
+  sent: boolean;
+  applicantId: string;
+
+  recipient: {
+    name: string;
+    email: string;
+  };
+}
+
+export const sendApplicantEmail =
+  async (
+    applicantId: string,
+    payload:
+      ApplicantEmailPayload
+  ): Promise<ApplicantEmailResult> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/communications/email`,
+        payload
+      );
+
+    return response.data.result;
+  };
+
+
+export interface ApplicantWhatsAppPayload {
+  message: string;
+}
+
+export interface ApplicantWhatsAppResult {
+  sent: boolean;
+  provider: string;
+  applicantId: string;
+
+  recipient: {
+    name: string;
+    whatsappNumber: string;
+  };
+
+  messageId: string;
+}
+
+export const sendApplicantWhatsApp =
+  async (
+    applicantId: string,
+    payload:
+      ApplicantWhatsAppPayload
+  ): Promise<ApplicantWhatsAppResult> => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/communications/whatsapp`,
+        payload
+      );
+
+    return response.data.result;
+  };
+
+
+/* =========================
    DEVELOPER TOOLS API
 ========================= */
 export interface DbSummary {

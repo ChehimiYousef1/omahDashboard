@@ -41,6 +41,11 @@ import {
   ApplicantInterviewPanel,
 } from "./ApplicantInterviewPanel";
 
+
+import {
+  ApplicantCommunicationsPanel,
+} from "./ApplicantCommunicationsPanel";
+
 import {
   ApplicantDocumentsPanel,
 } from "./ApplicantDocumentsPanel";
@@ -583,8 +588,8 @@ export function ApplicantProfilePanel({
         break;
 
       case "send-email":
-        window.alert(
-          "Applicant communication will be connected in the dedicated Email & WhatsApp enhancement."
+        openTab(
+          "communications"
         );
         break;
     }
@@ -1367,6 +1372,14 @@ export function ApplicantProfilePanel({
             />
           )}
 
+          {activeTab ===
+            "communications" && (
+            <ApplicantCommunicationsPanel
+              key={applicant._id}
+              applicant={applicant}
+            />
+          )}
+
           {![
             "overview",
             "current-profile",
@@ -1374,6 +1387,7 @@ export function ApplicantProfilePanel({
             "documents",
             "evaluations",
             "interviews",
+            "communications",
           ].includes(
             activeTab
           ) && (

@@ -63,6 +63,7 @@ const expectedRoutes = [
   'GET /:id/submissions',
   'GET /duplicates',
   'GET /duplicates/:caseId',
+  'GET /communications/providers',
   'GET /interviews/providers',
   'GET /search-options',
   'PATCH /:id/approve-profile',
@@ -71,6 +72,8 @@ const expectedRoutes = [
   'PATCH /:id/status',
   'PATCH /duplicates/:caseId/resolve',
   'POST /:id/archive',
+  'POST /:id/communications/email',
+  'POST /:id/communications/whatsapp',
   'POST /:id/evaluations',
   'DELETE /:id/evaluations/:evaluationId',
   'POST /:id/evaluations/:evaluationId/reopen',
@@ -101,6 +104,11 @@ const swaggerRoutes = [
 
   [
     'get',
+    '/api/applicants/communications/providers',
+  ],
+
+  [
+    'get',
     '/api/applicants/duplicates',
   ],
 
@@ -117,6 +125,16 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants/{id}',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/communications/email',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/communications/whatsapp',
   ],
 
   [
