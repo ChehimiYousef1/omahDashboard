@@ -53,6 +53,7 @@ const expectedRoutes = [
   'PATCH /:id/interviews/:interviewId',
   'DELETE /:id/interviews/:interviewId',
   'DELETE /:id/interviews/:interviewId/permanent',
+  'DELETE /:id/permanent',
   'POST /:id/interviews/:interviewId/complete',
   'POST /:id/interviews/:interviewId/cancel',
   'POST /:id/interviews/:interviewId/no-show',
@@ -180,6 +181,11 @@ const swaggerRoutes = [
   [
     'post',
     '/api/applicants/{id}/restore',
+  ],
+
+  [
+    'delete',
+    '/api/applicants/{id}/permanent',
   ],
 
   [

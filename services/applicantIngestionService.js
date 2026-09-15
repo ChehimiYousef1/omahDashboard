@@ -33,7 +33,7 @@ const {
 const {
   syncFormSubmissionDocuments,
 } = require(
-  './applicantFormDocumentMigrationService'
+  './applicantFormDocumentManagedSyncService'
 );
 
 function serviceError(

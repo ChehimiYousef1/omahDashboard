@@ -2831,6 +2831,33 @@ export const archiveApplicantInterview =
 
 
 
+
+/*
+|--------------------------------------------------------------------------
+| Permanently Delete Applicant
+|--------------------------------------------------------------------------
+|
+| Requires an archived Applicant and exact DELETE confirmation.
+|
+*/
+export const permanentlyDeleteApplicant = async (
+  id: string
+) => {
+  const response =
+    await apiClient.delete(
+      `/applicants/${id}/permanent`,
+      {
+        data: {
+          confirmation:
+            "DELETE",
+        },
+      }
+    );
+
+  return response.data.result;
+};
+
+
 export const permanentlyDeleteApplicantInterview =
   async (
     applicantId: string,

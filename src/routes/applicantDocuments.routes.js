@@ -44,6 +44,7 @@ function statusForError(
       'DOCUMENT_VERSION_CONFLICT',
       'STORAGE_OBJECT_EXISTS',
       'EXTERNAL_STORAGE_READ_ONLY',
+      'FORM_DOCUMENT_MANAGED_COPY_REQUIRED',
     ].includes(code)
   ) {
     return 409;

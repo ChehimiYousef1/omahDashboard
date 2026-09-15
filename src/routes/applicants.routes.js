@@ -61,6 +61,12 @@ const {
 );
 
 const {
+  permanentlyDeleteApplicant,
+} = require(
+  '../../services/applicantPermanentDeleteService'
+);
+
+const {
   getApplicantSubmissions,
   linkSubmissionToApplicant,
   toObjectId,
@@ -203,6 +209,12 @@ const CONFLICT_CODES =
     'INTERVIEW_PERMANENT_DELETE_CONFLICT',
     'APPLICANT_NOT_ARCHIVABLE',
     'APPLICANT_NOT_RESTORABLE',
+    'APPLICANT_PERMANENT_DELETE_NOT_ALLOWED',
+    'APPLICANT_PERMANENT_DELETE_ACTIVE_INTERVIEWS',
+    'APPLICANT_PERMANENT_DELETE_PROVIDER_MEETING_ACTIVE',
+    'APPLICANT_PERMANENT_DELETE_STORAGE_INVALID',
+    'APPLICANT_PERMANENT_DELETE_STORAGE_CLEANUP_FAILED',
+    'APPLICANT_PERMANENT_DELETE_CONFLICT',
     'SUBMISSION_ALREADY_LINKED',
     'LINK_CONFLICT',
     'STATUS_TRANSITION_NOT_ALLOWED',
@@ -418,6 +430,9 @@ function createApplicantRouter({
   restore =
     restoreApplicant,
 
+
+  permanentlyDelete =
+    permanentlyDeleteApplicant,
   getSubmissions =
     getApplicantSubmissions,
 
@@ -2266,6 +2281,49 @@ function createApplicantRouter({
       }
     }
   );
+
+
+  /*
+   * DELETE /api/applicants/:id/permanent
+   *
+   * Permanent deletion is available only
+   * for an already archived Applicant.
+   *
+   * Immutable ApplicantFormSubmission
+   * records remain preserved.
+   */
+  router.delete(
+    '/:id/permanent',
+
+    requireApplicantPermission(
+      'applicant:delete'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await permanentlyDelete({
+            applicantId:
+              req.params.id,
+
+            confirmation:
+              req.body
+                ?.confirmation,
+          });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
 
   /*
    * GET /api/applicants/:id/submissions

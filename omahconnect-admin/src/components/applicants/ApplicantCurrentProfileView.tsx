@@ -1108,22 +1108,21 @@ export function ApplicantCurrentProfileView({
                       <div className="mt-2 space-y-1">
                         {group.values.map(
                           (
-                            url,
+                            _url,
                             index
                           ) => (
-                            <a
+                            <span
                               key={`${group.label}-${index}`}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block break-all text-xs font-semibold text-blue-600 hover:underline"
+                              className="block text-xs font-semibold text-slate-500"
                             >
-                              Open document
+                              Source document recorded
                               {group.values
                                 .length > 1
                                 ? ` ${index + 1}`
                                 : ""}
-                            </a>
+                              {" · "}
+                              Managed document access is available from the Documents tab.
+                            </span>
                           )
                         )}
                       </div>

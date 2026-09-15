@@ -647,6 +647,28 @@ async function getDocumentDownload({
     );
   }
 
+  /*
+   * Historical Google Form references are
+   * provenance records only.
+   *
+   * Never redirect an authenticated OMAH user
+   * back to the original external Form URL.
+   * A usable document must first exist in
+   * OMAH-managed local/S3 storage.
+   */
+  if (
+    document.source ===
+      'form_submission' &&
+    document.storage
+      ?.provider ===
+      'external'
+  ) {
+    throw serviceError(
+      'FORM_DOCUMENT_MANAGED_COPY_REQUIRED',
+      'This historical Form document is not available in OMAH managed storage.'
+    );
+  }
+
   const provider =
     storageFactory
       .getProvider(
@@ -715,6 +737,25 @@ async function setCurrentDocumentVersion({
     throw serviceError(
       'DOCUMENT_NOT_FOUND',
       'Active Applicant document was not found.'
+    );
+  }
+
+  /*
+   * Once a Form document has been copied into
+   * OMAH-managed storage, its historical
+   * external reference must never become the
+   * active document again.
+   */
+  if (
+    target.source ===
+      'form_submission' &&
+    target.storage
+      ?.provider ===
+      'external'
+  ) {
+    throw serviceError(
+      'FORM_DOCUMENT_MANAGED_COPY_REQUIRED',
+      'Historical external Form references cannot be set as the current managed document.'
     );
   }
 

@@ -419,27 +419,7 @@ export function ApplicantDocumentManagementCenter({
   }
 
 
-  function openFormDocument(
-    item:
-      ApplicantDocumentLibraryItem
-  ) {
-    const url =
-      item.form
-        ?.externalUrl;
-
-    if (!url) {
-      return;
-    }
-
-    window.open(
-      url,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  }
-
-
-  async function downloadManagedDocument(
+async function downloadManagedDocument(
     item:
       ApplicantDocumentLibraryItem
   ) {
@@ -805,12 +785,38 @@ export function ApplicantDocumentManagementCenter({
   }
 
 
+  function isUnavailableFormExternalVersion(
+    version:
+      ApplicantDocument
+  ) {
+    return (
+      version.source ===
+        "form_submission" &&
+      version.storage
+        ?.provider ===
+        "external"
+    );
+  }
+
+
   function openVersion(
     applicantId:
       string,
     version:
       ApplicantDocument
   ) {
+    if (
+      isUnavailableFormExternalVersion(
+        version
+      )
+    ) {
+      window.alert(
+        "Managed copy unavailable for this historical Form version."
+      );
+
+      return;
+    }
+
     window.open(
       applicantDocumentDownloadUrl(
         applicantId,
@@ -828,6 +834,18 @@ export function ApplicantDocumentManagementCenter({
     version:
       ApplicantDocument
   ) {
+    if (
+      isUnavailableFormExternalVersion(
+        version
+      )
+    ) {
+      window.alert(
+        "Managed copy unavailable for this historical Form version."
+      );
+
+      return;
+    }
+
     try {
       setBusy(
         true
@@ -1787,18 +1805,12 @@ export function ApplicantDocumentManagementCenter({
                           ) : (
                             <button
                               type="button"
-                              disabled={
-                                !item.available
-                              }
-                              onClick={() =>
-                                openFormDocument(
-                                  item
-                                )
-                              }
-                              className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-[9px] font-bold text-violet-700 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
+                              disabled
+                              title="Use the managed Applicant document when available."
+                              className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[9px] font-bold text-slate-500 opacity-70"
                             >
                               <ExternalLink className="h-3 w-3" />
-                              Open File
+                              Managed Copy Unavailable
                             </button>
                           )}
 

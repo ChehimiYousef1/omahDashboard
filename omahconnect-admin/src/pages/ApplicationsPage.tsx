@@ -9,6 +9,7 @@ import {
   fetchApplicantMaster,
   fetchApplicantPipeline,
   fetchApplicantSearchOptions,
+  permanentlyDeleteApplicant,
   restoreApplicant,
   searchApplicantMasters,
   updateApplicantStatus,
@@ -36,6 +37,7 @@ import {
   Loader2,
   Phone,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 
 interface ApplicationsPageProps {
@@ -610,6 +612,79 @@ export function ApplicationsPage({
     }
   }
 
+  async function handlePermanentDelete(
+    applicant:
+      ApplicantMaster
+  ) {
+    if (
+      applicant.lifecycle
+        .archived !== true
+    ) {
+      window.alert(
+        "Archive the Applicant before permanent deletion."
+      );
+
+      return;
+    }
+
+    const fullName =
+      applicant.identity
+        .fullName ||
+      "this Applicant";
+
+    const confirmation =
+      window.prompt(
+        `Permanently delete ${fullName}?\n\nThis removes the Applicant, managed documents, evaluations, interviews, duplicate cases and activity records.\n\nImmutable Form submissions remain preserved.\n\nType DELETE to confirm:`,
+        ""
+      );
+
+    if (
+      confirmation !==
+      "DELETE"
+    ) {
+      return;
+    }
+
+    try {
+      await permanentlyDeleteApplicant(
+        applicant._id
+      );
+
+      setSelectedApplicant(
+        null
+      );
+
+      await loadApplicants();
+
+      /*
+       * Search/filter options can contain values
+       * contributed only by the deleted Applicant,
+       * so refresh them as well.
+       */
+      try {
+        const options =
+          await fetchApplicantSearchOptions();
+
+        setSearchOptions(
+          options
+        );
+      } catch {
+        /*
+         * Deletion itself already succeeded.
+         * A filter refresh failure must not be
+         * reported as a deletion failure.
+         */
+      }
+    } catch (deleteError) {
+      window.alert(
+        errorMessage(
+          deleteError
+        )
+      );
+    }
+  }
+
+
   if (
     loading &&
     applicants.length === 0
@@ -1053,7 +1128,8 @@ export function ApplicationsPage({
                         {applicant
                           .lifecycle
                           .archived ? (
-                          <button
+                          <div className="flex items-center gap-1">
+<button
                             type="button"
                             onClick={() =>
                               void handleRestore(
@@ -1065,6 +1141,20 @@ export function ApplicationsPage({
                           >
                             <RotateCcw className="h-4.5 w-4.5" />
                           </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void handlePermanentDelete(
+                                  applicant
+                                )
+                              }
+                              className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50"
+                              title="Delete Applicant Permanently"
+                            >
+                              <Trash2 className="h-4.5 w-4.5" />
+                            </button>
+                          </div>
                         ) : (
                           <button
                             type="button"

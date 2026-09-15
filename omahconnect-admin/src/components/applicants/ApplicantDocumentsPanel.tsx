@@ -165,6 +165,20 @@ function formatDate(
   return date.toLocaleString();
 }
 
+
+function isUnavailableFormExternalDocument(
+  item:
+    ApplicantDocument
+) {
+  return (
+    item.source ===
+      "form_submission" &&
+    item.storage.provider ===
+      "external"
+  );
+}
+
+
 export function ApplicantDocumentsPanel({
   applicantId,
 }: ApplicantDocumentsPanelProps) {
@@ -641,6 +655,18 @@ export function ApplicantDocumentsPanel({
     item:
       ApplicantDocument
   ) {
+    if (
+      isUnavailableFormExternalDocument(
+        item
+      )
+    ) {
+      window.alert(
+        "This Form document does not have an OMAH-managed copy yet. Replace it with a recovered file to make it available."
+      );
+
+      return;
+    }
+
     /*
      * External Form documents must not be fetched
      * as Blobs through Axios because their backend
@@ -664,6 +690,18 @@ export function ApplicantDocumentsPanel({
     item:
       ApplicantDocument
   ) {
+    if (
+      isUnavailableFormExternalDocument(
+        item
+      )
+    ) {
+      window.alert(
+        "This Form document does not have an OMAH-managed copy yet."
+      );
+
+      return;
+    }
+
     try {
       setBusy(true);
 
@@ -691,7 +729,7 @@ export function ApplicantDocumentsPanel({
           .archived && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || isUnavailableFormExternalDocument(item)}
             onClick={() =>
               openDocument(
                 item
@@ -708,7 +746,7 @@ export function ApplicantDocumentsPanel({
             .archived && (
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || isUnavailableFormExternalDocument(item)}
             onClick={() =>
               void makeCurrent(
                 item
@@ -1014,7 +1052,7 @@ export function ApplicantDocumentsPanel({
                         <>
                           <button
                             type="button"
-                            disabled={busy}
+                            disabled={busy || isUnavailableFormExternalDocument(primary)}
                             onClick={() =>
                               viewDocument(
                                 primary
@@ -1028,7 +1066,7 @@ export function ApplicantDocumentsPanel({
 
                           <button
                             type="button"
-                            disabled={busy}
+                            disabled={busy || isUnavailableFormExternalDocument(primary)}
                             onClick={() =>
                               void downloadDocument(
                                 primary
@@ -1089,6 +1127,7 @@ export function ApplicantDocumentsPanel({
                       )}
 
                       {!primary.isCurrent &&
+                        !isUnavailableFormExternalDocument(primary) &&
                         !primary.lifecycle.archived && (
                         <button
                           type="button"

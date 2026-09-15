@@ -9,7 +9,7 @@ const ApplicantFormSubmission =
 const {
   syncFormSubmissionDocuments,
 } = require(
-  './applicantFormDocumentMigrationService'
+  './applicantFormDocumentManagedSyncService'
 );
 
 /*

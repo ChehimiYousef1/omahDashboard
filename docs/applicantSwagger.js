@@ -1567,6 +1567,58 @@ module.exports = {
       },
     },
 
+    '/api/applicants/{id}/permanent': {
+      delete: {
+        tags: ['Applicants'],
+
+        summary:
+          'Permanently delete an archived Applicant',
+
+        description:
+          'Permanently removes the archived Applicant and Applicant-owned operational records. Immutable Form submissions remain preserved with their historical Applicant reference. Active interviews or active provider meetings block deletion.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'confirmation',
+                ],
+
+                properties: {
+                  confirmation: {
+                    type:
+                      'string',
+
+                    enum: [
+                      'DELETE',
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
     '/api/applicants/{id}/submissions': {
       get: {
         tags: ['Applicants'],

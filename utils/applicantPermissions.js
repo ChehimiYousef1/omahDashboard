@@ -25,6 +25,7 @@ const APPLICANT_PERMISSIONS =
     'applicant:status',
     'applicant:archive',
     'applicant:restore',
+    'applicant:delete',
     'applicant:submissions:view',
     'applicant:documents:view',
     'applicant:documents:manage',
