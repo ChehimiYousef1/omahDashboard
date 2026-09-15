@@ -663,6 +663,93 @@ module.exports = {
       },
     },
 
+    '/api/applicants/{id}/activity': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get Applicant activity timeline',
+
+        description:
+          'Returns a unified reverse-chronological timeline combining historical submissions, evaluations, interviews, and stored Applicant activity events.',
+
+        parameters: [
+          idParameter,
+
+          {
+            in: 'query',
+            name: 'category',
+
+            schema: {
+              type: 'string',
+            },
+
+            description:
+              'Optional activity category filter.',
+          },
+
+          {
+            in: 'query',
+            name: 'type',
+
+            schema: {
+              type: 'string',
+            },
+
+            description:
+              'Optional exact activity event type filter.',
+          },
+
+          {
+            in: 'query',
+            name: 'limit',
+
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 500,
+              default: 100,
+            },
+          },
+        ],
+
+        responses: {
+          200: {
+            description:
+              'Applicant activity timeline',
+          },
+
+          400: {
+            $ref:
+              '#/components/responses/BadRequest',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          404: {
+            $ref:
+              '#/components/responses/NotFound',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
     '/api/applicants/communications/providers': {
       get: {
         tags: [

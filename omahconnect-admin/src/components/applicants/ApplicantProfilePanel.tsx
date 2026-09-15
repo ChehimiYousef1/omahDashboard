@@ -46,6 +46,11 @@ import {
   ApplicantCommunicationsPanel,
 } from "./ApplicantCommunicationsPanel";
 
+
+import {
+  ApplicantActivityPanel,
+} from "./ApplicantActivityPanel";
+
 import {
   ApplicantDocumentsPanel,
 } from "./ApplicantDocumentsPanel";
@@ -1380,6 +1385,14 @@ export function ApplicantProfilePanel({
             />
           )}
 
+          {activeTab ===
+            "activity" && (
+            <ApplicantActivityPanel
+              key={applicant._id}
+              applicant={applicant}
+            />
+          )}
+
           {![
             "overview",
             "current-profile",
@@ -1388,6 +1401,7 @@ export function ApplicantProfilePanel({
             "evaluations",
             "interviews",
             "communications",
+            "activity",
           ].includes(
             activeTab
           ) && (

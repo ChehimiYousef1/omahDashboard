@@ -58,6 +58,7 @@ const expectedRoutes = [
   'POST /:id/interviews/:interviewId/no-show',
   'GET /',
   'GET /:id',
+  'GET /:id/activity',
   'GET /:id/evaluations',
   'GET /:id/relationship-integrity',
   'GET /:id/submissions',
@@ -125,6 +126,11 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants/{id}',
+  ],
+
+  [
+    'get',
+    '/api/applicants/{id}/activity',
   ],
 
   [

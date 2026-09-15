@@ -114,6 +114,20 @@ const {
 
 
 const {
+  getApplicantTimeline,
+} = require(
+  '../../services/applicantTimelineService'
+);
+
+
+const {
+  recordApplicantActivity,
+} = require(
+  '../../services/applicantActivityService'
+);
+
+
+const {
   getWhatsAppCloudStatus,
 } = require(
   '../../services/whatsappCloudService'
@@ -253,6 +267,78 @@ function sendError(res, error) {
 
 /*
 |--------------------------------------------------------------------------
+| Applicant Activity Helpers
+|--------------------------------------------------------------------------
+|
+| Activity logging is deliberately best-effort.
+|
+| A successful Applicant operation must not be reported as failed merely
+| because its audit/timeline event could not be persisted afterwards.
+|
+*/
+
+function applicantRequestActor(req) {
+  return {
+    userId:
+      String(
+        req?.user?.id ??
+        ''
+      ).trim(),
+
+    name:
+      String(
+        req?.user?.name ??
+        req?.user?.email ??
+        ''
+      ).trim(),
+
+    email:
+      String(
+        req?.user?.email ??
+        ''
+      ).trim(),
+
+    role:
+      String(
+        req?.user?.role ??
+        ''
+      ).trim(),
+  };
+}
+
+
+async function recordApplicantActivitySafely({
+  recordActivity,
+  logger = console,
+  ...payload
+}) {
+  if (
+    typeof recordActivity !==
+      'function'
+  ) {
+    return false;
+  }
+
+  try {
+    await recordActivity(
+      payload
+    );
+
+    return true;
+  } catch (error) {
+    logger?.error?.(
+      'Applicant activity logging failed:',
+      error?.message ||
+        error
+    );
+
+    return false;
+  }
+}
+
+
+/*
+|--------------------------------------------------------------------------
 | Applicant Router
 |--------------------------------------------------------------------------
 */
@@ -269,6 +355,15 @@ function createApplicantRouter({
 
   sendCommunicationWhatsApp =
     sendApplicantWhatsApp,
+
+  getTimeline =
+    getApplicantTimeline,
+
+  recordActivity =
+    recordApplicantActivity,
+
+  activityLogger =
+    console,
 
   ApplicantModel =
     Applicant,
@@ -1474,6 +1569,52 @@ function createApplicantRouter({
 
 
   /*
+   * GET /api/applicants/:id/activity
+   *
+   * Unified chronological Applicant timeline.
+   *
+   * Combines native historical records with
+   * append-only ApplicantActivity events.
+   */
+  router.get(
+    '/:id/activity',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await getTimeline({
+            applicantId:
+              req.params.id,
+
+            category:
+              req.query?.category,
+
+            type:
+              req.query?.type,
+
+            limit:
+              req.query?.limit,
+          });
+
+        return res.json({
+          success: true,
+          ...result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
    * POST
    * /api/applicants/:id/communications/email
    *
@@ -1504,6 +1645,44 @@ function createApplicantRouter({
 
             ApplicantModel,
           });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            result.applicantId,
+
+          type:
+            'communication.email.sent',
+
+          title:
+            'Email sent',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'email',
+            id:
+              '',
+          },
+
+          metadata: {
+            subject:
+              String(
+                req.body?.subject ??
+                ''
+              ).trim(),
+          },
+        });
 
         return res.json({
           success: true,
@@ -1546,6 +1725,43 @@ function createApplicantRouter({
             ApplicantModel,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            result.applicantId,
+
+          type:
+            'communication.whatsapp.sent',
+
+          title:
+            'WhatsApp message sent',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'whatsapp',
+            id:
+              result.messageId ||
+              '',
+          },
+
+          metadata: {
+            provider:
+              result.provider ||
+              '',
+          },
+        });
+
         return res.json({
           success: true,
           result,
@@ -1582,6 +1798,42 @@ function createApplicantRouter({
               req.body,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            result.applicantId,
+
+          type:
+            'profile.updated',
+
+          title:
+            'Applicant profile updated',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'applicant',
+            id:
+              result.applicantId,
+          },
+
+          metadata: {
+            editedFields:
+              result.editedFields ||
+              [],
+          },
+        });
+
         return res.json({
           success: true,
           result,
@@ -1615,6 +1867,53 @@ function createApplicantRouter({
             nextStatus:
               req.body?.status,
           });
+
+        if (
+          result.status ===
+            'status-changed'
+        ) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+            logger:
+              activityLogger,
+
+            applicantId:
+              result.applicantId,
+
+            type:
+              'status.changed',
+
+            title:
+              'Recruitment status changed',
+
+            description:
+              `${result.previousStatus} → ${result.currentStatus}`,
+
+            occurredAt:
+              result.changedAt ||
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'applicant',
+              id:
+                result.applicantId,
+            },
+
+            metadata: {
+              previousStatus:
+                result.previousStatus,
+
+              nextStatus:
+                result.currentStatus,
+            },
+          });
+        }
 
         return res.json({
           success: true,
@@ -1654,6 +1953,47 @@ function createApplicantRouter({
               '',
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            result.applicantId,
+
+          type:
+            'applicant.archived',
+
+          title:
+            'Applicant archived',
+
+          description:
+            result.archiveReason ||
+            '',
+
+          occurredAt:
+            result.archivedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'applicant',
+            id:
+              result.applicantId,
+          },
+
+          metadata: {
+            reason:
+              result.archiveReason ||
+              '',
+          },
+        });
+
         return res.json({
           success: true,
           result,
@@ -1684,6 +2024,36 @@ function createApplicantRouter({
             applicantId:
               req.params.id,
           });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            result.applicantId,
+
+          type:
+            'applicant.restored',
+
+          title:
+            'Applicant restored',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'applicant',
+            id:
+              result.applicantId,
+          },
+        });
 
         return res.json({
           success: true,

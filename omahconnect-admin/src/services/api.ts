@@ -1780,6 +1780,95 @@ export const permanentlyDeleteApplicantInterview =
 
 
 /* =========================
+   APPLICANT ACTIVITY
+========================= */
+
+export interface ApplicantActivityActor {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface ApplicantActivitySource {
+  type: string;
+  id: string;
+}
+
+export interface ApplicantActivityEvent {
+  id: string;
+  type: string;
+  category: string;
+  title: string;
+  description: string;
+  occurredAt: string;
+
+  actor: ApplicantActivityActor;
+  source: ApplicantActivitySource;
+
+  metadata: Record<
+    string,
+    unknown
+  >;
+}
+
+export interface ApplicantActivityResponse {
+  events:
+    ApplicantActivityEvent[];
+
+  total: number;
+  limit: number;
+
+  filters: {
+    category: string;
+    type: string;
+  };
+}
+
+export interface ApplicantActivityQuery {
+  category?: string;
+  type?: string;
+  limit?: number;
+}
+
+export const fetchApplicantActivity =
+  async (
+    applicantId: string,
+    query:
+      ApplicantActivityQuery = {}
+  ): Promise<ApplicantActivityResponse> => {
+    const response =
+      await apiClient.get(
+        `/applicants/${applicantId}/activity`,
+        {
+          params: query,
+        }
+      );
+
+    return {
+      events:
+        response.data.events ||
+        [],
+
+      total:
+        response.data.total ||
+        0,
+
+      limit:
+        response.data.limit ||
+        100,
+
+      filters:
+        response.data.filters ||
+        {
+          category: "",
+          type: "",
+        },
+    };
+  };
+
+
+/* =========================
    APPLICANT COMMUNICATIONS
 ========================= */
 
