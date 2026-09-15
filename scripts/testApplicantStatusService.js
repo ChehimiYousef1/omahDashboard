@@ -58,7 +58,7 @@ async function run() {
   const changed =
     await changeApplicantStatus({
       applicantId,
-      nextStatus: 'HIRED',
+      nextStatus: 'OFFERED',
       now: activityTime,
       ApplicantModel:
         ValidTransitionModel,
@@ -76,7 +76,7 @@ async function run() {
 
   assert.strictEqual(
     changed.currentStatus,
-    'hired'
+    'offered'
   );
 
   assert.strictEqual(
@@ -90,7 +90,7 @@ async function run() {
     capturedUpdate.$set[
       'recruitment.status'
     ],
-    'hired'
+    'offered'
   );
 
   assert.strictEqual(
@@ -265,7 +265,7 @@ async function run() {
       changeApplicantStatus({
         applicantId,
         nextStatus:
-          'interview',
+          'shortlisted',
         ApplicantModel:
           ConflictModel,
       }),

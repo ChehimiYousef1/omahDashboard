@@ -24,6 +24,13 @@ const {
   '../../services/applicantStatusService'
 );
 
+
+const {
+  getApplicantPipelineDefinition,
+} = require(
+  '../../utils/applicantStatus'
+);
+
 const {
   archiveApplicant,
   restoreApplicant,
@@ -507,6 +514,32 @@ function createApplicantRouter({
           error
         );
       }
+    }
+  );
+
+
+  /*
+   * GET /api/applicants/pipeline
+   *
+   * Returns the canonical Applicant recruitment
+   * pipeline definition used by both backend
+   * validation and frontend movement controls.
+   */
+  router.get(
+    '/pipeline',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    (req, res) => {
+      const pipeline =
+        getApplicantPipelineDefinition();
+
+      return res.json({
+        success: true,
+        pipeline,
+      });
     }
   );
 

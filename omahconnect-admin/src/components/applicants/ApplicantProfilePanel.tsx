@@ -21,6 +21,7 @@ import {
   type ApplicantSubmissionHistoryItem,
   type ApplicantSubmissionHistorySummary,
   type ApplicantMaster,
+  type ApplicantPipelineDefinition,
   type ApplicantProfileChanges,
   type ApplicantStatus,
 } from "../../services/api";
@@ -74,6 +75,9 @@ type ProfileTab =
 interface ApplicantProfilePanelProps {
   applicant:
     ApplicantMaster;
+
+  pipeline:
+    ApplicantPipelineDefinition | null;
 
   onClose: () => void;
 
@@ -222,6 +226,7 @@ function errorMessage(
 
 export function ApplicantProfilePanel({
   applicant,
+  pipeline,
   onClose,
   onChanged,
 }: ApplicantProfilePanelProps) {
@@ -449,51 +454,117 @@ export function ApplicantProfilePanel({
   }
 
   async function changeStatus() {
-    const value =
-      window.prompt(
-        "New status: applied, reviewed, interview, hired, rejected",
-        applicant.recruitment
-          .status
+    if (!pipeline) {
+      window.alert(
+        "Recruitment pipeline is still loading."
       );
 
-    if (!value) {
       return;
     }
 
-    const allowed:
-      ApplicantStatus[] = [
-        "applied",
-        "reviewed",
-        "interview",
-        "hired",
-        "rejected",
-      ];
+    const currentStatus =
+      applicant
+        .recruitment
+        .status;
 
-    const normalized =
-      value
-        .trim()
-        .toLowerCase() as
-        ApplicantStatus;
+    const transitions =
+      pipeline
+        .transitions[
+          currentStatus
+        ] || [];
+
+    const labelFor = (
+      status:
+        ApplicantStatus
+    ) =>
+      pipeline
+        .stages.find(
+          (stage) =>
+            stage.value ===
+            status
+        )?.label ||
+      status;
 
     if (
-      !allowed.includes(
-        normalized
-      )
+      transitions.length === 0
     ) {
       window.alert(
-        "Invalid Applicant status."
+        "No status transitions are available from the current stage."
       );
 
+      return;
+    }
+
+    const choices =
+      transitions
+        .map(
+          (
+            status,
+            index
+          ) =>
+            `${index + 1}. ${labelFor(status)}`
+        )
+        .join("\n");
+
+    const selection =
+      window.prompt(
+        `Current stage: ${labelFor(currentStatus)}
+
+Available moves:
+${choices}
+
+Enter option number:`,
+        "1"
+      );
+
+    if (
+      selection === null
+    ) {
+      return;
+    }
+
+    const optionNumber =
+      Number(
+        selection.trim()
+      );
+
+    if (
+      !Number.isInteger(
+        optionNumber
+      ) ||
+      optionNumber < 1 ||
+      optionNumber >
+        transitions.length
+    ) {
+      window.alert(
+        "Please choose one of the available pipeline options."
+      );
+
+      return;
+    }
+
+    const nextStatus =
+      transitions[
+        optionNumber - 1
+      ];
+
+    const confirmed =
+      window.confirm(
+        `Move Applicant from ${labelFor(currentStatus)} to ${labelFor(nextStatus)}?`
+      );
+
+    if (!confirmed) {
       return;
     }
 
     try {
       await updateApplicantStatus(
         applicant._id,
-        normalized
+        nextStatus
       );
 
       await onChanged();
+
       onClose();
     } catch (error) {
       window.alert(

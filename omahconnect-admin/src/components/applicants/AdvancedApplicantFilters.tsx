@@ -6,6 +6,7 @@ import {
 
 import type {
   ApplicantLifecycleFilter,
+  ApplicantPipelineDefinition,
   ApplicantSearchOptions,
   ApplicantSearchQuery,
   ApplicantSortField,
@@ -16,21 +17,13 @@ import type {
 interface AdvancedApplicantFiltersProps {
   filters: ApplicantSearchQuery;
   options: ApplicantSearchOptions | null;
+  pipeline: ApplicantPipelineDefinition | null;
   loading?: boolean;
   onChange: (
     next: ApplicantSearchQuery
   ) => void;
   onReset: () => void;
 }
-
-const STATUS_LABELS:
-  Record<ApplicantStatus, string> = {
-    applied: "Applied",
-    reviewed: "Reviewed",
-    interview: "Interview",
-    hired: "Hired",
-    rejected: "Rejected",
-  };
 
 const SORT_LABELS:
   Record<ApplicantSortField, string> = {
@@ -68,6 +61,7 @@ function booleanFilterValue(
 export function AdvancedApplicantFilters({
   filters,
   options,
+  pipeline,
   loading = false,
   onChange,
   onReset,
@@ -173,7 +167,18 @@ export function AdvancedApplicantFilters({
                     key={status}
                     value={status}
                   >
-                    {STATUS_LABELS[status]}
+                    {
+                      pipeline
+                        ?.stages.find(
+                          (
+                            stage
+                          ) =>
+                            stage.value ===
+                            status
+                        )
+                        ?.label ||
+                      status
+                    }
                   </option>
                 )
               )}

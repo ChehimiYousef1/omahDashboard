@@ -66,6 +66,7 @@ const expectedRoutes = [
   'GET /duplicates/:caseId',
   'GET /communications/providers',
   'GET /interviews/providers',
+  'GET /pipeline',
   'GET /search-options',
   'PATCH /:id/approve-profile',
   'PATCH /:id/evaluations/:evaluationId',
@@ -101,6 +102,11 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants/search-options',
+  ],
+
+  [
+    'get',
+    '/api/applicants/pipeline',
   ],
 
   [

@@ -6,12 +6,14 @@ import {
 
 import {
   archiveApplicant,
+  fetchApplicantPipeline,
   fetchApplicantSearchOptions,
   restoreApplicant,
   searchApplicantMasters,
   updateApplicantStatus,
   type ApplicantMaster,
   type ApplicantPagination,
+  type ApplicantPipelineDefinition,
   type ApplicantSearchOptions,
   type ApplicantSearchQuery,
   type ApplicantStatus,
@@ -22,6 +24,7 @@ import { Header } from "../components/layout/Header";
 import { ApplicantProfilePanel } from "../components/applicants/ApplicantProfilePanel";
 import { AdvancedApplicantFilters } from "../components/applicants/AdvancedApplicantFilters";
 import { DuplicateReviewPanel } from "../components/applicants/DuplicateReviewPanel";
+import { ApplicantPipelineBoard } from "../components/applicants/ApplicantPipelineBoard";
 
 import {
   Archive,
@@ -68,48 +71,6 @@ const DEFAULT_PAGINATION:
     total: 0,
     pages: 0,
   };
-
-const STATUS_TRANSITIONS:
-  Record<
-    ApplicantStatus,
-    ApplicantStatus[]
-  > = {
-    applied: [
-      "reviewed",
-      "interview",
-      "rejected",
-    ],
-
-    reviewed: [
-      "applied",
-      "interview",
-      "rejected",
-    ],
-
-    interview: [
-      "reviewed",
-      "hired",
-      "rejected",
-    ],
-
-    hired: [
-      "interview",
-    ],
-
-    rejected: [
-      "applied",
-      "reviewed",
-    ],
-  };
-
-function allowedStatuses(
-  current: ApplicantStatus
-) {
-  return [
-    current,
-    ...STATUS_TRANSITIONS[current],
-  ];
-}
 
 function formatDate(
   value?: string | null
@@ -190,6 +151,38 @@ export function ApplicationsPage({
     ApplicantMaster | null
   >(null);
 
+
+  const [
+    viewMode,
+    setViewMode,
+  ] = useState<
+    "table" | "pipeline"
+  >("table");
+
+  const [
+    pipelineApplicants,
+    setPipelineApplicants,
+  ] = useState<
+    ApplicantMaster[]
+  >([]);
+
+  const [
+    pipelineLoading,
+    setPipelineLoading,
+  ] = useState(false);
+
+  const [
+    pipelineError,
+    setPipelineError,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    pipelineTotal,
+    setPipelineTotal,
+  ] = useState(0);
+
   const [
     loading,
     setLoading,
@@ -228,6 +221,14 @@ export function ApplicationsPage({
     setSearchOptions,
   ] = useState<
     ApplicantSearchOptions | null
+  >(null);
+
+
+  const [
+    pipeline,
+    setPipeline,
+  ] = useState<
+    ApplicantPipelineDefinition | null
   >(null);
 
   const [
@@ -292,11 +293,66 @@ export function ApplicationsPage({
       [requestFilters]
     );
 
+  const loadPipelineApplicants =
+    useCallback(
+      async () => {
+        try {
+          setPipelineLoading(
+            true
+          );
+
+          setPipelineError(
+            null
+          );
+
+          const result =
+            await searchApplicantMasters({
+              ...requestFilters,
+              page: 1,
+              limit: 200,
+            });
+
+          setPipelineApplicants(
+            result.applicants
+          );
+
+          setPipelineTotal(
+            result.pagination.total
+          );
+        } catch (err) {
+          setPipelineError(
+            errorMessage(err)
+          );
+        } finally {
+          setPipelineLoading(
+            false
+          );
+        }
+      },
+      [requestFilters]
+    );
+
+
   useEffect(() => {
     // Server-side Applicant search load.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadApplicants();
   }, [loadApplicants]);
+
+  useEffect(() => {
+    if (
+      viewMode !==
+      "pipeline"
+    ) {
+      return;
+    }
+
+    void loadPipelineApplicants();
+  }, [
+    viewMode,
+    loadPipelineApplicants,
+  ]);
+
 
   useEffect(() => {
     let active = true;
@@ -306,12 +362,22 @@ export function ApplicationsPage({
         setOptionsLoading(true);
         setOptionsError(null);
 
-        const options =
-          await fetchApplicantSearchOptions();
+        const [
+          options,
+          pipelineDefinition,
+        ] =
+          await Promise.all([
+            fetchApplicantSearchOptions(),
+            fetchApplicantPipeline(),
+          ]);
 
         if (active) {
           setSearchOptions(
             options
+          );
+
+          setPipeline(
+            pipelineDefinition
           );
         }
       } catch (err) {
@@ -361,6 +427,39 @@ export function ApplicationsPage({
       })
     );
   }
+
+  async function handlePipelineMove(
+    applicant:
+      ApplicantMaster,
+    nextStatus:
+      ApplicantStatus
+  ) {
+    if (
+      applicant
+        .recruitment
+        .status ===
+      nextStatus
+    ) {
+      return;
+    }
+
+    try {
+      await updateApplicantStatus(
+        applicant._id,
+        nextStatus
+      );
+
+      await Promise.all([
+        loadApplicants(),
+        loadPipelineApplicants(),
+      ]);
+    } catch (err) {
+      window.alert(
+        errorMessage(err)
+      );
+    }
+  }
+
 
   async function handleStatusChange(
     applicant:
@@ -524,11 +623,63 @@ export function ApplicationsPage({
         </button>
       </div>
 
+      <div className="flex items-center justify-between gap-3">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() =>
+              setViewMode(
+                "table"
+              )
+            }
+            className={
+              `rounded-md px-3 py-1.5 text-xs font-semibold ${
+                viewMode ===
+                "table"
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`
+            }
+          >
+            Table View
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setViewMode(
+                "pipeline"
+              )
+            }
+            className={
+              `rounded-md px-3 py-1.5 text-xs font-semibold ${
+                viewMode ===
+                "pipeline"
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`
+            }
+          >
+            Pipeline View
+          </button>
+        </div>
+
+        {
+          viewMode ===
+            "pipeline" && (
+            <p className="text-[10px] text-slate-400">
+              Drag cards only to allowed stages.
+            </p>
+          )
+        }
+      </div>
+
       <DuplicateReviewPanel />
 
       <AdvancedApplicantFilters
         filters={filters}
         options={searchOptions}
+        pipeline={pipeline}
         loading={optionsLoading}
         onChange={setFilters}
         onReset={resetFilters}
@@ -542,6 +693,38 @@ export function ApplicationsPage({
         </p>
       )}
 
+      {viewMode === "pipeline" ? (
+        <ApplicantPipelineBoard
+          applicants={
+            pipelineApplicants
+          }
+
+          pipeline={
+            pipeline
+          }
+
+          loading={
+            pipelineLoading
+          }
+
+          error={
+            pipelineError
+          }
+
+          total={
+            pipelineTotal
+          }
+
+          onMove={
+            handlePipelineMove
+          }
+
+          onOpenApplicant={
+            setSelectedApplicant
+          }
+        />
+      ) : (
+        <>
       <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white shadow-sm">
         <table className="w-full min-w-[900px] border-collapse text-left">
           <thead>
@@ -713,11 +896,19 @@ export function ApplicationsPage({
                         }
                         className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold disabled:bg-slate-100"
                       >
-                        {allowedStatuses(
+                        {[
                           applicant
                             .recruitment
-                            .status
-                        ).map(
+                            .status,
+                          ...(
+                            pipeline
+                              ?.transitions[
+                                applicant
+                                  .recruitment
+                                  .status
+                              ] || []
+                          ),
+                        ].map(
                           (status) => (
                             <option
                               key={
@@ -727,7 +918,19 @@ export function ApplicationsPage({
                                 status
                               }
                             >
-                              {status}
+                              {
+                                pipeline
+                                  ?.stages.find(
+                                    (
+                                      stage
+                                    ) =>
+                                      stage
+                                        .value ===
+                                      status
+                                  )
+                                  ?.label ||
+                                status
+                              }
                             </option>
                           )
                         )}
@@ -845,10 +1048,17 @@ export function ApplicationsPage({
         </div>
       </div>
 
+        </>
+      )}
+
       {selectedApplicant && (
         <ApplicantProfilePanel
           applicant={
             selectedApplicant
+          }
+
+          pipeline={
+            pipeline
           }
           onClose={() =>
             setSelectedApplicant(

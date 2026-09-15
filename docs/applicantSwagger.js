@@ -643,6 +643,43 @@ module.exports = {
       },
     },
 
+    '/api/applicants/pipeline': {
+      get: {
+        tags: [
+          'Applicants',
+        ],
+
+        summary:
+          'Get Applicant recruitment pipeline',
+
+        description:
+          'Returns the canonical Applicant pipeline stages, business-facing labels, stage order, terminal flags, and allowed transitions.',
+
+        responses: {
+          200: {
+            description:
+              'Applicant recruitment pipeline definition',
+          },
+
+          401: {
+            $ref:
+              '#/components/responses/Unauthorized',
+          },
+
+          403: {
+            $ref:
+              '#/components/responses/Forbidden',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
     '/api/applicants/{id}': {
       get: {
         tags: ['Applicants'],

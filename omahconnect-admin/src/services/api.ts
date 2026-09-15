@@ -458,9 +458,29 @@ export const syncApplicantsSheet = async (sheetUrl?: string): Promise<{ success:
 export type ApplicantStatus =
   | "applied"
   | "reviewed"
+  | "shortlisted"
   | "interview"
+  | "offered"
   | "hired"
   | "rejected";
+
+export interface ApplicantPipelineStage {
+  value: ApplicantStatus;
+  label: string;
+  order: number;
+  terminal: boolean;
+}
+
+export interface ApplicantPipelineDefinition {
+  stages: ApplicantPipelineStage[];
+
+  transitions:
+    Record<
+      ApplicantStatus,
+      ApplicantStatus[]
+    >;
+}
+
 
 export type ApplicantLifecycleFilter =
   | "false"
@@ -919,6 +939,19 @@ export const resolveApplicantDuplicateCase =
 
     return response.data
       .duplicateCase;
+  };
+
+
+export const fetchApplicantPipeline =
+  async (): Promise<
+    ApplicantPipelineDefinition
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/pipeline"
+      );
+
+    return response.data.pipeline;
   };
 
 
