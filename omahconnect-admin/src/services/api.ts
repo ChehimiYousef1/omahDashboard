@@ -3361,3 +3361,691 @@ export const downloadApplicantDocumentFile = async (
   link.click();
   link.remove();
 };
+
+
+
+/* =========================
+   APPLICANT INTERNAL NOTES,
+   TASKS & TAGS
+========================= */
+
+export type ApplicantInternalNoteKind =
+  | "note"
+  | "task";
+
+export type ApplicantInternalTaskStatus =
+  | "todo"
+  | "completed";
+
+
+export interface ApplicantInternalNoteActor {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+
+export interface ApplicantInternalNoteSchedule {
+  startAt?: string | null;
+  endAt?: string | null;
+  reminderAt?: string | null;
+  reminderNote?: string;
+}
+
+
+export interface ApplicantInternalNoteCalendar {
+  provider?: "" | "google_calendar";
+
+  eventId?: string;
+  eventUrl?: string;
+
+  syncStatus?:
+    | "not_synced"
+    | "synced"
+    | "error";
+
+  syncedAt?: string | null;
+  syncError?: string;
+}
+
+
+export interface ApplicantInternalNote {
+  _id: string;
+  applicantId: string;
+
+  /*
+   * Optional for backwards compatibility
+   * with pre-workflow records.
+   */
+  kind?:
+    ApplicantInternalNoteKind;
+
+  content: string;
+
+  taskStatus?:
+    ApplicantInternalTaskStatus;
+
+  important?: boolean;
+
+  likedBy?: string[];
+  starredBy?: string[];
+
+  schedule?:
+    ApplicantInternalNoteSchedule;
+
+  calendar?:
+    ApplicantInternalNoteCalendar;
+
+  author:
+    ApplicantInternalNoteActor;
+
+  updatedBy?:
+    ApplicantInternalNoteActor;
+
+  completedAt?: string | null;
+
+  completedBy?:
+    ApplicantInternalNoteActor;
+
+  archived: boolean;
+  archivedAt?: string | null;
+
+  archivedBy?:
+    ApplicantInternalNoteActor;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+export interface ApplicantInternalNoteReply {
+  _id: string;
+
+  applicantId: string;
+  noteId: string;
+
+  content: string;
+
+  author:
+    ApplicantInternalNoteActor;
+
+  updatedBy?:
+    ApplicantInternalNoteActor;
+
+  archived: boolean;
+  archivedAt?: string | null;
+
+  archivedBy?:
+    ApplicantInternalNoteActor;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+export interface ApplicantInternalNoteCreateOptions {
+  kind?:
+    ApplicantInternalNoteKind;
+
+  important?: boolean;
+
+  schedule?:
+    ApplicantInternalNoteSchedule;
+}
+
+
+export const fetchApplicantInternalNotes =
+  async (
+    applicantId:
+      string,
+
+    options: {
+      includeArchived?: boolean;
+    } = {}
+  ): Promise<
+    ApplicantInternalNote[]
+  > => {
+    const response =
+      await apiClient.get(
+        `/applicants/${applicantId}/notes`,
+        {
+          params: {
+            includeArchived:
+              options.includeArchived ===
+              true
+                ? "true"
+                : undefined,
+          },
+        }
+      );
+
+    return response.data.notes;
+  };
+
+
+export const createApplicantInternalNote =
+  async (
+    applicantId:
+      string,
+
+    content:
+      string,
+
+    options:
+      ApplicantInternalNoteCreateOptions =
+      {}
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes`,
+        {
+          content,
+
+          kind:
+            options.kind,
+
+          important:
+            options.important,
+
+          schedule:
+            options.schedule,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const updateApplicantInternalNote =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    content:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}`,
+        {
+          content,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+/*
+ * Legacy compatibility operation.
+ *
+ * The existing Notes UI currently uses
+ * DELETE /notes/:noteId as a soft archive.
+ *
+ * The richer UI will migrate to the explicit
+ * archive/restore functions below.
+ */
+export const deleteApplicantInternalNote =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string
+  ) => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/notes/${noteId}`
+      );
+
+    return response.data.result;
+  };
+
+
+export const archiveApplicantInternalNote =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes/${noteId}/archive`
+      );
+
+    return response.data.note;
+  };
+
+
+export const restoreApplicantInternalNote =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes/${noteId}/restore`
+      );
+
+    return response.data.note;
+  };
+
+
+export const permanentlyDeleteApplicantInternalNote =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    confirmation:
+      "DELETE"
+  ) => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/notes/${noteId}/permanent`,
+        {
+          data: {
+            confirmation,
+          },
+        }
+      );
+
+    return response.data.result;
+  };
+
+
+export const setApplicantInternalNoteImportance =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    important:
+      boolean
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/importance`,
+        {
+          important,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const setApplicantInternalNoteLike =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    liked:
+      boolean
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/like`,
+        {
+          liked,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const setApplicantInternalNoteStar =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    starred:
+      boolean
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/star`,
+        {
+          starred,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const setApplicantInternalTaskStatus =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    taskStatus:
+      ApplicantInternalTaskStatus
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/task-status`,
+        {
+          taskStatus,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const updateApplicantInternalNoteSchedule =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    schedule:
+      ApplicantInternalNoteSchedule
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/schedule`,
+        {
+          schedule,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+
+export const addApplicantInternalNoteToCalendar =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    timezone:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes/${noteId}/calendar`,
+        {
+          timezone,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const updateApplicantInternalNoteCalendar =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    timezone:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/calendar`,
+        {
+          timezone,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const removeApplicantInternalNoteFromCalendar =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/notes/${noteId}/calendar`
+      );
+
+    return response.data.note;
+  };
+
+
+export const fetchApplicantInternalNoteReplies =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    options: {
+      includeArchived?: boolean;
+    } = {}
+  ): Promise<
+    ApplicantInternalNoteReply[]
+  > => {
+    const response =
+      await apiClient.get(
+        `/applicants/${applicantId}/notes/${noteId}/replies`,
+        {
+          params: {
+            includeArchived:
+              options.includeArchived ===
+              true
+                ? "true"
+                : undefined,
+          },
+        }
+      );
+
+    return response.data.replies;
+  };
+
+
+export const createApplicantInternalNoteReply =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    content:
+      string
+  ): Promise<
+    ApplicantInternalNoteReply
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes/${noteId}/replies`,
+        {
+          content,
+        }
+      );
+
+    return response.data.reply;
+  };
+
+
+export const updateApplicantInternalNoteReply =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    replyId:
+      string,
+
+    content:
+      string
+  ): Promise<
+    ApplicantInternalNoteReply
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/replies/${replyId}`,
+        {
+          content,
+        }
+      );
+
+    return response.data.reply;
+  };
+
+
+export const archiveApplicantInternalNoteReply =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    replyId:
+      string
+  ): Promise<
+    ApplicantInternalNoteReply
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes/${noteId}/replies/${replyId}/archive`
+      );
+
+    return response.data.reply;
+  };
+
+
+export const restoreApplicantInternalNoteReply =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    replyId:
+      string
+  ): Promise<
+    ApplicantInternalNoteReply
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/${applicantId}/notes/${noteId}/replies/${replyId}/restore`
+      );
+
+    return response.data.reply;
+  };
+
+
+export const permanentlyDeleteApplicantInternalNoteReply =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    replyId:
+      string,
+
+    confirmation:
+      "DELETE"
+  ) => {
+    const response =
+      await apiClient.delete(
+        `/applicants/${applicantId}/notes/${noteId}/replies/${replyId}/permanent`,
+        {
+          data: {
+            confirmation,
+          },
+        }
+      );
+
+    return response.data.result;
+  };
+
+
+export const updateApplicantTags =
+  async (
+    applicantId:
+      string,
+
+    tags:
+      string[]
+  ): Promise<{
+    status: string;
+    applicantId: string;
+    previousTags: string[];
+    tags: string[];
+    changedAt: string;
+  }> => {
+    const response =
+      await apiClient.put(
+        `/applicants/${applicantId}/tags`,
+        {
+          tags,
+        }
+      );
+
+    return response.data.result;
+  };

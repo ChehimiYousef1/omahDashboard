@@ -47,6 +47,13 @@ function baseModels({
     activityDelete:
       0,
 
+
+    noteDelete:
+      0,
+
+    noteReplyDelete:
+      0,
+
     storageCleanup:
       0,
   };
@@ -171,6 +178,38 @@ function baseModels({
   };
 
 
+  const NoteModel = {
+    find() {
+      return queryResult(
+        []
+      );
+    },
+
+    async deleteMany() {
+      calls.noteDelete +=
+        1;
+
+      return {
+        deletedCount:
+          2,
+      };
+    },
+  };
+
+
+  const ReplyModel = {
+    async deleteMany() {
+      calls.noteReplyDelete +=
+        1;
+
+      return {
+        deletedCount:
+          4,
+      };
+    },
+  };
+
+
   const storageFactory = {
     getProvider(
       provider
@@ -207,6 +246,8 @@ function baseModels({
     InterviewModel,
     DuplicateCaseModel,
     ActivityModel,
+    NoteModel,
+    ReplyModel,
     storageFactory,
   };
 }
@@ -274,6 +315,24 @@ async function run() {
     success.calls
       .activityDelete,
     1
+  );
+
+  assert.strictEqual(
+    success.calls
+      .noteReplyDelete,
+    1
+  );
+
+  assert.strictEqual(
+    result.deleted
+      .noteReplies,
+    4
+  );
+
+  assert.strictEqual(
+    result.deleted
+      .notes,
+    2
   );
 
   console.log(

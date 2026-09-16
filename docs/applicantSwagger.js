@@ -1619,6 +1619,1384 @@ module.exports = {
     },
 
 
+    '/api/applicants/{id}/notes': {
+      get: {
+        tags: ['Applicants'],
+
+        summary:
+          'List internal Applicant notes and tasks',
+
+        description:
+          'Returns recruitment-only notes/tasks. Archived items are excluded unless includeArchived=true.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'includeArchived',
+
+            in:
+              'query',
+
+            required:
+              false,
+
+            schema: {
+              type:
+                'boolean',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+
+      post: {
+        tags: ['Applicants'],
+
+        summary:
+          'Create an internal Applicant note or task',
+
+        description:
+          'Creates recruitment-only information. Scheduling fields are internal and do not create a Calendar event.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'content',
+                ],
+
+                properties: {
+                  content: {
+                    type:
+                      'string',
+
+                    maxLength:
+                      4000,
+                  },
+
+                  kind: {
+                    type:
+                      'string',
+
+                    enum: [
+                      'note',
+                      'task',
+                    ],
+
+                    default:
+                      'note',
+                  },
+
+                  important: {
+                    type:
+                      'boolean',
+
+                    default:
+                      false,
+                  },
+
+                  schedule: {
+                    type:
+                      'object',
+
+                    properties: {
+                      startAt: {
+                        type:
+                          'string',
+
+                        format:
+                          'date-time',
+
+                        nullable:
+                          true,
+                      },
+
+                      endAt: {
+                        type:
+                          'string',
+
+                        format:
+                          'date-time',
+
+                        nullable:
+                          true,
+                      },
+
+                      reminderAt: {
+                        type:
+                          'string',
+
+                        format:
+                          'date-time',
+
+                        nullable:
+                          true,
+                      },
+
+                      reminderNote: {
+                        type:
+                          'string',
+
+                        maxLength:
+                          1000,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          201:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Edit an internal Applicant note or task',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'content',
+                ],
+
+                properties: {
+                  content: {
+                    type:
+                      'string',
+
+                    maxLength:
+                      4000,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+
+      delete: {
+        tags: ['Applicants'],
+
+        summary:
+          'Legacy soft-archive an internal note',
+
+        description:
+          'Retained temporarily for compatibility with the existing Notes UI. The dedicated archive endpoint should be used by the new Notes/Tasks interface.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/archive': {
+      post: {
+        tags: ['Applicants'],
+
+        summary:
+          'Archive an internal note or task',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/restore': {
+      post: {
+        tags: ['Applicants'],
+
+        summary:
+          'Restore an archived internal note or task',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/permanent': {
+      delete: {
+        tags: ['Applicants'],
+
+        summary:
+          'Permanently delete an archived internal note or task',
+
+        description:
+          'The item must already be archived and confirmation must exactly equal DELETE. Dependent replies are removed by the service layer.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'confirmation',
+                ],
+
+                properties: {
+                  confirmation: {
+                    type:
+                      'string',
+
+                    enum: [
+                      'DELETE',
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/importance': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Mark an internal note/task important or normal',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'important',
+                ],
+
+                properties: {
+                  important: {
+                    type:
+                      'boolean',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/like': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Like or unlike an internal note/task',
+
+        description:
+          'Stores the authenticated user ID as a per-user reaction.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'liked',
+                ],
+
+                properties: {
+                  liked: {
+                    type:
+                      'boolean',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/star': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Star or unstar an internal note/task',
+
+        description:
+          'Stores personal bookmark state for the authenticated user.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'starred',
+                ],
+
+                properties: {
+                  starred: {
+                    type:
+                      'boolean',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/task-status': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Complete or reopen an internal task',
+
+        description:
+          'Only items whose kind is task can use this endpoint.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'taskStatus',
+                ],
+
+                properties: {
+                  taskStatus: {
+                    type:
+                      'string',
+
+                    enum: [
+                      'todo',
+                      'completed',
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/schedule': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Update internal task dates or reminder',
+
+        description:
+          'Stores start/end/reminder information internally. This endpoint does not create, update, or delete Google Calendar events.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'schedule',
+                ],
+
+                properties: {
+                  schedule: {
+                    type:
+                      'object',
+
+                    properties: {
+                      startAt: {
+                        type:
+                          'string',
+
+                        format:
+                          'date-time',
+
+                        nullable:
+                          true,
+                      },
+
+                      endAt: {
+                        type:
+                          'string',
+
+                        format:
+                          'date-time',
+
+                        nullable:
+                          true,
+                      },
+
+                      reminderAt: {
+                        type:
+                          'string',
+
+                        format:
+                          'date-time',
+
+                        nullable:
+                          true,
+                      },
+
+                      reminderNote: {
+                        type:
+                          'string',
+
+                        maxLength:
+                          1000,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/calendar': {
+      post: {
+        tags: ['Applicants'],
+
+        summary:
+          'Add an internal note/task to Google Calendar',
+
+        description:
+          'Explicit external synchronization. Requires a valid Start and End/Due date-time. This action creates a Google Calendar event only when deliberately called; saving the note/task itself never creates an event.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            false,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                properties: {
+                  timezone: {
+                    type:
+                      'string',
+
+                    example:
+                      'Asia/Beirut',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          201:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+
+
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Update an internal note/task Google Calendar event',
+
+        description:
+          'Explicitly updates the existing linked Google Calendar event. Local edits only mark the Calendar state as not_synced; they do not update Google automatically.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            false,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                properties: {
+                  timezone: {
+                    type:
+                      'string',
+
+                    example:
+                      'Asia/Beirut',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+
+
+      delete: {
+        tags: ['Applicants'],
+
+        summary:
+          'Remove an internal note/task from Google Calendar',
+
+        description:
+          'Explicitly deletes the linked Google Calendar event and clears the local Calendar link. This cleanup action may also be used for archived records before permanent deletion.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/replies': {
+      get: {
+        tags: ['Applicants'],
+
+        summary:
+          'List replies for an internal note/task',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+
+          {
+            name:
+              'includeArchived',
+
+            in:
+              'query',
+
+            required:
+              false,
+
+            schema: {
+              type:
+                'boolean',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+
+      post: {
+        tags: ['Applicants'],
+
+        summary:
+          'Reply to an internal note/task',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'content',
+                ],
+
+                properties: {
+                  content: {
+                    type:
+                      'string',
+
+                    maxLength:
+                      2000,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          201:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Edit an internal note/task reply',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+
+          {
+            name:
+              'replyId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'content',
+                ],
+
+                properties: {
+                  content: {
+                    type:
+                      'string',
+
+                    maxLength:
+                      2000,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}/archive':
+      {
+        post: {
+          tags: ['Applicants'],
+
+          summary:
+            'Archive an internal reply',
+
+          parameters: [
+            idParameter,
+
+            {
+              name:
+                'noteId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+
+            {
+              name:
+                'replyId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+          ],
+
+          responses: {
+            200:
+              successResponse,
+
+            ...errorResponses,
+          },
+        },
+      },
+
+
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}/restore':
+      {
+        post: {
+          tags: ['Applicants'],
+
+          summary:
+            'Restore an archived internal reply',
+
+          parameters: [
+            idParameter,
+
+            {
+              name:
+                'noteId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+
+            {
+              name:
+                'replyId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+          ],
+
+          responses: {
+            200:
+              successResponse,
+
+            ...errorResponses,
+          },
+        },
+      },
+
+
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}/permanent':
+      {
+        delete: {
+          tags: ['Applicants'],
+
+          summary:
+            'Permanently delete an archived internal reply',
+
+          description:
+            'The reply must already be archived and confirmation must exactly equal DELETE.',
+
+          parameters: [
+            idParameter,
+
+            {
+              name:
+                'noteId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+
+            {
+              name:
+                'replyId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+          ],
+
+          requestBody: {
+            required:
+              true,
+
+            content: {
+              'application/json': {
+                schema: {
+                  type:
+                    'object',
+
+                  required: [
+                    'confirmation',
+                  ],
+
+                  properties: {
+                    confirmation: {
+                      type:
+                        'string',
+
+                      enum: [
+                        'DELETE',
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          responses: {
+            200:
+              successResponse,
+
+            ...errorResponses,
+          },
+        },
+      },
+
+
+    '/api/applicants/{id}/tags': {
+      put: {
+        tags: ['Applicants'],
+
+        summary:
+          'Replace Applicant categorization tags',
+
+        description:
+          'Updates the existing recruitment.tags collection used by Applicant search, filtering, segmentation, and analytics.',
+
+        parameters: [
+          idParameter,
+        ],
+
+        requestBody: {
+          required: true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+
+                required: [
+                  'tags',
+                ],
+
+                properties: {
+                  tags: {
+                    type: 'array',
+                    maxItems: 20,
+
+                    items: {
+                      type: 'string',
+                      maxLength: 40,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
     '/api/applicants/{id}/submissions': {
       get: {
         tags: ['Applicants'],

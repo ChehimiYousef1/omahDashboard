@@ -5,17 +5,26 @@ import {
 } from "react";
 
 import {
+  CheckCircle2,
   Eye,
+  Flag,
   GripVertical,
   Loader2,
+  MessageSquare,
+  Plus,
   Users,
+  X,
 } from "lucide-react";
 
-import type {
-  ApplicantMaster,
-  ApplicantPipelineDefinition,
-  ApplicantPipelineStage,
-  ApplicantStatus,
+import {
+  createApplicantInternalNote,
+  fetchApplicantInternalNotes,
+  type ApplicantInternalNote,
+  type ApplicantInternalNoteKind,
+  type ApplicantMaster,
+  type ApplicantPipelineDefinition,
+  type ApplicantPipelineStage,
+  type ApplicantStatus,
 } from "../../services/api";
 
 
@@ -112,6 +121,67 @@ export function ApplicantPipelineBoard({
   >(null);
 
 
+  const [
+    expandedTagsApplicantId,
+    setExpandedTagsApplicantId,
+  ] = useState<
+    string | null
+  >(null);
+
+
+  const [
+    notesApplicantId,
+    setNotesApplicantId,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    notesByApplicant,
+    setNotesByApplicant,
+  ] = useState<
+    Record<
+      string,
+      ApplicantInternalNote[]
+    >
+  >({});
+
+  const [
+    notesLoadingApplicantId,
+    setNotesLoadingApplicantId,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    noteSavingApplicantId,
+    setNoteSavingApplicantId,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    quickNoteByApplicant,
+    setQuickNoteByApplicant,
+  ] = useState<
+    Record<
+      string,
+      string
+    >
+  >({});
+
+
+  const [
+    quickKindByApplicant,
+    setQuickKindByApplicant,
+  ] = useState<
+    Record<
+      string,
+      ApplicantInternalNoteKind
+    >
+  >({});
+
+
   const stages =
     useMemo(
       () =>
@@ -183,6 +253,154 @@ export function ApplicantPipelineBoard({
           stage.value
         ) === true
     );
+  }
+
+
+  async function toggleApplicantNotes(
+    applicant:
+      ApplicantMaster
+  ) {
+    const applicantId =
+      applicant._id;
+
+    if (
+      notesApplicantId ===
+      applicantId
+    ) {
+      setNotesApplicantId(
+        null
+      );
+
+      return;
+    }
+
+    setNotesApplicantId(
+      applicantId
+    );
+
+    /*
+     * Always re-fetch on open so changes made
+     * inside the full Applicant profile appear
+     * on the pipeline card immediately.
+     */
+    try {
+      setNotesLoadingApplicantId(
+        applicantId
+      );
+
+      const notes =
+        await fetchApplicantInternalNotes(
+          applicantId
+        );
+
+      setNotesByApplicant(
+        current => ({
+          ...current,
+          [applicantId]:
+            notes,
+        })
+      );
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to load internal notes and tasks."
+      );
+
+      setNotesApplicantId(
+        null
+      );
+    } finally {
+      setNotesLoadingApplicantId(
+        null
+      );
+    }
+  }
+
+
+  async function addQuickInternalNote(
+    applicant:
+      ApplicantMaster
+  ) {
+    const applicantId =
+      applicant._id;
+
+    const content =
+      (
+        quickNoteByApplicant[
+          applicantId
+        ] ||
+        ""
+      ).trim();
+
+    const kind =
+      quickKindByApplicant[
+        applicantId
+      ] ||
+      "note";
+
+    if (!content) {
+      return;
+    }
+
+    try {
+      setNoteSavingApplicantId(
+        applicantId
+      );
+
+      const created =
+        await createApplicantInternalNote(
+          applicantId,
+          content,
+          {
+            kind,
+          }
+        );
+
+      setNotesByApplicant(
+        current => ({
+          ...current,
+
+          [applicantId]: [
+            created,
+            ...(
+              current[
+                applicantId
+              ] ||
+              []
+            ),
+          ],
+        })
+      );
+
+      setQuickNoteByApplicant(
+        current => ({
+          ...current,
+
+          [applicantId]:
+            "",
+        })
+      );
+
+      setQuickKindByApplicant(
+        current => ({
+          ...current,
+
+          [applicantId]:
+            "note",
+        })
+      );
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Unable to add internal note or task."
+      );
+    } finally {
+      setNoteSavingApplicantId(
+        null
+      );
+    }
   }
 
 
@@ -540,6 +758,552 @@ export function ApplicantPipelineBoard({
                                     )}
                                   </p>
                                 </div>
+
+
+                                {(
+                                  applicant
+                                    .recruitment
+                                    .tags || []
+                                ).length > 0 && (
+                                  <div className="mt-2">
+                                    <div className="flex flex-wrap gap-1">
+                                      {(
+                                        applicant
+                                          .recruitment
+                                          .tags || []
+                                      )
+                                        .slice(0, 2)
+                                        .map(
+                                          (tag) => (
+                                            <span
+                                              key={tag}
+                                              title={tag}
+                                              className="max-w-[95px] truncate rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-semibold text-violet-700"
+                                            >
+                                              {tag}
+                                            </span>
+                                          )
+                                        )}
+
+                                      {(
+                                        applicant
+                                          .recruitment
+                                          .tags || []
+                                      ).length > 2 && (
+                                        <button
+                                          type="button"
+                                          onMouseDown={(
+                                            event
+                                          ) =>
+                                            event.stopPropagation()
+                                          }
+                                          onClick={(
+                                            event
+                                          ) => {
+                                            event.stopPropagation();
+
+                                            setExpandedTagsApplicantId(
+                                              current =>
+                                                current ===
+                                                  applicant._id
+                                                  ? null
+                                                  : applicant._id
+                                            );
+                                          }}
+                                          className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-bold text-slate-600 hover:bg-violet-100 hover:text-violet-700"
+                                          title="Show all tags"
+                                        >
+                                          {expandedTagsApplicantId ===
+                                          applicant._id
+                                            ? "Hide"
+                                            : `+${
+                                                (
+                                                  applicant
+                                                    .recruitment
+                                                    .tags || []
+                                                ).length - 2
+                                              }`}
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {expandedTagsApplicantId ===
+                                      applicant._id && (
+                                      <div className="mt-2 rounded-lg border border-violet-100 bg-violet-50/50 p-2">
+                                        <div className="mb-1.5 flex items-center justify-between">
+                                          <span className="text-[9px] font-bold uppercase tracking-wide text-violet-700">
+                                            All Tags
+                                          </span>
+
+                                          <span className="text-[9px] font-semibold text-slate-500">
+                                            {
+                                              (
+                                                applicant
+                                                  .recruitment
+                                                  .tags || []
+                                              ).length
+                                            }{" "}
+                                            total
+                                          </span>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-1">
+                                          {(
+                                            applicant
+                                              .recruitment
+                                              .tags || []
+                                          ).map(
+                                            (tag) => (
+                                              <span
+                                                key={tag}
+                                                className="break-all rounded-full bg-white px-2 py-0.5 text-[9px] font-semibold text-violet-700 shadow-sm"
+                                              >
+                                                {tag}
+                                              </span>
+                                            )
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+
+                                <div className="mt-2">
+                                  <button
+                                    type="button"
+                                    onMouseDown={(
+                                      event
+                                    ) =>
+                                      event.stopPropagation()
+                                    }
+                                    onClick={(
+                                      event
+                                    ) => {
+                                      event.stopPropagation();
+
+                                      void toggleApplicantNotes(
+                                        applicant
+                                      );
+                                    }}
+                                    className={
+                                      `inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[9px] font-semibold transition ${
+                                        notesApplicantId ===
+                                        applicant._id
+                                          ? "border-blue-200 bg-blue-50 text-blue-700"
+                                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                                      }`
+                                    }
+                                  >
+                                    <MessageSquare className="h-3 w-3" />
+
+                                    Notes & Tasks
+
+                                    {notesByApplicant[
+                                      applicant._id
+                                    ] && (
+                                      <span className="rounded-full bg-white px-1.5 py-0.5 text-[8px] font-bold text-blue-700 shadow-sm">
+                                        {
+                                          notesByApplicant[
+                                            applicant._id
+                                          ].length
+                                        }
+                                      </span>
+                                    )}
+                                  </button>
+                                </div>
+
+
+                                {notesApplicantId ===
+                                  applicant._id && (
+                                  <div
+                                    onMouseDown={(
+                                      event
+                                    ) =>
+                                      event.stopPropagation()
+                                    }
+                                    onClick={(
+                                      event
+                                    ) =>
+                                      event.stopPropagation()
+                                    }
+                                    className="mt-2 rounded-lg border border-blue-100 bg-blue-50/40 p-2"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div>
+                                        <p className="text-[9px] font-bold uppercase tracking-wide text-blue-700">
+                                          Internal Notes & Tasks
+                                        </p>
+
+                                        <p className="mt-0.5 text-[8px] text-slate-400">
+                                          Internal Applicant workflow
+                                        </p>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        title="Close Notes & Tasks"
+                                        onClick={() =>
+                                          setNotesApplicantId(
+                                            null
+                                          )
+                                        }
+                                        className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+
+
+                                    {notesLoadingApplicantId ===
+                                      applicant._id ? (
+                                      <div className="mt-2 flex items-center gap-1.5 text-[9px] text-slate-500">
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                        Loading notes and tasks...
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {notesByApplicant[
+                                          applicant._id
+                                        ] && (
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            <span className="rounded-full bg-white px-2 py-0.5 text-[8px] font-bold text-blue-700 shadow-sm">
+                                              Notes{" "}
+                                              {
+                                                (
+                                                  notesByApplicant[
+                                                    applicant._id
+                                                  ] ||
+                                                  []
+                                                ).filter(
+                                                  item =>
+                                                    item.kind !==
+                                                    "task"
+                                                ).length
+                                              }
+                                            </span>
+
+                                            <span className="rounded-full bg-white px-2 py-0.5 text-[8px] font-bold text-indigo-700 shadow-sm">
+                                              Tasks{" "}
+                                              {
+                                                (
+                                                  notesByApplicant[
+                                                    applicant._id
+                                                  ] ||
+                                                  []
+                                                ).filter(
+                                                  item =>
+                                                    item.kind ===
+                                                    "task"
+                                                ).length
+                                              }
+                                            </span>
+
+                                            {(
+                                              notesByApplicant[
+                                                applicant._id
+                                              ] ||
+                                              []
+                                            ).some(
+                                              item =>
+                                                item.important
+                                            ) && (
+                                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[8px] font-bold text-amber-700">
+                                                <Flag className="h-2.5 w-2.5" />
+                                                Important
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+
+
+                                        <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
+                                          {(
+                                            notesByApplicant[
+                                              applicant._id
+                                            ] ||
+                                            []
+                                          ).length === 0 ? (
+                                            <p className="rounded-md border border-dashed border-slate-200 bg-white p-2 text-[9px] text-slate-400">
+                                              No internal notes or tasks yet.
+                                            </p>
+                                          ) : (
+                                            (
+                                              notesByApplicant[
+                                                applicant._id
+                                              ] ||
+                                              []
+                                            )
+                                              .slice(
+                                                0,
+                                                4
+                                              )
+                                              .map(
+                                                note => (
+                                                  <div
+                                                    key={
+                                                      note._id
+                                                    }
+                                                    className={
+                                                      `rounded-md border bg-white p-2 shadow-sm ${
+                                                        note.important
+                                                          ? "border-amber-200"
+                                                          : "border-transparent"
+                                                      }`
+                                                    }
+                                                  >
+                                                    <div className="flex flex-wrap items-center gap-1">
+                                                      <span
+                                                        className={
+                                                          `rounded-full px-1.5 py-0.5 text-[7px] font-bold uppercase ${
+                                                            note.kind ===
+                                                            "task"
+                                                              ? "bg-indigo-100 text-indigo-700"
+                                                              : "bg-blue-100 text-blue-700"
+                                                          }`
+                                                        }
+                                                      >
+                                                        {note.kind ===
+                                                        "task"
+                                                          ? "Task"
+                                                          : "Note"}
+                                                      </span>
+
+                                                      {note.important && (
+                                                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[7px] font-bold text-amber-700">
+                                                          <Flag className="h-2 w-2" />
+                                                          Important
+                                                        </span>
+                                                      )}
+
+                                                      {note.kind ===
+                                                        "task" &&
+                                                        note.taskStatus ===
+                                                          "completed" && (
+                                                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[7px] font-bold text-emerald-700">
+                                                          <CheckCircle2 className="h-2 w-2" />
+                                                          Done
+                                                        </span>
+                                                      )}
+                                                    </div>
+
+
+                                                    <p className="mt-1 whitespace-pre-wrap break-words text-[9px] leading-4 text-slate-700">
+                                                      {
+                                                        note.content
+                                                      }
+                                                    </p>
+
+
+                                                    {(note.schedule
+                                                      ?.endAt ||
+                                                      note.schedule
+                                                        ?.reminderAt) && (
+                                                      <div className="mt-1 flex flex-wrap gap-1 text-[7px] font-semibold">
+                                                        {note.schedule
+                                                          ?.endAt && (
+                                                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">
+                                                            Due{" "}
+                                                            {
+                                                              formatDate(
+                                                                note
+                                                                  .schedule
+                                                                  .endAt
+                                                              )
+                                                            }
+                                                          </span>
+                                                        )}
+
+                                                        {note.schedule
+                                                          ?.reminderAt && (
+                                                          <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-600">
+                                                            Reminder{" "}
+                                                            {
+                                                              formatDate(
+                                                                note
+                                                                  .schedule
+                                                                  .reminderAt
+                                                              )
+                                                            }
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    )}
+
+
+                                                    <p className="mt-1 truncate text-[8px] text-slate-400">
+                                                      {
+                                                        note.author
+                                                          ?.name ||
+                                                        note.author
+                                                          ?.email ||
+                                                        "Administrator"
+                                                      }
+                                                    </p>
+                                                  </div>
+                                                )
+                                              )
+                                          )}
+                                        </div>
+
+
+                                        {!applicant
+                                          .lifecycle
+                                          .archived && (
+                                          <div className="mt-2 rounded-md border border-blue-100 bg-white p-2">
+                                            <div className="mb-1.5 flex items-center justify-between gap-2">
+                                              <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400">
+                                                Quick Add
+                                              </p>
+
+                                              <select
+                                                value={
+                                                  quickKindByApplicant[
+                                                    applicant._id
+                                                  ] ||
+                                                  "note"
+                                                }
+                                                disabled={
+                                                  noteSavingApplicantId ===
+                                                  applicant._id
+                                                }
+                                                onChange={(
+                                                  event
+                                                ) =>
+                                                  setQuickKindByApplicant(
+                                                    current => ({
+                                                      ...current,
+
+                                                      [applicant._id]:
+                                                        event
+                                                          .target
+                                                          .value as
+                                                          ApplicantInternalNoteKind,
+                                                    })
+                                                  )
+                                                }
+                                                className="rounded border border-slate-200 bg-white px-1.5 py-1 text-[8px] font-semibold text-slate-600"
+                                              >
+                                                <option value="note">
+                                                  Quick Note
+                                                </option>
+
+                                                <option value="task">
+                                                  Quick Task
+                                                </option>
+                                              </select>
+                                            </div>
+
+                                            <textarea
+                                              value={
+                                                quickNoteByApplicant[
+                                                  applicant._id
+                                                ] ||
+                                                ""
+                                              }
+                                              maxLength={
+                                                4000
+                                              }
+                                              rows={
+                                                2
+                                              }
+                                              disabled={
+                                                noteSavingApplicantId ===
+                                                applicant._id
+                                              }
+                                              placeholder={
+                                                (
+                                                  quickKindByApplicant[
+                                                    applicant._id
+                                                  ] ||
+                                                  "note"
+                                                ) ===
+                                                "task"
+                                                  ? "Add a quick internal task..."
+                                                  : "Add a quick internal note..."
+                                              }
+                                              onChange={(
+                                                event
+                                              ) =>
+                                                setQuickNoteByApplicant(
+                                                  current => ({
+                                                    ...current,
+
+                                                    [applicant._id]:
+                                                      event
+                                                        .target
+                                                        .value,
+                                                  })
+                                                )
+                                              }
+                                              className="w-full resize-none rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[9px] outline-none focus:border-blue-300"
+                                            />
+
+                                            <button
+                                              type="button"
+                                              disabled={
+                                                noteSavingApplicantId ===
+                                                  applicant._id ||
+                                                !(
+                                                  quickNoteByApplicant[
+                                                    applicant._id
+                                                  ] ||
+                                                  ""
+                                                ).trim()
+                                              }
+                                              onClick={() =>
+                                                void addQuickInternalNote(
+                                                  applicant
+                                                )
+                                              }
+                                              className="mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded-md bg-blue-600 px-2 py-1.5 text-[9px] font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
+                                            >
+                                              {noteSavingApplicantId ===
+                                              applicant._id ? (
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                              ) : (
+                                                <Plus className="h-3 w-3" />
+                                              )}
+
+                                              Add{" "}
+                                              {(
+                                                quickKindByApplicant[
+                                                  applicant._id
+                                                ] ||
+                                                "note"
+                                              ) ===
+                                              "task"
+                                                ? "Task"
+                                                : "Note"}
+                                            </button>
+                                          </div>
+                                        )}
+
+
+                                        {(
+                                          notesByApplicant[
+                                            applicant._id
+                                          ] ||
+                                          []
+                                        ).length > 4 && (
+                                          <p className="mt-2 text-center text-[8px] font-semibold text-blue-600">
+                                            +
+                                            {
+                                              (
+                                                notesByApplicant[
+                                                  applicant._id
+                                                ] ||
+                                                []
+                                              ).length -
+                                              4
+                                            }{" "}
+                                            more in full profile
+                                          </p>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                )}
 
 
                                 <div className="mt-3 flex items-center gap-2">

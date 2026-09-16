@@ -15,6 +15,18 @@ const ApplicantInterview =
 const ApplicantActivity =
   require('../models/ApplicantActivity');
 
+
+const ApplicantInternalNote =
+  require(
+    '../models/ApplicantInternalNote'
+  );
+
+
+const ApplicantInternalNoteReply =
+  require(
+    '../models/ApplicantInternalNoteReply'
+  );
+
 const {
   ApplicantDuplicateCase,
 } = require(
@@ -152,6 +164,13 @@ async function permanentlyDeleteApplicant({
 
   ActivityModel = ApplicantActivity,
 
+  NoteModel =
+    ApplicantInternalNote,
+
+  ReplyModel =
+    ApplicantInternalNoteReply,
+
+
   storageFactory = createDocumentStorageFactory(),
 } = {}) {
   if (
@@ -253,6 +272,43 @@ async function permanentlyDeleteApplicant({
     throw serviceError(
       'APPLICANT_PERMANENT_DELETE_PROVIDER_MEETING_ACTIVE',
       'Permanent deletion is blocked because an interview still has an active provider meeting.'
+    );
+  }
+
+
+  /*
+   * Internal Notes/Tasks can also own real
+   * Google Calendar events.
+   *
+   * Never permanently delete an Applicant while
+   * one of those external events remains linked.
+   */
+  const internalNotes =
+    await resolveLean(
+      NoteModel.find({
+        applicantId:
+          applicantObjectId,
+      })
+    ) || [];
+
+  const calendarLinkedInternalItem =
+    internalNotes.find(
+      note =>
+        Boolean(
+          String(
+            note?.calendar
+              ?.eventId ||
+            ''
+          ).trim()
+        )
+    );
+
+  if (
+    calendarLinkedInternalItem
+  ) {
+    throw serviceError(
+      'APPLICANT_PERMANENT_DELETE_INTERNAL_CALENDAR_ACTIVE',
+      'Permanent deletion is blocked because an internal note or task is still linked to Google Calendar. Remove the Calendar event first.'
     );
   }
 
@@ -468,6 +524,31 @@ async function permanentlyDeleteApplicant({
     );
 
 
+
+  /*
+   * Replies are dependent on internal
+   * notes/tasks and are removed first.
+   */
+  const noteRepliesDeleted =
+    await deleteMany(
+      ReplyModel,
+      {
+        applicantId:
+          applicantObjectId,
+      }
+    );
+
+
+  const notesDeleted =
+    await deleteMany(
+      NoteModel,
+      {
+        applicantId:
+          applicantObjectId,
+      }
+    );
+
+
   /*
    * IMPORTANT:
    *
@@ -538,6 +619,13 @@ async function permanentlyDeleteApplicant({
 
       activities:
         activitiesDeleted,
+
+
+      noteReplies:
+        noteRepliesDeleted,
+
+      notes:
+        notesDeleted,
     },
   };
 }

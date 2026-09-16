@@ -26,6 +26,8 @@ const APPLICANT_PERMISSIONS =
     'applicant:archive',
     'applicant:restore',
     'applicant:delete',
+    'applicant:notes:view',
+    'applicant:notes:manage',
     'applicant:submissions:view',
     'applicant:documents:view',
     'applicant:documents:manage',

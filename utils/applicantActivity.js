@@ -22,6 +22,7 @@ const APPLICANT_ACTIVITY_TYPES = [
 
   'profile.updated',
   'profile.approved',
+  'profile.tags_updated',
 
   'status.changed',
 
@@ -46,10 +47,28 @@ const APPLICANT_ACTIVITY_TYPES = [
   'note.created',
   'note.updated',
   'note.deleted',
+  'note.archived',
+  'note.restored',
+  'note.permanently_deleted',
+  'note.calendar_added',
+  'note.calendar_updated',
+  'note.calendar_removed',
+  'note.reply_created',
+  'note.reply_updated',
+  'note.reply_archived',
+  'note.reply_restored',
+  'note.reply_permanently_deleted',
 
   'task.created',
+  'task.updated',
   'task.completed',
   'task.reopened',
+  'task.archived',
+  'task.restored',
+  'task.permanently_deleted',
+  'task.calendar_added',
+  'task.calendar_updated',
+  'task.calendar_removed',
 
   'document.uploaded',
   'document.replaced',

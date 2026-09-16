@@ -52,6 +52,11 @@ import {
   ApplicantActivityPanel,
 } from "./ApplicantActivityPanel";
 
+
+import {
+  ApplicantInternalNotesTagsPanel,
+} from "./ApplicantInternalNotesTagsPanel";
+
 import {
   ApplicantDocumentsPanel,
 } from "./ApplicantDocumentsPanel";
@@ -119,7 +124,7 @@ const tabs: Array<{
   },
   {
     id: "notes",
-    label: "Notes / Tasks",
+    label: "Internal Notes, Tasks & Tags",
   },
   {
     id: "activity",
@@ -1457,6 +1462,29 @@ Enter option number:`,
           )}
 
           {activeTab ===
+            "notes" && (
+            <ApplicantInternalNotesTagsPanel
+              applicantId={
+                applicant._id
+              }
+              initialTags={
+                applicant
+                  .recruitment
+                  .tags ||
+                []
+              }
+              archived={
+                applicant
+                  .lifecycle
+                  .archived
+              }
+              onChanged={
+                onChanged
+              }
+            />
+          )}
+
+          {activeTab ===
             "activity" && (
             <ApplicantActivityPanel
               key={applicant._id}
@@ -1472,6 +1500,7 @@ Enter option number:`,
             "evaluations",
             "interviews",
             "communications",
+            "notes",
             "activity",
           ].includes(
             activeTab

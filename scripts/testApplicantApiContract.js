@@ -86,6 +86,28 @@ const expectedRoutes = [
   'POST /:id/evaluations/:evaluationId/submit',
   'POST /:id/restore',
   'POST /:id/submissions/:submissionId/link',
+  'GET /:id/notes',
+  'POST /:id/notes',
+  'PATCH /:id/notes/:noteId',
+  'DELETE /:id/notes/:noteId',
+  'POST /:id/notes/:noteId/archive',
+  'POST /:id/notes/:noteId/restore',
+  'DELETE /:id/notes/:noteId/permanent',
+  'PATCH /:id/notes/:noteId/importance',
+  'PATCH /:id/notes/:noteId/like',
+  'PATCH /:id/notes/:noteId/star',
+  'PATCH /:id/notes/:noteId/task-status',
+  'PATCH /:id/notes/:noteId/schedule',
+  'POST /:id/notes/:noteId/calendar',
+  'PATCH /:id/notes/:noteId/calendar',
+  'DELETE /:id/notes/:noteId/calendar',
+  'GET /:id/notes/:noteId/replies',
+  'POST /:id/notes/:noteId/replies',
+  'PATCH /:id/notes/:noteId/replies/:replyId',
+  'POST /:id/notes/:noteId/replies/:replyId/archive',
+  'POST /:id/notes/:noteId/replies/:replyId/restore',
+  'DELETE /:id/notes/:noteId/replies/:replyId/permanent',
+  'PUT /:id/tags',
 ].sort();
 
 assert.deepStrictEqual(
@@ -232,6 +254,116 @@ const swaggerRoutes = [
     'post',
     '/api/applicants/{id}/evaluations/{evaluationId}/reopen',
   ],
+  [
+    'get',
+    '/api/applicants/{id}/notes',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}',
+  ],
+
+  [
+    'delete',
+    '/api/applicants/{id}/notes/{noteId}',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes/{noteId}/archive',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes/{noteId}/restore',
+  ],
+
+  [
+    'delete',
+    '/api/applicants/{id}/notes/{noteId}/permanent',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/importance',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/like',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/star',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/task-status',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/schedule',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes/{noteId}/calendar',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/calendar',
+  ],
+
+  [
+    'delete',
+    '/api/applicants/{id}/notes/{noteId}/calendar',
+  ],
+
+  [
+    'get',
+    '/api/applicants/{id}/notes/{noteId}/replies',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes/{noteId}/replies',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}/archive',
+  ],
+
+  [
+    'post',
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}/restore',
+  ],
+
+  [
+    'delete',
+    '/api/applicants/{id}/notes/{noteId}/replies/{replyId}/permanent',
+  ],
+
+  [
+    'put',
+    '/api/applicants/{id}/tags',
+  ],
+
 ];
 
 for (

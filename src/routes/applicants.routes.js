@@ -66,6 +66,46 @@ const {
   '../../services/applicantPermanentDeleteService'
 );
 
+
+const {
+  listApplicantInternalNotes,
+  createApplicantInternalNote,
+  updateApplicantInternalNote,
+
+  deleteApplicantInternalNote,
+
+  archiveApplicantInternalNote,
+  restoreApplicantInternalNote,
+  permanentlyDeleteApplicantInternalNote,
+
+  setApplicantInternalNoteImportance,
+  setApplicantInternalNoteLike,
+  setApplicantInternalNoteStar,
+  setApplicantInternalTaskStatus,
+  updateApplicantInternalNoteSchedule,
+
+  listApplicantInternalNoteReplies,
+  createApplicantInternalNoteReply,
+  updateApplicantInternalNoteReply,
+  archiveApplicantInternalNoteReply,
+  restoreApplicantInternalNoteReply,
+  permanentlyDeleteApplicantInternalNoteReply,
+
+  replaceApplicantTags,
+} = require(
+  '../../services/applicantInternalNotesService'
+);
+
+
+const {
+  addApplicantInternalItemToCalendar,
+  updateApplicantInternalItemCalendar,
+  removeApplicantInternalItemFromCalendar,
+} = require(
+  '../../services/applicantInternalCalendarSyncService'
+);
+
+
 const {
   getApplicantSubmissions,
   linkSubmissionToApplicant,
@@ -183,6 +223,9 @@ const NOT_FOUND_CODES =
     'APPROVED_SUBMISSION_NOT_FOUND',
     'DUPLICATE_CASE_NOT_FOUND',
     'EVALUATION_NOT_FOUND',
+    'INTERNAL_NOTE_NOT_FOUND',
+    'INTERNAL_NOTE_REPLY_NOT_FOUND',
+    'INTERNAL_TASK_NOT_FOUND',
   ]);
 
 const SERVICE_UNAVAILABLE_CODES =
@@ -191,7 +234,10 @@ const SERVICE_UNAVAILABLE_CODES =
     'APPLICANT_EMAIL_SENDER_REQUIRED',
     'WHATSAPP_DISABLED',
     'WHATSAPP_NOT_CONFIGURED',
-  ]);
+      'GOOGLE_CALENDAR_DISABLED',
+    'GOOGLE_CALENDAR_NOT_CONFIGURED',
+    'GOOGLE_CALENDAR_WRITE_DISABLED',
+]);
 
 
 const BAD_GATEWAY_CODES =
@@ -231,7 +277,16 @@ const CONFLICT_CODES =
     'EVALUATION_ARCHIVE_CONFLICT',
     'EVALUATION_REOPEN_CONFLICT',
     'EVALUATION_ALREADY_DRAFT',
-  ]);
+    'INTERNAL_NOTE_DELETE_NOT_ALLOWED',
+    'INTERNAL_NOTE_DELETE_CONFLICT',
+    'INTERNAL_NOTE_DELETE_CALENDAR_LINKED',
+    'INTERNAL_NOTE_REPLY_DELETE_NOT_ALLOWED',
+    'APPLICANT_PERMANENT_DELETE_INTERNAL_CALENDAR_ACTIVE',
+      'INTERNAL_CALENDAR_ALREADY_LINKED',
+    'INTERNAL_CALENDAR_NOT_LINKED',
+    'INTERNAL_CALENDAR_PERSIST_CONFLICT',
+    'INTERNAL_CALENDAR_CREATE_ROLLBACK_FAILED',
+]);
 
 function statusForError(error) {
   if (
@@ -433,6 +488,73 @@ function createApplicantRouter({
 
   permanentlyDelete =
     permanentlyDeleteApplicant,
+
+  listInternalNotes =
+    listApplicantInternalNotes,
+
+  createInternalNote =
+    createApplicantInternalNote,
+
+  updateInternalNote =
+    updateApplicantInternalNote,
+
+  deleteInternalNote =
+    deleteApplicantInternalNote,
+
+  archiveInternalNote =
+    archiveApplicantInternalNote,
+
+  restoreInternalNote =
+    restoreApplicantInternalNote,
+
+  permanentlyDeleteInternalNote =
+    permanentlyDeleteApplicantInternalNote,
+
+  setInternalNoteImportance =
+    setApplicantInternalNoteImportance,
+
+  setInternalNoteLike =
+    setApplicantInternalNoteLike,
+
+  setInternalNoteStar =
+    setApplicantInternalNoteStar,
+
+  setInternalTaskStatus =
+    setApplicantInternalTaskStatus,
+
+  updateInternalNoteSchedule =
+    updateApplicantInternalNoteSchedule,
+
+  addInternalItemToCalendar =
+    addApplicantInternalItemToCalendar,
+
+  updateInternalItemCalendar =
+    updateApplicantInternalItemCalendar,
+
+  removeInternalItemFromCalendar =
+    removeApplicantInternalItemFromCalendar,
+
+  listInternalNoteReplies =
+    listApplicantInternalNoteReplies,
+
+  createInternalNoteReply =
+    createApplicantInternalNoteReply,
+
+  updateInternalNoteReply =
+    updateApplicantInternalNoteReply,
+
+  archiveInternalNoteReply =
+    archiveApplicantInternalNoteReply,
+
+  restoreInternalNoteReply =
+    restoreApplicantInternalNoteReply,
+
+  permanentlyDeleteInternalNoteReply =
+    permanentlyDeleteApplicantInternalNoteReply,
+
+  replaceTags =
+    replaceApplicantTags,
+
   getSubmissions =
     getApplicantSubmissions,
 
@@ -1771,6 +1893,1757 @@ function createApplicantRouter({
                 whatsapp.ready,
             },
           },
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * ==================================================
+   * INTERNAL NOTES, TASKS & TAGS
+   * ==================================================
+   *
+   * Internal recruitment-only information.
+   * Never written to immutable Form submissions.
+   */
+
+  /*
+   * GET /api/applicants/:id/notes
+   */
+  router.get(
+    '/:id/notes',
+
+    requireApplicantPermission(
+      'applicant:notes:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await listInternalNotes({
+            applicantId:
+              req.params.id,
+
+            includeArchived:
+              req.query
+                ?.includeArchived ===
+              'true',
+          });
+
+        return res.json({
+          success: true,
+          notes:
+            result.notes,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST /api/applicants/:id/notes
+   */
+  router.post(
+    '/:id/notes',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await createInternalNote({
+            applicantId:
+              req.params.id,
+
+            content:
+              req.body?.content,
+
+            kind:
+              req.body?.kind,
+
+            important:
+              req.body?.important ??
+              false,
+
+            schedule:
+              req.body?.schedule ??
+              {},
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            result.note?.kind ===
+              'task'
+              ? 'task.created'
+              : 'note.created',
+
+          title:
+            result.note?.kind ===
+              'task'
+              ? 'Internal task created'
+              : 'Internal note created',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note
+                  ?._id ||
+                ''
+              ),
+          },
+        });
+
+        return res
+          .status(201)
+          .json({
+            success: true,
+            note:
+              result.note,
+          });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PATCH /api/applicants/:id/notes/:noteId
+   */
+  router.patch(
+    '/:id/notes/:noteId',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await updateInternalNote({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            content:
+              req.body?.content,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            result.note?.kind ===
+              'task'
+              ? 'task.updated'
+              : 'note.updated',
+
+          title:
+            result.note?.kind ===
+              'task'
+              ? 'Internal task updated'
+              : 'Internal note updated',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note
+                  ?._id ||
+                ''
+              ),
+          },
+        });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * DELETE /api/applicants/:id/notes/:noteId
+   *
+   * Soft-delete only.
+   */
+  router.delete(
+    '/:id/notes/:noteId',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await deleteInternalNote({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'note.deleted',
+
+          title:
+            'Internal note deleted',
+
+          occurredAt:
+            result.archivedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              result.noteId,
+          },
+        });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+
+  /*
+   * ==================================================
+   * INTERNAL NOTE / TASK WORKFLOW
+   * ==================================================
+   */
+
+  router.post(
+    '/:id/notes/:noteId/archive',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await archiveInternalNote({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.archived`,
+
+          title:
+            kind === 'task'
+              ? 'Internal task archived'
+              : 'Internal note archived',
+
+          occurredAt:
+            result.note
+              ?.archivedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+        });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.post(
+    '/:id/notes/:noteId/restore',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await restoreInternalNote({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.restored`,
+
+          title:
+            kind === 'task'
+              ? 'Internal task restored'
+              : 'Internal note restored',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+        });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.delete(
+    '/:id/notes/:noteId/permanent',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await permanentlyDeleteInternalNote({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            confirmation:
+              req.body?.confirmation,
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            result.kind ===
+              'task'
+              ? 'task.permanently_deleted'
+              : 'note.permanently_deleted',
+
+          title:
+            result.kind ===
+              'task'
+              ? 'Internal task permanently deleted'
+              : 'Internal note permanently deleted',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              result.noteId,
+          },
+
+          metadata: {
+            repliesDeleted:
+              result.repliesDeleted,
+          },
+        });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.patch(
+    '/:id/notes/:noteId/importance',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await setInternalNoteImportance({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            important:
+              req.body?.important,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.updated`,
+
+          title:
+            result.note?.important
+              ? `Internal ${kind} marked important`
+              : `Internal ${kind} marked normal`,
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+
+          metadata: {
+            important:
+              result.note
+                ?.important ===
+              true,
+          },
+        });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.patch(
+    '/:id/notes/:noteId/like',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await setInternalNoteLike({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            liked:
+              req.body?.liked,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.patch(
+    '/:id/notes/:noteId/star',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await setInternalNoteStar({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            starred:
+              req.body?.starred,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.patch(
+    '/:id/notes/:noteId/task-status',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await setInternalTaskStatus({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            taskStatus:
+              req.body?.taskStatus,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const completed =
+          result.note
+            ?.taskStatus ===
+          'completed';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            completed
+              ? 'task.completed'
+              : 'task.reopened',
+
+          title:
+            completed
+              ? 'Internal task completed'
+              : 'Internal task reopened',
+
+          occurredAt:
+            result.note
+              ?.completedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+        });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.patch(
+    '/:id/notes/:noteId/schedule',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await updateInternalNoteSchedule({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            schedule:
+              req.body?.schedule ??
+              {},
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.updated`,
+
+          title:
+            kind === 'task'
+              ? 'Internal task schedule updated'
+              : 'Internal note reminder updated',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+
+          metadata: {
+            startAt:
+              result.note
+                ?.schedule
+                ?.startAt ||
+              null,
+
+            endAt:
+              result.note
+                ?.schedule
+                ?.endAt ||
+              null,
+
+            reminderAt:
+              result.note
+                ?.schedule
+                ?.reminderAt ||
+              null,
+          },
+        });
+
+        return res.json({
+          success: true,
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * ==================================================
+   * EXPLICIT INTERNAL NOTE / TASK CALENDAR SYNC
+   * ==================================================
+   *
+   * These endpoints are the only API surface that
+   * may synchronize an internal item with Google
+   * Calendar.
+   *
+   * Saving/editing a note, task, date, or reminder
+   * never performs an external Calendar write.
+   */
+
+
+  /*
+   * POST /api/applicants/:id/notes/:noteId/calendar
+   *
+   * Explicitly create a Google Calendar event.
+   */
+  router.post(
+    '/:id/notes/:noteId/calendar',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await addInternalItemToCalendar({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            timezone:
+              req.body?.timezone ||
+              'UTC',
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.calendar_added`,
+
+          title:
+            kind === 'task'
+              ? 'Internal task added to Calendar'
+              : 'Internal note added to Calendar',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+
+          metadata: {
+            provider:
+              result.note
+                ?.calendar
+                ?.provider ||
+              'google_calendar',
+
+            syncStatus:
+              result.note
+                ?.calendar
+                ?.syncStatus ||
+              'synced',
+          },
+        });
+
+        return res
+          .status(201)
+          .json({
+            success: true,
+
+            note:
+              result.note,
+          });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PATCH /api/applicants/:id/notes/:noteId/calendar
+   *
+   * Explicitly update the already-linked event.
+   */
+  router.patch(
+    '/:id/notes/:noteId/calendar',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await updateInternalItemCalendar({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            timezone:
+              req.body?.timezone ||
+              'UTC',
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.calendar_updated`,
+
+          title:
+            kind === 'task'
+              ? 'Internal task Calendar event updated'
+              : 'Internal note Calendar event updated',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+
+          metadata: {
+            provider:
+              result.note
+                ?.calendar
+                ?.provider ||
+              'google_calendar',
+
+            syncStatus:
+              result.note
+                ?.calendar
+                ?.syncStatus ||
+              'synced',
+          },
+        });
+
+        return res.json({
+          success: true,
+
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * DELETE /api/applicants/:id/notes/:noteId/calendar
+   *
+   * Explicitly remove the linked Google event.
+   *
+   * This is also allowed for archived records by
+   * the synchronization service so external cleanup
+   * remains possible before permanent deletion.
+   */
+  router.delete(
+    '/:id/notes/:noteId/calendar',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await removeInternalItemFromCalendar({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const kind =
+          result.note?.kind ===
+            'task'
+            ? 'task'
+            : 'note';
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            `${kind}.calendar_removed`,
+
+          title:
+            kind === 'task'
+              ? 'Internal task removed from Calendar'
+              : 'Internal note removed from Calendar',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note',
+
+            id:
+              String(
+                result.note?._id ||
+                req.params.noteId
+              ),
+          },
+
+          metadata: {
+            provider:
+              'google_calendar',
+
+            syncStatus:
+              'not_synced',
+          },
+        });
+
+        return res.json({
+          success: true,
+
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * Replies
+   */
+
+  router.get(
+    '/:id/notes/:noteId/replies',
+
+    requireApplicantPermission(
+      'applicant:notes:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await listInternalNoteReplies({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            includeArchived:
+              req.query
+                ?.includeArchived ===
+              'true',
+          });
+
+        return res.json({
+          success: true,
+          replies:
+            result.replies,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.post(
+    '/:id/notes/:noteId/replies',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await createInternalNoteReply({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            content:
+              req.body?.content,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'note.reply_created',
+
+          title:
+            'Internal note/task reply added',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note_reply',
+
+            id:
+              String(
+                result.reply?._id ||
+                ''
+              ),
+          },
+
+          metadata: {
+            noteId:
+              req.params.noteId,
+          },
+        });
+
+        return res
+          .status(201)
+          .json({
+            success: true,
+            reply:
+              result.reply,
+          });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.patch(
+    '/:id/notes/:noteId/replies/:replyId',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await updateInternalNoteReply({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            replyId:
+              req.params.replyId,
+
+            content:
+              req.body?.content,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'note.reply_updated',
+
+          title:
+            'Internal reply updated',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note_reply',
+
+            id:
+              String(
+                result.reply?._id ||
+                req.params.replyId
+              ),
+          },
+
+          metadata: {
+            noteId:
+              req.params.noteId,
+          },
+        });
+
+        return res.json({
+          success: true,
+          reply:
+            result.reply,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.post(
+    '/:id/notes/:noteId/replies/:replyId/archive',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await archiveInternalNoteReply({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            replyId:
+              req.params.replyId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'note.reply_archived',
+
+          title:
+            'Internal reply archived',
+
+          occurredAt:
+            result.reply
+              ?.archivedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note_reply',
+
+            id:
+              String(
+                result.reply?._id ||
+                req.params.replyId
+              ),
+          },
+
+          metadata: {
+            noteId:
+              req.params.noteId,
+          },
+        });
+
+        return res.json({
+          success: true,
+          reply:
+            result.reply,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.post(
+    '/:id/notes/:noteId/replies/:replyId/restore',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await restoreInternalNoteReply({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            replyId:
+              req.params.replyId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'note.reply_restored',
+
+          title:
+            'Internal reply restored',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note_reply',
+
+            id:
+              String(
+                result.reply?._id ||
+                req.params.replyId
+              ),
+          },
+
+          metadata: {
+            noteId:
+              req.params.noteId,
+          },
+        });
+
+        return res.json({
+          success: true,
+          reply:
+            result.reply,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.delete(
+    '/:id/notes/:noteId/replies/:replyId/permanent',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await permanentlyDeleteInternalNoteReply({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            replyId:
+              req.params.replyId,
+
+            confirmation:
+              req.body?.confirmation,
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'note.reply_permanently_deleted',
+
+          title:
+            'Internal reply permanently deleted',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'internal_note_reply',
+
+            id:
+              result.replyId,
+          },
+
+          metadata: {
+            noteId:
+              req.params.noteId,
+          },
+        });
+
+        return res.json({
+          success: true,
+          result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PUT /api/applicants/:id/tags
+   *
+   * Reuses Applicant.recruitment.tags.
+   */
+  router.put(
+    '/:id/tags',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await replaceTags({
+            applicantId:
+              req.params.id,
+
+            tags:
+              req.body?.tags,
+          });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+          logger:
+            activityLogger,
+
+          applicantId:
+            result.applicantId,
+
+          type:
+            'profile.tags_updated',
+
+          title:
+            'Applicant tags updated',
+
+          occurredAt:
+            result.changedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'applicant',
+
+            id:
+              result.applicantId,
+          },
+
+          metadata: {
+            previousTags:
+              result.previousTags,
+
+            tags:
+              result.tags,
+          },
+        });
+
+        return res.json({
+          success: true,
+          result,
         });
       } catch (error) {
         return sendError(
