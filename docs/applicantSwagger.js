@@ -1124,6 +1124,133 @@ module.exports = {
     },
 
 
+    '/api/applicants/calendar/events': {
+      get: {
+        tags: ['Applicants'],
+
+        summary:
+          'List unified Applicant Calendar events',
+
+        description:
+          'Read-only Calendar aggregation for Applicant interviews, internal tasks, scheduled notes, and reminders. Opening or refreshing this endpoint never writes to Google Calendar.',
+
+        parameters: [
+          {
+            name:
+              'from',
+
+            in:
+              'query',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+
+              format:
+                'date-time',
+            },
+          },
+
+          {
+            name:
+              'to',
+
+            in:
+              'query',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+
+              format:
+                'date-time',
+            },
+          },
+
+          {
+            name:
+              'sourceTypes',
+
+            in:
+              'query',
+
+            required:
+              false,
+
+            description:
+              'Comma-separated interview, task, scheduled_note, reminder filters.',
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+
+          {
+            name:
+              'statuses',
+
+            in:
+              'query',
+
+            required:
+              false,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+
+          {
+            name:
+              'syncStatuses',
+
+            in:
+              'query',
+
+            required:
+              false,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+
+          {
+            name:
+              'owner',
+
+            in:
+              'query',
+
+            required:
+              false,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
     '/api/applicants/{id}': {
       get: {
         tags: ['Applicants'],

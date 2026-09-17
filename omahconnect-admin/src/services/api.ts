@@ -927,6 +927,102 @@ export interface ApplicantAnalyticsManagement {
 }
 
 
+export interface ApplicantNotesTasksAnalytics {
+  totalItems: number;
+
+  totalNotes: number;
+  scheduledNotes: number;
+
+  totalTasks: number;
+  openTasks: number;
+  completedTasks: number;
+
+  completionRate: number;
+
+  overdueTasks: number;
+  dueTodayTasks: number;
+  upcomingTasks: number;
+  upcomingWindowDays: number;
+  temporalViews: {
+    hourly:
+      Array<{
+        key: string;
+        start: string;
+        granularity: "hourly";
+        tasksCreated: number;
+        tasksCompleted: number;
+        notesCreated: number;
+        remindersScheduled: number;
+      }>;
+
+    daily:
+      Array<{
+        key: string;
+        start: string;
+        granularity: "daily";
+        tasksCreated: number;
+        tasksCompleted: number;
+        notesCreated: number;
+        remindersScheduled: number;
+      }>;
+
+    weekly:
+      Array<{
+        key: string;
+        start: string;
+        granularity: "weekly";
+        tasksCreated: number;
+        tasksCompleted: number;
+        notesCreated: number;
+        remindersScheduled: number;
+      }>;
+
+    monthly:
+      Array<{
+        key: string;
+        start: string;
+        granularity: "monthly";
+        tasksCreated: number;
+        tasksCompleted: number;
+        notesCreated: number;
+        remindersScheduled: number;
+      }>;
+  };
+
+  unscheduledOpenTasks: number;
+
+  scheduledReminders: number;
+  importantItems: number;
+
+  calendarSyncedItems: number;
+  calendarNotLinkedScheduled: number;
+  calendarNeedsUpdate: number;
+  calendarSyncErrors: number;
+
+  ownerSource: "author";
+
+  ownerWorkload:
+    Array<{
+      key: string;
+      label: string;
+
+      openTasks: number;
+      overdueTasks: number;
+      dueTodayTasks: number;
+      upcomingTasks: number;
+    }>;
+
+  taskStatusDistribution:
+    ApplicantAnalyticsBreakdown[];
+
+  dueDistribution:
+    ApplicantAnalyticsBreakdown[];
+
+  calendarDistribution:
+    ApplicantAnalyticsBreakdown[];
+}
+
+
 export interface ApplicantRecruitmentAnalytics {
   analyticsVersion: number;
 
@@ -979,6 +1075,9 @@ export interface ApplicantRecruitmentAnalytics {
 
   interviews:
     ApplicantAnalyticsInterview;
+
+  notesTasks:
+    ApplicantNotesTasksAnalytics;
 
   pipelineAnalytics: {
     stages:
@@ -1537,7 +1636,18 @@ export type ApplicantAnalyticsDrilldownType =
   | "overdue_interview"
   | "no_submitted_evaluation"
   | "no_interview"
-  | "high_confidence_duplicate";
+  | "high_confidence_duplicate"
+  | "open_task"
+  | "overdue_task"
+  | "due_today_task"
+  | "upcoming_task"
+  | "completed_task"
+  | "scheduled_reminder"
+  | "important_internal_item"
+  | "calendar_synced_internal_item"
+  | "calendar_not_linked_scheduled"
+  | "calendar_needs_update"
+  | "calendar_sync_error";
 
 
 export interface ApplicantAnalyticsDrilldownApplicant {
@@ -2350,6 +2460,142 @@ export const archiveApplicantEvaluation =
     return response.data.result;
   };
 
+
+
+/* =========================
+   APPLICANT CALENDAR API
+========================= */
+
+export type ApplicantCalendarSourceType =
+  | "interview"
+  | "task"
+  | "scheduled_note"
+  | "reminder";
+
+export type ApplicantCalendarSyncStatus =
+  | "not_synced"
+  | "synced"
+  | "error";
+
+export interface ApplicantCalendarActor {
+  userId?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+}
+
+export interface ApplicantCalendarEvent {
+  id: string;
+  sourceId: string;
+
+  sourceType:
+    ApplicantCalendarSourceType;
+
+  relatedSourceType?:
+    "note" | "task";
+
+  title: string;
+
+  applicantId: string;
+  applicantName: string;
+
+  start: string;
+  end?: string | null;
+
+  status: string;
+
+  owner?:
+    ApplicantCalendarActor;
+
+  important?: boolean;
+
+  timezone?: string;
+  format?: string;
+  location?: string;
+
+  calendarSyncStatus:
+    ApplicantCalendarSyncStatus;
+
+  eventUrl?: string;
+
+  description?: string;
+  reminderNote?: string;
+}
+
+export interface ApplicantCalendarResponse {
+  range: {
+    from: string;
+    to: string;
+  };
+
+  events:
+    ApplicantCalendarEvent[];
+
+  total: number;
+}
+
+export interface ApplicantCalendarQuery {
+  from: string;
+  to: string;
+
+  sourceTypes?: string;
+  statuses?: string;
+  syncStatuses?: string;
+  owner?: string;
+}
+
+export const fetchApplicantCalendarEvents =
+  async (
+    query:
+      ApplicantCalendarQuery
+  ): Promise<
+    ApplicantCalendarResponse
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/calendar/events",
+        {
+          params: {
+            from:
+              query.from,
+
+            to:
+              query.to,
+
+            sourceTypes:
+              query.sourceTypes ||
+              undefined,
+
+            statuses:
+              query.statuses ||
+              undefined,
+
+            syncStatuses:
+              query.syncStatuses ||
+              undefined,
+
+            owner:
+              query.owner ||
+              undefined,
+          },
+        }
+      );
+
+    return {
+      range:
+        response.data.range,
+
+      events:
+        response.data.events ||
+        [],
+
+      total:
+        Number(
+          response.data.total ||
+          0
+        ),
+    };
+  };
 
 
 /* =========================

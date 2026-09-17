@@ -168,6 +168,43 @@ export function ManagementAnalytics({
             "missing_cv"
           ),
     },
+
+    {
+      label:
+        "Overdue Tasks",
+
+      value:
+        analytics.notesTasks
+          .overdueTasks,
+
+      icon:
+        CalendarX,
+
+      onClick:
+        () =>
+          onOpenDrilldown?.(
+            "overdue_task"
+          ),
+    },
+
+    {
+      label:
+        "Calendar Errors",
+
+      value:
+        analytics.notesTasks
+          .calendarSyncErrors,
+
+      icon:
+        AlertTriangle,
+
+      onClick:
+        () =>
+          onOpenDrilldown?.(
+            "calendar_sync_error"
+          ),
+    },
+
   ];
 
 
@@ -222,7 +259,7 @@ export function ManagementAnalytics({
         title="Recruitment Priority Center"
         subtitle="Operational items that currently require recruiter or management attention."
       >
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {priorities.map(
             item => {
               const Icon =

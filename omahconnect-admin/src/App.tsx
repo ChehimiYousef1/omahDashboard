@@ -10,6 +10,7 @@ import { CommunicationsPage } from "./pages/CommunicationsPage";
 import { CompaniesPage } from "./pages/CompaniesPage";
 import { JobsPage } from "./pages/JobsPage";
 import { ApplicationsPage } from "./pages/ApplicationsPage";
+import { CalendarPage } from "./pages/CalendarPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { DeveloperToolsPage } from "./pages/DeveloperToolsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -32,6 +33,12 @@ const pageConfig: Record<
     title: "Campaign Outreach Hub",
     description: "Draft, deploy, and manage email newsletters, recruiter updates, and bulk system notifications.",
   },
+  calendar: {
+    title: "Calendar",
+    description:
+      "Applicant interviews, internal tasks, scheduled notes, and reminders.",
+  },
+
   communications: {
     title: "Communications Hub",
     description: "Manage direct messaging sessions, review auto-moderation AI flags, and broadcast notifications.",
@@ -158,6 +165,8 @@ function App() {
           <JobsPage />
         ) : activeNav === "applications" ? (
           <ApplicationsPage onTriggerEmail={handleTriggerEmail} />
+        ) : activeNav === "calendar" ? (
+          <CalendarPage />
         ) : activeNav === "reports" ? (
           <ReportsPage />
         ) : activeNav === "developer" && import.meta.env.DEV ? (

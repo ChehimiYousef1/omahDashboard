@@ -9,6 +9,9 @@ const ApplicantEvaluation =
 const ApplicantInterview =
   require('../models/ApplicantInterview');
 
+const ApplicantInternalNote =
+  require('../models/ApplicantInternalNote');
+
 const ApplicantActivity =
   require('../models/ApplicantActivity');
 
@@ -71,6 +74,14 @@ const {
   buildApplicantManagementAnalytics,
 } = require(
   './analytics/applicantManagementAnalytics'
+);
+
+
+const {
+  INTERNAL_NOTE_ANALYTICS_PROJECTION,
+  buildApplicantNotesTasksAnalytics,
+} = require(
+  './analytics/applicantNotesTasksAnalytics'
 );
 
 
@@ -343,6 +354,7 @@ async function getApplicantAnalytics({
   SubmissionModel,
   DocumentModel,
   DuplicateCaseModel,
+  NoteModel,
   now = new Date(),
 } = {}) {
   const filters =
@@ -401,6 +413,15 @@ async function getApplicantAnalytics({
     (
       usingProductionModels
         ? ApplicantDuplicateCase
+        : null
+    );
+
+
+  const resolvedNoteModel =
+    NoteModel ||
+    (
+      usingProductionModels
+        ? ApplicantInternalNote
         : null
     );
 
@@ -472,6 +493,7 @@ async function getApplicantAnalytics({
   let submissions = [];
   let documents = [];
   let duplicateCases = [];
+  let internalNotes = [];
 
 
   if (
@@ -707,6 +729,43 @@ async function getApplicantAnalytics({
   }
 
 
+  if (
+    applicantIds.length >
+      0 &&
+    resolvedNoteModel
+  ) {
+    internalNotes =
+      (
+        await leanFind(
+          resolvedNoteModel,
+
+          {
+            applicantId: {
+              $in:
+                applicantIds,
+            },
+
+            archived: {
+              $ne:
+                true,
+            },
+          },
+
+          INTERNAL_NOTE_ANALYTICS_PROJECTION
+        ) ||
+        []
+      ).filter(
+        item =>
+          belongsToCohort(
+            item,
+            applicantIdSet
+          ) &&
+          item?.archived !==
+            true
+      );
+  }
+
+
   const pipelineAnalytics =
     buildPipelineAnalytics({
       applicants,
@@ -747,6 +806,15 @@ async function getApplicantAnalytics({
       duplicateCases,
       submissions,
       documents,
+      now,
+    });
+
+
+  const notesTasksAnalytics =
+    buildApplicantNotesTasksAnalytics({
+      items:
+        internalNotes,
+
       now,
     });
 
@@ -933,6 +1001,9 @@ async function getApplicantAnalytics({
     interviews:
       interviewAnalytics,
 
+    notesTasks:
+      notesTasksAnalytics,
+
 
     /*
      * Professional analytics payload.
@@ -988,6 +1059,7 @@ module.exports = {
   SUBMISSION_ANALYTICS_PROJECTION,
   DOCUMENT_ANALYTICS_PROJECTION,
   DUPLICATE_ANALYTICS_PROJECTION,
+  INTERNAL_NOTE_ANALYTICS_PROJECTION,
 
   leanFind,
   serializeFilters,

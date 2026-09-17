@@ -9,6 +9,9 @@ const ApplicantEvaluation =
 const ApplicantInterview =
   require('../models/ApplicantInterview');
 
+const ApplicantInternalNote =
+  require('../models/ApplicantInternalNote');
+
 const ApplicantFormSubmission =
   require('../models/ApplicantFormSubmission');
 
@@ -35,12 +38,24 @@ const {
   './analytics/applicantManagementAnalytics'
 );
 
+
+const {
+  INTERNAL_ITEM_DRILLDOWN_TYPES,
+  INTERNAL_ITEM_DRILLDOWN_METADATA,
+  internalItemMatchesDrilldown,
+  internalItemDrilldownReason,
+  internalItemRelevantDate,
+} = require(
+  './analytics/applicantNotesTasksAnalytics'
+);
+
 const {
   APPLICANT_ANALYTICS_PROJECTION,
   EVALUATION_ANALYTICS_PROJECTION,
   INTERVIEW_ANALYTICS_PROJECTION,
   DOCUMENT_ANALYTICS_PROJECTION,
   DUPLICATE_ANALYTICS_PROJECTION,
+  INTERNAL_NOTE_ANALYTICS_PROJECTION,
   leanFind,
   serializeFilters,
 } = require(
@@ -65,6 +80,7 @@ const APPLICANT_ANALYTICS_DRILLDOWN_TYPES =
     'no_submitted_evaluation',
     'no_interview',
     'high_confidence_duplicate',
+    ...INTERNAL_ITEM_DRILLDOWN_TYPES,
   ]);
 
 
@@ -132,6 +148,8 @@ const DRILLDOWN_METADATA = {
     description:
       'Unresolved duplicate-review cases classified with high confidence.',
   },
+
+  ...INTERNAL_ITEM_DRILLDOWN_METADATA,
 };
 
 
@@ -558,6 +576,9 @@ async function getApplicantAnalyticsDrilldown({
 
   DuplicateCaseModel =
     ApplicantDuplicateCase,
+
+  NoteModel =
+    ApplicantInternalNote,
 
   now =
     new Date(),
@@ -1199,6 +1220,154 @@ async function getApplicantAnalyticsDrilldown({
       applicantCount =
         items.length;
     }
+  }
+
+
+  if (
+    INTERNAL_ITEM_DRILLDOWN_TYPES.includes(
+      type
+    )
+  ) {
+    const internalItems =
+      (
+        await leanFind(
+          NoteModel,
+
+          {
+            applicantId: {
+              $in:
+                applicantIds,
+            },
+
+            archived: {
+              $ne:
+                true,
+            },
+          },
+
+          INTERNAL_NOTE_ANALYTICS_PROJECTION
+        ) ||
+        []
+      ).filter(
+        item =>
+          item?.archived !==
+            true &&
+          belongsToCohort(
+            item,
+            applicantIdSet
+          )
+      );
+
+
+    const matching =
+      internalItems.filter(
+        item =>
+          internalItemMatchesDrilldown(
+            type,
+            item,
+            now
+          )
+      );
+
+
+    const grouped =
+      new Map();
+
+
+    for (
+      const item
+      of matching
+    ) {
+      const applicantId =
+        idOf(
+          item.applicantId
+        );
+
+      const applicant =
+        applicantsById.get(
+          applicantId
+        );
+
+      if (!applicant) {
+        continue;
+      }
+
+
+      const existing =
+        grouped.get(
+          applicantId
+        ) || {
+          kind:
+            'applicant',
+
+          applicant:
+            applicantSummary(
+              applicant
+            ),
+
+          reason:
+            internalItemDrilldownReason(
+              type
+            ),
+
+          recordCount:
+            0,
+
+          latestAt:
+            null,
+
+          missingFields:
+            [],
+        };
+
+
+      existing.recordCount +=
+        1;
+
+
+      const candidateDate =
+        validDate(
+          internalItemRelevantDate(
+            type,
+            item
+          )
+        );
+
+      const currentDate =
+        validDate(
+          existing.latestAt
+        );
+
+
+      if (
+        candidateDate &&
+        (
+          !currentDate ||
+          candidateDate >
+            currentDate
+        )
+      ) {
+        existing.latestAt =
+          candidateDate;
+      }
+
+
+      grouped.set(
+        applicantId,
+        existing
+      );
+    }
+
+
+    items = [
+      ...grouped.values(),
+    ];
+
+    recordCount =
+      matching.length;
+
+    applicantCount =
+      items.length;
   }
 
 

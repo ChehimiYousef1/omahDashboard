@@ -120,6 +120,7 @@ for (
     'Pipeline',
     'Evaluations',
     'Interviews',
+    'Notes & Tasks',
     'Management',
     'Segmentation',
     'Activity',
@@ -138,7 +139,7 @@ for (
 }
 
 console.log(
-  '✅ eleven professional analytics tabs'
+  '✅ twelve professional analytics tabs'
 );
 
 

@@ -12,6 +12,7 @@ import {
   Infinity as InfinityIcon,
   Mail,
   Bell,
+  CalendarDays,
 } from "lucide-react";
 import { navItems } from "../../data/mockData";
 
@@ -23,6 +24,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   "building-2": Building2,
   briefcase: Briefcase,
   "file-text": FileText,
+  "calendar-days": CalendarDays,
   "message-square": MessageSquare,
   flag: Flag,
   "bar-chart-3": BarChart3,

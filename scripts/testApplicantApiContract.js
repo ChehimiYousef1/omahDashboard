@@ -68,7 +68,8 @@ const expectedRoutes = [
   'GET /communications/providers',
   'GET /interviews/providers',
   'GET /analytics',
-    'GET /analytics/drilldown',
+  'GET /analytics/drilldown',
+  'GET /calendar/events',
   'GET /documents/library',
   'GET /pipeline',
   'GET /search-options',
@@ -133,6 +134,11 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants/analytics',
+  ],
+
+  [
+    'get',
+    '/api/applicants/calendar/events',
   ],
 
   [

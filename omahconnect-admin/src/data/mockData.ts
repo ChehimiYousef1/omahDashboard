@@ -208,6 +208,7 @@ export const navItems = [
   { id: "posts", label: "Posts", icon: "message-square" },
   { id: "jobs", label: "Jobs & Internships", icon: "briefcase" },
   { id: "applications", label: "Applicants", icon: "file-text" },
+  { id: "calendar", label: "Calendar", icon: "calendar-days" },
   { id: "reports", label: "Reports", icon: "flag" },
   { id: "analytics", label: "Analytics", icon: "bar-chart-3" },
   { id: "developer", label: "Developer Tools", icon: "code-2" },

@@ -43,6 +43,10 @@ import {
 } from "./analytics/InterviewAnalytics";
 
 import {
+  NotesTasksAnalytics,
+} from "./analytics/NotesTasksAnalytics";
+
+import {
   ManagementAnalytics,
 } from "./analytics/ManagementAnalytics";
 
@@ -99,6 +103,7 @@ type AnalyticsTab =
   | "pipeline"
   | "evaluations"
   | "interviews"
+  | "notesTasks"
   | "management"
   | "segmentation"
   | "activity"
@@ -329,6 +334,17 @@ export function ApplicantAnalyticsDashboard({
 
     {
       id:
+        "notesTasks" as const,
+
+      label:
+        "Notes & Tasks",
+
+      icon:
+        ClipboardCheck,
+    },
+
+    {
+      id:
         "management" as const,
 
       label:
@@ -420,7 +436,7 @@ export function ApplicantAnalyticsDashboard({
             </div>
 
             <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-              Recruitment intelligence across Applicants, pipeline stages, evaluations, interviews, duplicate review, submissions, documents, communications, activity, education, geography, and skills.
+              Recruitment intelligence across Applicants, pipeline stages, evaluations, interviews, internal Notes/Tasks, duplicate review, submissions, documents, communications, activity, education, geography, and skills.
             </p>
 
             <p className="mt-1 text-[10px] text-slate-400">
@@ -577,6 +593,19 @@ export function ApplicantAnalyticsDashboard({
       )}
 
       {activeTab ===
+        "notesTasks" && (
+        <NotesTasksAnalytics
+          analytics={
+            analytics
+          }
+
+          onOpenDrilldown={
+            setDrilldownType
+          }
+        />
+      )}
+
+      {activeTab ===
         "management" && (
         <ManagementAnalytics
           analytics={
@@ -665,7 +694,7 @@ export function ApplicantAnalyticsDashboard({
 
 
       <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-[10px] leading-4 text-blue-700">
-        Historical time-in-stage and full historical conversion metrics remain intentionally excluded because legacy Applicants do not have complete status-transition audit history. Current pipeline, recorded movements, management priorities, evaluation, interview, communication, document, submission, and segmentation analytics use stored verifiable records only.
+        Historical time-in-stage and full historical conversion metrics remain intentionally excluded because legacy Applicants do not have complete status-transition audit history. Current pipeline, recorded movements, management priorities, evaluation, interview, internal Notes/Tasks, communication, document, submission, and segmentation analytics use stored verifiable records only.
       </div>
 
 

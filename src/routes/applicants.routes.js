@@ -21,6 +21,13 @@ const {
 
 
 const {
+  getApplicantCalendarEvents,
+} = require(
+  '../../services/applicantCalendarService'
+);
+
+
+const {
   APPLICANT_ANALYTICS_DRILLDOWN_TYPES,
   getApplicantAnalyticsDrilldown,
 } = require(
@@ -457,6 +464,9 @@ function createApplicantRouter({
 
   getAnalytics =
     getApplicantAnalytics,
+
+  getCalendarEvents =
+    getApplicantCalendarEvents,
 
   getAnalyticsDrilldown =
     getApplicantAnalyticsDrilldown,
@@ -4354,6 +4364,62 @@ function createApplicantRouter({
    *
    * Keep this after the more specific routes.
    */
+  /*
+   * GET /api/applicants/calendar/events
+   *
+   * Read-only operational Calendar aggregation.
+   *
+   * IMPORTANT:
+   * This endpoint only reads OMAH records.
+   * It never creates, updates, or deletes an
+   * external Google Calendar event.
+   */
+  router.get(
+    '/calendar/events',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await getCalendarEvents({
+            from:
+              req.query?.from,
+
+            to:
+              req.query?.to,
+
+            sourceTypes:
+              req.query?.sourceTypes,
+
+            statuses:
+              req.query?.statuses,
+
+            syncStatuses:
+              req.query?.syncStatuses,
+
+            owner:
+              req.query?.owner,
+          });
+
+        return res.json({
+          success:
+            true,
+
+          ...result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
   router.get(
     '/:id',
 

@@ -196,6 +196,49 @@ export function AnalyticsOverview({
             "incomplete_profile"
           ),
     },
+
+    {
+      label:
+        "Overdue Tasks",
+
+      value:
+        analytics.notesTasks
+          .overdueTasks,
+
+      detail:
+        "Internal tasks past due",
+
+      icon:
+        CalendarClock,
+
+      onClick:
+        () =>
+          onOpenDrilldown?.(
+            "overdue_task"
+          ),
+    },
+
+    {
+      label:
+        "Calendar Errors",
+
+      value:
+        analytics.notesTasks
+          .calendarSyncErrors,
+
+      detail:
+        "Internal Calendar sync errors",
+
+      icon:
+        AlertTriangle,
+
+      onClick:
+        () =>
+          onOpenDrilldown?.(
+            "calendar_sync_error"
+          ),
+    },
+
   ];
 
 
@@ -210,9 +253,9 @@ export function AnalyticsOverview({
 
       <Panel
         title="Action Center"
-        subtitle="Recruitment work that currently requires attention. These values are calculated from stored Applicant, evaluation, interview, duplicate, document, and profile data."
+        subtitle="Recruitment work that currently requires attention. These values are calculated from stored Applicant, evaluation, interview, internal Notes/Tasks, duplicate, document, and profile data."
       >
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {priorities.map(
             item => {
               const Icon =
