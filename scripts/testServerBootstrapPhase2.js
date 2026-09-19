@@ -242,9 +242,21 @@ assert.strictEqual(
 
 /*
 |--------------------------------------------------------------------------
-| Startup ownership
+| Lifecycle delegation
 |--------------------------------------------------------------------------
+|
+| Phase 3 intentionally moves runtime lifecycle out
+| of server.js while preserving Phase-2 concerns.
+|
 */
+
+assert(
+  server.includes(
+    'startServerLifecycle'
+  ),
+  'server.js must delegate server lifecycle'
+);
+
 
 for (
   const marker
@@ -257,11 +269,12 @@ for (
     "'SIGINT'",
   ]
 ) {
-  assert(
+  assert.strictEqual(
     server.includes(
       marker
     ),
-    `Startup/shutdown unexpectedly moved: ${marker}`
+    false,
+    `Lifecycle implementation must not remain in server.js: ${marker}`
   );
 }
 
@@ -303,7 +316,7 @@ console.log(
 );
 
 console.log(
-  '✅ startup/shutdown remain in server.js'
+  '✅ startup/shutdown delegated after Phase 2'
 );
 
 console.log(

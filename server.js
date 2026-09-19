@@ -29,6 +29,10 @@ const {
 const {
   registerHealthRoutes,
 } = require('./src/bootstrap/registerHealthRoutes');
+
+const {
+  startServerLifecycle,
+} = require('./src/bootstrap/serverLifecycle');
 const {
   syncApplicantForm,
   normalizeSheetCsvUrl,
@@ -200,19 +204,6 @@ const DEFAULT_APPLICANT_SHEET_CSV_URL =
   '';
 
 
-/*
- * Convert environment flags to
- * real booleans safely.
- */
-
-function isEnvEnabled(value) {
-  return (
-    String(value || '')
-      .trim()
-      .toLowerCase() === 'true'
-  );
-}
-
 
 /*
  * Compatibility wrapper used by
@@ -339,323 +330,18 @@ app.get(
 
 
 /* =========================
-   SERVER STARTUP
+   SERVER LIFECYCLE
 ========================= */
 
-let httpServer = null;
-let isShuttingDown = false;
+startServerLifecycle({
+  app,
 
+  applicationStore,
 
-async function startServer() {
-  /*
-   * Initialize existing application
-   * storage first.
-   */
+  mongoConnection,
 
-  await applicationStore.init(
-    mongoConnection
-  );
-
-
-  const PORT =
-    process.env.PORT || 5000;
-
-
-  httpServer = app.listen(
-    PORT,
-    () => {
-      console.log(
-        `🚀 Server running on port ${PORT}`
-      );
-
-
-      console.log(
-        `📦 Applications storage: ${
-          applicationStore.isUsingMongo()
-            ? 'MongoDB'
-            : 'JSON file (data/applications.json)'
-        }`
-      );
-
-
-      /*
-       * ==================================================
-       * GOOGLE FORM AUTO SYNC SAFETY GATE
-       * ==================================================
-       *
-       * Auto sync requires BOTH:
-       *
-       * APPLICANT_AUTO_SYNC_ENABLED=true
-       *
-       * AND
-       *
-       * APPLICANT_SYNC_WRITE_ENABLED=true
-       *
-       * During development both remain false.
-       */
-
-
-      const autoSyncEnabled =
-        isEnvEnabled(
-          process.env
-            .APPLICANT_AUTO_SYNC_ENABLED
-        );
-
-
-      const writeEnabled =
-        isEnvEnabled(
-          process.env
-            .APPLICANT_SYNC_WRITE_ENABLED
-        );
-
-
-      /*
-       * Auto sync completely disabled.
-       */
-
-      if (!autoSyncEnabled) {
-        console.log(
-          '📋 Applicant sheet auto-sync: disabled'
-        );
-
-        return;
-      }
-
-
-      /*
-       * Additional protection:
-       *
-       * Even if someone accidentally
-       * enables auto-sync, MongoDB writing
-       * must also be explicitly enabled.
-       */
-
-      if (!writeEnabled) {
-        console.warn(
-          '⚠️ Applicant sheet auto-sync not started because APPLICANT_SYNC_WRITE_ENABLED=false'
-        );
-
-        return;
-      }
-
-
-      /*
-       * Do NOT fall back to the old
-       * Google Sheet URL.
-       */
-
-      const sheetUrl =
-        process.env
-          .APPLICANT_SHEET_CSV_URL;
-
-
-      if (!sheetUrl) {
-        console.warn(
-          '⚠️ Applicant sheet auto-sync skipped: APPLICANT_SHEET_CSV_URL is not configured.'
-        );
-
-        return;
-      }
-
-
-      /*
-       * Only reaches this point when
-       * BOTH safety flags are true.
-       */
-
-      syncApplicantsFromSheet(
-        sheetUrl,
-        {
-          dryRun: false,
-        }
-      )
-        .then((result) => {
-          console.log(
-            `📋 Applicant sheet sync: imported ${result.inserted} new applicant(s)`
-          );
-
-
-          console.log(
-            `📋 Applicant sheet sync: skipped ${result.duplicates} duplicate(s)`
-          );
-
-
-          console.log(
-            `📋 Applicant sheet sync: ${result.invalid} invalid response(s), ${result.failed} failed row(s)`
-          );
-        })
-        .catch((error) => {
-          console.warn(
-            '⚠️ Applicant sheet auto-sync skipped:',
-            error.message
-          );
-        });
-    }
-  );
-/*
- * Handle asynchronous HTTP server failures
- * such as EADDRINUSE.
- */
-  httpServer.once(
-    'error',
-    async (error) => {
-      console.error(
-        'HTTP server error:',
-        error?.code ||
-        error?.message ||
-        'UNKNOWN_ERROR'
-      );
-
-      try {
-        await mongoConnection.disconnect();
-      } catch {
-        // Startup failure is already being handled.
-      }
-
-      process.exit(1);
-    }
-  );
-
-  return httpServer;
-}
-
-
-/* =========================
-   GRACEFUL SHUTDOWN
-========================= */
-
-async function shutdownServer(
-  signal
-) {
-  if (isShuttingDown) {
-    return;
-  }
-
-  isShuttingDown = true;
-
-  console.log(
-    `${signal} received. Shutting down gracefully...`
-  );
-
-  /*
-   * Safety timeout prevents a deployment
-   * from hanging indefinitely.
-   */
-  const forceShutdownTimer =
-    setTimeout(
-      () => {
-        console.error(
-          'Graceful shutdown timed out.'
-        );
-
-        if (
-          httpServer &&
-          typeof httpServer
-            .closeAllConnections ===
-            'function'
-        ) {
-          httpServer
-            .closeAllConnections();
-        }
-
-        process.exit(1);
-      },
-      10000
-    );
-
-  forceShutdownTimer.unref();
-
-  try {
-    if (
-      httpServer &&
-      httpServer.listening
-    ) {
-      await new Promise(
-        (resolve, reject) => {
-          httpServer.close(
-            (error) => {
-              if (error) {
-                reject(error);
-                return;
-              }
-
-              resolve();
-            }
-          );
-        }
-      );
-
-      console.log(
-        '✅ HTTP server closed'
-      );
-    }
-
-    await mongoConnection.disconnect();
-
-    console.log(
-      '✅ MongoDB disconnected'
-    );
-
-    clearTimeout(
-      forceShutdownTimer
-    );
-
-    console.log(
-      '✅ Graceful shutdown complete'
-    );
-
-    process.exit(0);
-  } catch (error) {
-    clearTimeout(
-      forceShutdownTimer
-    );
-
-    console.error(
-      'Shutdown error:',
-      error?.message ||
-      'UNKNOWN_ERROR'
-    );
-
-    process.exit(1);
-  }
-}
-
-
-process.once(
-  'SIGTERM',
-  () => {
-    void shutdownServer(
-      'SIGTERM'
-    );
-  }
-);
-
-
-process.once(
-  'SIGINT',
-  () => {
-    void shutdownServer(
-      'SIGINT'
-    );
-  }
-);
-
-
-
-/* =========================
-   START SERVER
-========================= */
-
-startServer()
-  .catch((error) => {
-    console.error(
-      'Failed to start server:',
-      error?.message ||
-      'UNKNOWN_ERROR'
-    );
-
-    process.exit(1);
-  });
+  syncApplicantsFromSheet,
+});
 
 
 /* =========================

@@ -232,26 +232,17 @@ assert(
 
 
 /*
- * Startup and static frontend remain in server.js.
+ * server.js now acts as composition/bootstrap.
  *
- * Health/readiness are intentionally delegated
- * during Phase 2.
+ * Static frontend registration remains local,
+ * while health and lifecycle are delegated.
  */
-for (
-  const marker
-  of [
-    'startServer',
-    'applicationStore.init',
-    'express.static',
-  ]
-) {
-  assert(
-    server.includes(
-      marker
-    ),
-    `Server bootstrap accidentally removed ${marker}`
-  );
-}
+assert(
+  server.includes(
+    'express.static'
+  ),
+  'server.js must continue serving the frontend'
+);
 
 
 assert(
@@ -259,6 +250,14 @@ assert(
     'registerHealthRoutes'
   ),
   'server.js must delegate health/readiness registration'
+);
+
+
+assert(
+  server.includes(
+    'startServerLifecycle'
+  ),
+  'server.js must delegate runtime lifecycle'
 );
 
 
@@ -287,7 +286,7 @@ console.log(
 );
 
 console.log(
-  '✅ health/readiness delegated; startup remains in server.js'
+  '✅ health/readiness and lifecycle delegated from server.js'
 );
 
 console.log(
