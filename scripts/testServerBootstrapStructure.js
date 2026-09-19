@@ -232,14 +232,14 @@ assert(
 
 
 /*
- * Important server responsibilities remain in server.js
- * during Phase 1.
+ * Startup and static frontend remain in server.js.
+ *
+ * Health/readiness are intentionally delegated
+ * during Phase 2.
  */
 for (
   const marker
   of [
-    '/health',
-    '/ready',
     'startServer',
     'applicationStore.init',
     'express.static',
@@ -249,9 +249,17 @@ for (
     server.includes(
       marker
     ),
-    `Phase-1 refactor accidentally removed ${marker}`
+    `Server bootstrap accidentally removed ${marker}`
   );
 }
+
+
+assert(
+  server.includes(
+    'registerHealthRoutes'
+  ),
+  'server.js must delegate health/readiness registration'
+);
 
 
 console.log(
@@ -279,7 +287,7 @@ console.log(
 );
 
 console.log(
-  '✅ health/readiness/startup remain untouched'
+  '✅ health/readiness delegated; startup remains in server.js'
 );
 
 console.log(

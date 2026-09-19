@@ -1,12 +1,7 @@
 const express = require('express');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const dotenv = require('dotenv');
-const nodemailer = require('nodemailer');
 
 dotenv.config();
 
@@ -20,8 +15,20 @@ const requireApplicantAccess = require('./middleware/requireApplicantAccess');
 const requireApplicantPermission = require('./middleware/requireApplicantPermission');
 
 const {
+  createMailer,
+} = require('./config/mailer');
+
+const {
+  configureMiddleware,
+} = require('./src/bootstrap/configureMiddleware');
+
+const {
   registerApiRoutes,
 } = require('./src/bootstrap/registerApiRoutes');
+
+const {
+  registerHealthRoutes,
+} = require('./src/bootstrap/registerHealthRoutes');
 const {
   syncApplicantForm,
   normalizeSheetCsvUrl,
@@ -30,214 +37,25 @@ const {
 
 
 /* =========================
-   SMTP CONFIGURATION
-========================= */
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-
-  port: parseInt(
-    process.env.SMTP_PORT || '587',
-    10
-  ),
-
-  secure:
-    process.env.SMTP_SECURE === 'true',
-
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
-  },
-});
-
-
-/* =========================
    EXPRESS APP
 ========================= */
 
 const app = express();
+
+const transporter =
+  createMailer();
 
 
 /* =========================
    MIDDLEWARE
 ========================= */
 
-const allowedOrigins =
-  process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean)
-    : [];
-
-
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
-
-
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  })
-);
-
-
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-
-  max: 10,
-
-  standardHeaders: true,
-
-  legacyHeaders: false,
-
-  skip: (req) =>
-    req.method === 'OPTIONS',
-
-  message: {
-    error:
-      'Too many attempts, try again in 15 minutes',
-  },
-});
-
-
-app.use(
-  '/api/auth/login',
-  loginLimiter
-);
-
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      /*
-       * Allow:
-       *
-       * - server-to-server requests
-       * - localhost development
-       * - configured production origins
-       */
-
-      if (
-        !origin ||
-        /^http:\/\/localhost:\d+$/.test(
-          origin
-        ) ||
-        allowedOrigins.includes(origin)
-      ) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
-
-    credentials: true,
-  })
-);
-
-
-/*
- * Applicant Form webhook is mounted BEFORE
- * the global 2 MB JSON parser.
- *
- * This keeps its public request body limited
- * to 64 KB before parsing/allocation.
- */
-const applicantWebhookLimiter =
-  rateLimit({
-    windowMs:
-      60 * 1000,
-
-    max: 30,
-
-    standardHeaders: true,
-
-    legacyHeaders: false,
-
-    skip: (req) =>
-      req.method === 'OPTIONS',
-
-    message: {
-      success: false,
-      error:
-        'Too many webhook requests.',
-    },
-  });
-
-
-app.use(
-  '/api/applicant-form/webhook',
-
-  applicantWebhookLimiter,
-
-  express.json({
-    limit: '64kb',
-    type: 'application/json',
-  }),
-
-  (error, req, res, next) => {
-    if (
-      error &&
-      error.type ===
-        'entity.too.large'
-    ) {
-      return res
-        .status(413)
-        .json({
-          success: false,
-          error:
-            'Webhook payload is too large.',
-        });
-    }
-
-    if (
-      error instanceof
-        SyntaxError &&
-      error.status === 400 &&
-      'body' in error
-    ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error:
-            'Invalid JSON payload.',
-        });
-    }
-
-    return next(error);
-  },
-
-  require(
-    './src/routes/applicantFormWebhook.routes'
-  )({
+configureMiddleware(
+  app,
+  {
     processSubmission,
-
-    webhookSecret:
-      process.env
-        .APPLICANT_FORM_WEBHOOK_SECRET,
-
-    sourceKey:
-      process.env
-        .APPLICANT_FORM_SOURCE_KEY ||
-      'omah-applicant-form-v2',
-  })
+  }
 );
-
-
-/*
- * Remaining application APIs use the
- * existing larger authenticated JSON limit.
- */
-app.use(
-  express.json({
-    limit: '2mb',
-  })
-);
-
-
-app.use(cookieParser());
 
 
 /* =========================
@@ -494,71 +312,10 @@ registerApiRoutes(
    HEALTH / READINESS
 ========================= */
 
-/*
- * Liveness:
- *
- * Confirms that the Node / Express process
- * is alive. No database details are exposed.
- */
-app.get(
-  '/health',
-  (req, res) => {
-    res.setHeader(
-      'Cache-Control',
-      'no-store'
-    );
-
-    return res
-      .status(200)
-      .json({
-        status: 'ok',
-      });
-  }
-);
-
-
-/*
- * Readiness:
- *
- * Confirms that MongoDB is actually ready
- * to serve application traffic.
- */
-app.get(
-  '/ready',
-  (req, res) => {
-    res.setHeader(
-      'Cache-Control',
-      'no-store'
-    );
-
-    const connection =
-      mongoConnection.getConnection();
-
-    const databaseReady =
-      connection &&
-      connection.readyState === 1;
-
-    if (!databaseReady) {
-      return res
-        .status(503)
-        .json({
-          status:
-            'not_ready',
-
-          database:
-            'unavailable',
-        });
-    }
-
-    return res
-      .status(200)
-      .json({
-        status:
-          'ready',
-
-        database:
-          'connected',
-      });
+registerHealthRoutes(
+  app,
+  {
+    mongoConnection,
   }
 );
 
