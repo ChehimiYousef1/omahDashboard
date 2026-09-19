@@ -88,6 +88,8 @@ const {
   setApplicantInternalNoteImportance,
   setApplicantInternalNoteLike,
   setApplicantInternalNoteStar,
+  setApplicantInternalTaskAssignee,
+  setApplicantInternalTaskPriority,
   setApplicantInternalTaskStatus,
   updateApplicantInternalNoteSchedule,
 
@@ -206,6 +208,15 @@ const {
   recordApplicantActivity,
 } = require(
   '../../services/applicantActivityService'
+);
+
+
+const {
+  taskAssigneeActivityForTransition,
+  taskPriorityActivityForTransition,
+  taskStatusActivityForTransition,
+} = require(
+  '../../utils/applicantActivity'
 );
 
 
@@ -450,6 +461,9 @@ module.exports =
 function createApplicantRouter({
   requireApplicantPermission,
 
+  db =
+    null,
+
   transporter =
     null,
 
@@ -476,6 +490,12 @@ function createApplicantRouter({
 
   recordActivity =
     recordApplicantActivity,
+
+  setInternalTaskAssignee =
+    setApplicantInternalTaskAssignee,
+
+  setInternalTaskPriority =
+    setApplicantInternalTaskPriority,
 
   activityLogger =
     console,
@@ -1992,6 +2012,17 @@ function createApplicantRouter({
               req.body?.schedule ??
               {},
 
+            priority:
+              req.body?.priority ??
+              '',
+
+            assigneeUserId:
+              req.body?.assigneeUserId ??
+              '',
+
+            resolveUserById:
+              db?.getUserById,
+
             actor:
               applicantRequestActor(
                 req
@@ -2633,6 +2664,247 @@ function createApplicantRouter({
   );
 
 
+  /*
+   * Recruitment task assignment.
+   *
+   * The client submits only assigneeUserId.
+   * User identity is resolved from the trusted OMAH
+   * account directory before the assignee snapshot
+   * is stored on the task.
+   *
+   * Empty assigneeUserId explicitly unassigns.
+   */
+  router.patch(
+    '/:id/notes/:noteId/task-assignee',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        if (
+          !db ||
+          typeof db.getUserById !==
+            'function'
+        ) {
+          const error =
+            new Error(
+              'Task assignee user lookup is unavailable.'
+            );
+
+          error.code =
+            'INTERNAL_TASK_ASSIGNEE_RESOLVER_REQUIRED';
+
+          throw error;
+        }
+
+        const result =
+          await setInternalTaskAssignee({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            assigneeUserId:
+              req.body?.assigneeUserId,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            resolveUserById:
+              db.getUserById,
+          });
+
+        const activity =
+          taskAssigneeActivityForTransition({
+            previousAssignee:
+              result.previousAssignee,
+
+            assignee:
+              result.assignee,
+
+            changed:
+              result.changed,
+          });
+
+        if (activity) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params.id,
+
+            type:
+              activity.type,
+
+            title:
+              activity.title,
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'internal_note',
+
+              id:
+                String(
+                  result.note?._id ||
+                  req.params.noteId
+                ),
+            },
+
+            metadata: {
+              ...activity.metadata,
+
+              previousStateKnown:
+                result.previousStateKnown ===
+                true,
+            },
+          });
+        }
+
+        return res.json({
+          success: true,
+
+          status:
+            result.status,
+
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * Recruitment task priority.
+   *
+   * Allowed values:
+   * low | medium | high | urgent
+   *
+   * Empty priority clears explicit priority.
+   */
+  router.patch(
+    '/:id/notes/:noteId/task-priority',
+
+    requireApplicantPermission(
+      'applicant:notes:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await setInternalTaskPriority({
+            applicantId:
+              req.params.id,
+
+            noteId:
+              req.params.noteId,
+
+            priority:
+              req.body?.priority,
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+          });
+
+        const activity =
+          taskPriorityActivityForTransition({
+            previousPriority:
+              result.previousPriority,
+
+            priority:
+              result.priority,
+
+            changed:
+              result.changed,
+          });
+
+        if (activity) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params.id,
+
+            type:
+              activity.type,
+
+            title:
+              activity.title,
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'internal_note',
+
+              id:
+                String(
+                  result.note?._id ||
+                  req.params.noteId
+                ),
+            },
+
+            metadata: {
+              ...activity.metadata,
+
+              previousStateKnown:
+                result.previousStateKnown ===
+                true,
+            },
+          });
+        }
+
+        return res.json({
+          success: true,
+
+          status:
+            result.status,
+
+          note:
+            result.note,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
   router.patch(
     '/:id/notes/:noteId/task-status',
 
@@ -2659,50 +2931,69 @@ function createApplicantRouter({
               ),
           });
 
-        const completed =
-          result.note
-            ?.taskStatus ===
-          'completed';
+        const activity =
+          taskStatusActivityForTransition({
+            previousTaskStatus:
+              result.previousTaskStatus,
 
-        await recordApplicantActivitySafely({
-          recordActivity,
-          logger:
-            activityLogger,
+            taskStatus:
+              result.taskStatus,
 
-          applicantId:
-            req.params.id,
+            changed:
+              result.changed,
+          });
 
-          type:
-            completed
-              ? 'task.completed'
-              : 'task.reopened',
+        if (activity) {
+          await recordApplicantActivitySafely({
+            recordActivity,
 
-          title:
-            completed
-              ? 'Internal task completed'
-              : 'Internal task reopened',
+            logger:
+              activityLogger,
 
-          occurredAt:
-            result.note
-              ?.completedAt ||
-            new Date(),
+            applicantId:
+              req.params.id,
 
-          actor:
-            applicantRequestActor(
-              req
-            ),
-
-          source: {
             type:
-              'internal_note',
+              activity.type,
 
-            id:
-              String(
-                result.note?._id ||
-                req.params.noteId
+            title:
+              activity.title,
+
+            occurredAt:
+              activity.type ===
+                'task.completed'
+                ? (
+                    result.note
+                      ?.completedAt ||
+                    new Date()
+                  )
+                : new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
               ),
-          },
-        });
+
+            source: {
+              type:
+                'internal_note',
+
+              id:
+                String(
+                  result.note?._id ||
+                  req.params.noteId
+                ),
+            },
+
+            metadata: {
+              ...activity.metadata,
+
+              previousStateKnown:
+                result.previousStateKnown ===
+                true,
+            },
+          });
+        }
 
         return res.json({
           success: true,

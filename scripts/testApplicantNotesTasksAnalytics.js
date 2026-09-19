@@ -454,13 +454,22 @@ assert.strictEqual(
 
 assert.strictEqual(
   analytics.ownerSource,
-  'author'
+  'assignee'
+);
+
+assert.strictEqual(
+  analytics.ownerWorkload.length,
+  1
 );
 
 assert.strictEqual(
   analytics.ownerWorkload[0]
-    .openTasks +
-  analytics.ownerWorkload[1]
+    .label,
+  'Unassigned'
+);
+
+assert.strictEqual(
+  analytics.ownerWorkload[0]
     .openTasks,
   3
 );
@@ -519,7 +528,7 @@ console.log(
 );
 
 console.log(
-  '✅ workload derived transparently from item author'
+  '✅ workload derived from assignee with legacy tasks Unassigned'
 );
 
 console.log(

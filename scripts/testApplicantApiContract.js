@@ -97,6 +97,8 @@ const expectedRoutes = [
   'PATCH /:id/notes/:noteId/importance',
   'PATCH /:id/notes/:noteId/like',
   'PATCH /:id/notes/:noteId/star',
+  'PATCH /:id/notes/:noteId/task-assignee',
+  'PATCH /:id/notes/:noteId/task-priority',
   'PATCH /:id/notes/:noteId/task-status',
   'PATCH /:id/notes/:noteId/schedule',
   'POST /:id/notes/:noteId/calendar',
@@ -308,6 +310,16 @@ const swaggerRoutes = [
   [
     'patch',
     '/api/applicants/{id}/notes/{noteId}/star',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/task-assignee',
+  ],
+
+  [
+    'patch',
+    '/api/applicants/{id}/notes/{noteId}/task-priority',
   ],
 
   [

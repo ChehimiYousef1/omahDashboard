@@ -61,8 +61,14 @@ const APPLICANT_ACTIVITY_TYPES = [
 
   'task.created',
   'task.updated',
+  'task.assigned',
+  'task.reassigned',
+  'task.unassigned',
+  'task.priority_changed',
+  'task.started',
   'task.completed',
   'task.reopened',
+  'task.cancelled',
   'task.archived',
   'task.restored',
   'task.permanently_deleted',
@@ -74,6 +80,310 @@ const APPLICANT_ACTIVITY_TYPES = [
   'document.replaced',
   'document.archived',
 ];
+
+
+function cleanTaskActivityText(
+  value
+) {
+  return String(
+    value ?? ''
+  ).trim();
+}
+
+
+function normalizeTaskActivityAssignee(
+  value
+) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value)
+  ) {
+    return {};
+  }
+
+  const userId =
+    cleanTaskActivityText(
+      value.userId ??
+      value.id
+    );
+
+  if (!userId) {
+    return {};
+  }
+
+  return {
+    userId,
+
+    name:
+      cleanTaskActivityText(
+        value.name
+      ),
+
+    email:
+      cleanTaskActivityText(
+        value.email
+      ),
+
+    role:
+      cleanTaskActivityText(
+        value.role
+      ),
+  };
+}
+
+
+function taskAssigneeActivityForTransition({
+  previousAssignee,
+  assignee,
+  changed = true,
+} = {}) {
+  if (!changed) {
+    return null;
+  }
+
+  const previous =
+    normalizeTaskActivityAssignee(
+      previousAssignee
+    );
+
+  const next =
+    normalizeTaskActivityAssignee(
+      assignee
+    );
+
+  const previousUserId =
+    cleanTaskActivityText(
+      previous.userId
+    );
+
+  const nextUserId =
+    cleanTaskActivityText(
+      next.userId
+    );
+
+  if (!nextUserId) {
+    return {
+      type:
+        'task.unassigned',
+
+      title:
+        'Internal task unassigned',
+
+      metadata: {
+        previousAssignee:
+          previous,
+
+        assignee:
+          {},
+      },
+    };
+  }
+
+  if (
+    previousUserId &&
+    previousUserId !==
+      nextUserId
+  ) {
+    return {
+      type:
+        'task.reassigned',
+
+      title:
+        'Internal task reassigned',
+
+      metadata: {
+        previousAssignee:
+          previous,
+
+        assignee:
+          next,
+      },
+    };
+  }
+
+  return {
+    type:
+      'task.assigned',
+
+    title:
+      'Internal task assigned',
+
+    metadata: {
+      previousAssignee:
+        previous,
+
+      assignee:
+        next,
+    },
+  };
+}
+
+
+function taskPriorityActivityForTransition({
+  previousPriority,
+  priority,
+  changed = true,
+} = {}) {
+  if (!changed) {
+    return null;
+  }
+
+  const previous =
+    cleanTaskActivityText(
+      previousPriority
+    );
+
+  const next =
+    cleanTaskActivityText(
+      priority
+    );
+
+  return {
+    type:
+      'task.priority_changed',
+
+    title:
+      next
+        ? 'Internal task priority changed'
+        : 'Internal task priority cleared',
+
+    metadata: {
+      previousPriority:
+        previous,
+
+      priority:
+        next,
+    },
+  };
+}
+
+
+function taskStatusActivityForTransition({
+  previousTaskStatus,
+  taskStatus,
+  changed = true,
+} = {}) {
+  if (!changed) {
+    return null;
+  }
+
+  const previous =
+    cleanTaskActivityText(
+      previousTaskStatus
+    );
+
+  const next =
+    cleanTaskActivityText(
+      taskStatus
+    );
+
+  const previousTerminal =
+    previous === 'completed' ||
+    previous === 'cancelled';
+
+  const nextActionable =
+    next === 'todo' ||
+    next === 'in_progress';
+
+  if (
+    previousTerminal &&
+    nextActionable
+  ) {
+    return {
+      type:
+        'task.reopened',
+
+      title:
+        'Internal task reopened',
+
+      metadata: {
+        previousTaskStatus:
+          previous,
+
+        taskStatus:
+          next,
+      },
+    };
+  }
+
+  if (next === 'in_progress') {
+    return {
+      type:
+        'task.started',
+
+      title:
+        'Internal task started',
+
+      metadata: {
+        previousTaskStatus:
+          previous,
+
+        taskStatus:
+          next,
+      },
+    };
+  }
+
+  if (next === 'completed') {
+    return {
+      type:
+        'task.completed',
+
+      title:
+        'Internal task completed',
+
+      metadata: {
+        previousTaskStatus:
+          previous,
+
+        taskStatus:
+          next,
+      },
+    };
+  }
+
+  if (next === 'cancelled') {
+    return {
+      type:
+        'task.cancelled',
+
+      title:
+        'Internal task cancelled',
+
+      metadata: {
+        previousTaskStatus:
+          previous,
+
+        taskStatus:
+          next,
+      },
+    };
+  }
+
+  /*
+   * Example:
+   * in_progress -> todo.
+   *
+   * This is a workflow change but not a reopen,
+   * because the task was never in a terminal state.
+   */
+  return {
+    type:
+      'task.updated',
+
+    title:
+      'Internal task moved to To Do',
+
+    metadata: {
+      previousTaskStatus:
+        previous,
+
+      taskStatus:
+        next,
+    },
+  };
+}
 
 
 function activityCategoryForType(
@@ -106,5 +416,10 @@ function activityCategoryForType(
 module.exports = {
   APPLICANT_ACTIVITY_CATEGORIES,
   APPLICANT_ACTIVITY_TYPES,
+
+  taskAssigneeActivityForTransition,
+  taskPriorityActivityForTransition,
+  taskStatusActivityForTransition,
+
   activityCategoryForType,
 };

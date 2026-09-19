@@ -660,6 +660,7 @@ app.use(
     './src/routes/applicants.routes'
   )({
     requireApplicantPermission,
+    db,
     transporter,
   })
 );

@@ -999,7 +999,7 @@ export interface ApplicantNotesTasksAnalytics {
   calendarNeedsUpdate: number;
   calendarSyncErrors: number;
 
-  ownerSource: "author";
+  ownerSource: "assignee";
 
   ownerWorkload:
     Array<{
@@ -3621,7 +3621,17 @@ export type ApplicantInternalNoteKind =
 
 export type ApplicantInternalTaskStatus =
   | "todo"
-  | "completed";
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+
+export type ApplicantInternalTaskPriority =
+  | ""
+  | "low"
+  | "medium"
+  | "high"
+  | "urgent";
 
 
 export interface ApplicantInternalNoteActor {
@@ -3629,6 +3639,18 @@ export interface ApplicantInternalNoteActor {
   name: string;
   email: string;
   role: string;
+}
+
+
+export interface ApplicantInternalTaskAssignee {
+  /*
+   * Empty object means the task is currently unassigned.
+   * Populated values are trusted backend snapshots.
+   */
+  userId?: string;
+  name?: string;
+  email?: string;
+  role?: string;
 }
 
 
@@ -3671,6 +3693,12 @@ export interface ApplicantInternalNote {
 
   taskStatus?:
     ApplicantInternalTaskStatus;
+
+  priority?:
+    ApplicantInternalTaskPriority;
+
+  assignee?:
+    ApplicantInternalTaskAssignee;
 
   important?: boolean;
 
@@ -3736,6 +3764,16 @@ export interface ApplicantInternalNoteCreateOptions {
 
   important?: boolean;
 
+  priority?:
+    ApplicantInternalTaskPriority;
+
+  /*
+   * Empty string explicitly means unassigned.
+   * The backend resolves any non-empty ID against
+   * the trusted OMAH user directory.
+   */
+  assigneeUserId?: string;
+
   schedule?:
     ApplicantInternalNoteSchedule;
 }
@@ -3795,6 +3833,12 @@ export const createApplicantInternalNote =
 
           important:
             options.important,
+
+          priority:
+            options.priority,
+
+          assigneeUserId:
+            options.assigneeUserId,
 
           schedule:
             options.schedule,
@@ -3987,6 +4031,56 @@ export const setApplicantInternalNoteStar =
         `/applicants/${applicantId}/notes/${noteId}/star`,
         {
           starred,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const setApplicantInternalTaskAssignee =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    assigneeUserId:
+      string
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/task-assignee`,
+        {
+          assigneeUserId,
+        }
+      );
+
+    return response.data.note;
+  };
+
+
+export const setApplicantInternalTaskPriority =
+  async (
+    applicantId:
+      string,
+
+    noteId:
+      string,
+
+    priority:
+      ApplicantInternalTaskPriority
+  ): Promise<
+    ApplicantInternalNote
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/${applicantId}/notes/${noteId}/task-priority`,
+        {
+          priority,
         }
       );
 

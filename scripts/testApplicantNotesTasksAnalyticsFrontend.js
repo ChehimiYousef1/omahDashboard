@@ -109,7 +109,7 @@ for (
     'Not Added',
     'Needs Update',
     'Sync Error',
-    'Open Task Workload by Owner',
+    'Open Task Workload by Assignee',
     'Task Status',
     'Due-Date Distribution',
   ]
@@ -125,11 +125,15 @@ for (
 
 assert(
   component.includes(
-    'ownerSource'
-  ) ||
-  component.includes(
-    'author'
+    'Assignee'
   )
+);
+
+assert.strictEqual(
+  component.includes(
+    'model does not contain a separate assignee'
+  ),
+  false
 );
 
 
@@ -171,7 +175,7 @@ console.log(
 );
 
 console.log(
-  '✅ owner workload and distributions connected'
+  '✅ assignee workload and distributions connected'
 );
 
 console.log(

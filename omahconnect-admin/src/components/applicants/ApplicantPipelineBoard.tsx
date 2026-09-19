@@ -5,7 +5,6 @@ import {
 } from "react";
 
 import {
-  CheckCircle2,
   Eye,
   Flag,
   GripVertical,
@@ -71,6 +70,50 @@ function formatDate(
   }
 
   return date.toLocaleDateString();
+}
+
+
+function pipelineTaskStatusLabel(
+  status?:
+    string
+) {
+  switch (status) {
+    case "in_progress":
+      return "In Progress";
+
+    case "completed":
+      return "Completed";
+
+    case "cancelled":
+      return "Cancelled";
+
+    case "todo":
+    default:
+      return "To Do";
+  }
+}
+
+
+function pipelineTaskPriorityLabel(
+  priority?:
+    string
+) {
+  switch (priority) {
+    case "low":
+      return "Low";
+
+    case "medium":
+      return "Medium";
+
+    case "high":
+      return "High";
+
+    case "urgent":
+      return "Urgent";
+
+    default:
+      return "";
+  }
 }
 
 
@@ -1077,13 +1120,22 @@ export function ApplicantPipelineBoard({
                                                       )}
 
                                                       {note.kind ===
-                                                        "task" &&
-                                                        note.taskStatus ===
-                                                          "completed" && (
-                                                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[7px] font-bold text-emerald-700">
-                                                          <CheckCircle2 className="h-2 w-2" />
-                                                          Done
-                                                        </span>
+                                                        "task" && (
+                                                        <>
+                                                          <span className="inline-flex items-center gap-0.5 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[7px] font-bold text-indigo-700">
+                                                            {pipelineTaskStatusLabel(
+                                                              note.taskStatus
+                                                            )}
+                                                          </span>
+
+                                                          {note.priority && (
+                                                            <span className="rounded-full bg-rose-50 px-1.5 py-0.5 text-[7px] font-bold text-rose-700">
+                                                              {pipelineTaskPriorityLabel(
+                                                                note.priority
+                                                              )}
+                                                            </span>
+                                                          )}
+                                                        </>
                                                       )}
                                                     </div>
 
@@ -1132,13 +1184,22 @@ export function ApplicantPipelineBoard({
 
 
                                                     <p className="mt-1 truncate text-[8px] text-slate-400">
-                                                      {
-                                                        note.author
-                                                          ?.name ||
-                                                        note.author
-                                                          ?.email ||
-                                                        "Administrator"
-                                                      }
+                                                      {note.kind ===
+                                                      "task"
+                                                        ? `Assigned: ${
+                                                            note.assignee
+                                                              ?.name ||
+                                                            note.assignee
+                                                              ?.email ||
+                                                            "Unassigned"
+                                                          }`
+                                                        : (
+                                                            note.author
+                                                              ?.name ||
+                                                            note.author
+                                                              ?.email ||
+                                                            "Administrator"
+                                                          )}
                                                     </p>
                                                   </div>
                                                 )

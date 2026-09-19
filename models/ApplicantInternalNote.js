@@ -165,13 +165,52 @@ const applicantInternalNoteSchema =
 
         enum: [
           'todo',
+          'in_progress',
           'completed',
+          'cancelled',
         ],
 
         default:
           'todo',
 
         index: true,
+      },
+
+      /*
+       * Recruitment-task priority.
+       *
+       * Empty preserves backward compatibility for
+       * existing tasks that predate priority support.
+       */
+      priority: {
+        type: String,
+
+        enum: [
+          '',
+          'low',
+          'medium',
+          'high',
+          'urgent',
+        ],
+
+        default: '',
+
+        index: true,
+      },
+
+      /*
+       * Recruiter / team member responsible for this task.
+       *
+       * Optional for backward compatibility. The upcoming
+       * assignment service will validate the actual user
+       * before storing this snapshot.
+       */
+      assignee: {
+        type:
+          actorSchema,
+
+        default:
+          () => ({}),
       },
 
       important: {

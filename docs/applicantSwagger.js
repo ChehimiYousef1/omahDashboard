@@ -1840,6 +1840,36 @@ module.exports = {
                       false,
                   },
 
+                  priority: {
+                    type:
+                      'string',
+
+                    enum: [
+                      '',
+                      'low',
+                      'medium',
+                      'high',
+                      'urgent',
+                    ],
+
+                    default:
+                      '',
+
+                    description:
+                      'Optional recruitment task priority. Applies only when kind is task.',
+                  },
+
+                  assigneeUserId: {
+                    type:
+                      'string',
+
+                    default:
+                      '',
+
+                    description:
+                      'Optional trusted active OMAH Recruiter, Admin, or Super Admin user ID. Applies only when kind is task.',
+                  },
+
                   schedule: {
                     type:
                       'object',
@@ -2340,15 +2370,162 @@ module.exports = {
     },
 
 
+    '/api/applicants/{id}/notes/{noteId}/task-assignee': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Assign or unassign a recruitment task',
+
+        description:
+          'Assigns an active internal recruitment task to a trusted active OMAH Recruiter, Admin, or Super Admin account. The server resolves assigneeUserId against the trusted user directory. An empty assigneeUserId explicitly unassigns the task.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'assigneeUserId',
+                ],
+
+                properties: {
+                  assigneeUserId: {
+                    type:
+                      'string',
+
+                    description:
+                      'Trusted OMAH user ID. Send an empty string to unassign the task.',
+
+                    example:
+                      'admin-1',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
+    '/api/applicants/{id}/notes/{noteId}/task-priority': {
+      patch: {
+        tags: ['Applicants'],
+
+        summary:
+          'Update recruitment task priority',
+
+        description:
+          'Updates the explicit priority of an active internal recruitment task. Send an empty string to clear the explicit priority.',
+
+        parameters: [
+          idParameter,
+
+          {
+            name:
+              'noteId',
+
+            in:
+              'path',
+
+            required:
+              true,
+
+            schema: {
+              type:
+                'string',
+            },
+          },
+        ],
+
+        requestBody: {
+          required:
+            true,
+
+          content: {
+            'application/json': {
+              schema: {
+                type:
+                  'object',
+
+                required: [
+                  'priority',
+                ],
+
+                properties: {
+                  priority: {
+                    type:
+                      'string',
+
+                    enum: [
+                      '',
+                      'low',
+                      'medium',
+                      'high',
+                      'urgent',
+                    ],
+
+                    description:
+                      'Recruitment task priority. Empty string clears explicit priority.',
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        responses: {
+          200:
+            successResponse,
+
+          ...errorResponses,
+        },
+      },
+    },
+
+
     '/api/applicants/{id}/notes/{noteId}/task-status': {
       patch: {
         tags: ['Applicants'],
 
         summary:
-          'Complete or reopen an internal task',
+          'Update recruitment task workflow status',
 
         description:
-          'Only items whose kind is task can use this endpoint.',
+          'Updates an active internal recruitment task to todo, in_progress, completed, or cancelled. Overdue is derived from the task due date and is not stored as a task status.',
 
         parameters: [
           idParameter,
@@ -2391,7 +2568,9 @@ module.exports = {
 
                     enum: [
                       'todo',
+                      'in_progress',
                       'completed',
+                      'cancelled',
                     ],
                   },
                 },

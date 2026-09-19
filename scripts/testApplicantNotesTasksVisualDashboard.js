@@ -74,8 +74,8 @@ for (
     'Task Status',
     'Due-Date Distribution',
     'Calendar Synchronization Intelligence',
-    'Open Task Workload by Owner',
-    'Detailed Owner Workload',
+    'Open Task Workload by Assignee',
+    'Detailed Assignee Workload',
     'Operational Metrics Matrix',
     'Notes / Tasks Lifecycle',
     'Google Calendar Synchronization Flow',
@@ -166,7 +166,7 @@ console.log(
 );
 
 console.log(
-  '✅ stacked owner workload chart present'
+  '✅ stacked assignee workload chart present'
 );
 
 console.log(

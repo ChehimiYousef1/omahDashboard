@@ -1194,8 +1194,8 @@ export function NotesTasksAnalytics({
       ================================================== */}
 
       <Panel
-        title="Open Task Workload by Owner"
-        subtitle="Stacked workload uses the current internal-item author as operational owner because the model does not contain a separate assignee."
+        title="Open Task Workload by Assignee"
+        subtitle="Stacked workload uses the actual task assignee. Legacy tasks without an assignee are shown as Unassigned."
       >
         {ownerChartData.length ===
         0 ? (
@@ -1307,8 +1307,8 @@ export function NotesTasksAnalytics({
       ================================================== */}
 
       <Panel
-        title="Detailed Owner Workload"
-        subtitle="Exact open workload counts by operational owner."
+        title="Detailed Assignee Workload"
+        subtitle="Exact actionable workload counts by task assignee; missing assignment remains Unassigned."
       >
         {data.ownerWorkload.length ===
         0 ? (
@@ -1321,7 +1321,7 @@ export function NotesTasksAnalytics({
               <thead>
                 <tr className="border-b border-slate-100 text-[9px] font-bold uppercase tracking-wide text-slate-400">
                   <th className="px-3 py-3">
-                    Owner
+                    Assignee
                   </th>
 
                   <th className="px-3 py-3 text-right">
@@ -1538,7 +1538,7 @@ export function NotesTasksAnalytics({
 
           <FlowNode
             title="2. Prioritize"
-            detail="Important flag, author and task state"
+            detail="Important flag, assignee, priority and task state"
           />
 
           <FlowArrow />
@@ -1560,7 +1560,7 @@ export function NotesTasksAnalytics({
 
           <FlowNode
             title="5. Resolve"
-            detail="Complete Task or archive item"
+            detail="Complete or cancel Task, or archive item"
             tone="emerald"
           />
         </div>

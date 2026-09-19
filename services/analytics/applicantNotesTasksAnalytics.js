@@ -15,6 +15,8 @@ const INTERNAL_NOTE_ANALYTICS_PROJECTION = [
   'kind',
   'content',
   'taskStatus',
+  'priority',
+  'assignee',
   'important',
   'schedule.startAt',
   'schedule.endAt',
@@ -249,18 +251,54 @@ function isTask(
 }
 
 
+function normalizedTaskStatus(
+  item
+) {
+  const value =
+    String(
+      item?.taskStatus ||
+      'todo'
+    )
+      .trim()
+      .toLowerCase();
+
+  return [
+    'todo',
+    'in_progress',
+    'completed',
+    'cancelled',
+  ].includes(
+    value
+  )
+    ? value
+    : 'todo';
+}
+
+
 function isOpenTask(
   item
 ) {
+  if (
+    !isActiveItem(
+      item
+    ) ||
+    !isTask(
+      item
+    )
+  ) {
+    return false;
+  }
+
+  const status =
+    normalizedTaskStatus(
+      item
+    );
+
   return (
-    isActiveItem(
-      item
-    ) &&
-    isTask(
-      item
-    ) &&
-    item.taskStatus !==
-      'completed'
+    status ===
+      'todo' ||
+    status ===
+      'in_progress'
   );
 }
 
@@ -275,8 +313,28 @@ function isCompletedTask(
     isTask(
       item
     ) &&
-    item.taskStatus ===
+    normalizedTaskStatus(
+      item
+    ) ===
       'completed'
+  );
+}
+
+
+function isCancelledTask(
+  item
+) {
+  return (
+    isActiveItem(
+      item
+    ) &&
+    isTask(
+      item
+    ) &&
+    normalizedTaskStatus(
+      item
+    ) ===
+      'cancelled'
   );
 }
 
@@ -1537,15 +1595,26 @@ function buildApplicantNotesTasksAnalytics({
         'error'
     );
 
+  /*
+   * Cancelled tasks are terminal but are not counted
+   * as completed opportunities in the completion-rate
+   * denominator.
+   *
+   * denominator = todo + in_progress + completed
+   */
+  const completionDenominator =
+    openTasks.length +
+    completedTasks.length;
+
   const completionRate =
-    tasks.length ===
+    completionDenominator ===
       0
       ? 0
       : Number(
           (
             (
               completedTasks.length /
-              tasks.length
+              completionDenominator
             ) *
             100
           ).toFixed(
@@ -1561,20 +1630,38 @@ function buildApplicantNotesTasksAnalytics({
     const task
     of openTasks
   ) {
+    const assignee =
+      task?.assignee &&
+      typeof task.assignee ===
+        'object' &&
+      String(
+        task.assignee
+          ?.userId ||
+        ''
+      ).trim()
+        ? task.assignee
+        : null;
+
     const key =
-      ownerKey(
-        task.author
-      );
+      assignee
+        ? ownerKey(
+            assignee
+          )
+        : 'unassigned';
 
     const existing =
       workloadMap.get(
         key
       ) || {
         key,
+
         label:
-          ownerLabel(
-            task.author
-          ),
+          assignee
+            ? ownerLabel(
+                assignee
+              )
+            : 'Unassigned',
+
         openTasks: 0,
         overdueTasks: 0,
         dueTodayTasks: 0,
@@ -1701,9 +1788,30 @@ function buildApplicantNotesTasksAnalytics({
       key:
         'todo',
       label:
-        'Open',
+        'To Do',
       count:
-        openTasks.length,
+        tasks.filter(
+          item =>
+            normalizedTaskStatus(
+              item
+            ) ===
+            'todo'
+        ).length,
+    },
+
+    {
+      key:
+        'in_progress',
+      label:
+        'In Progress',
+      count:
+        tasks.filter(
+          item =>
+            normalizedTaskStatus(
+              item
+            ) ===
+            'in_progress'
+        ).length,
     },
 
     {
@@ -1713,6 +1821,17 @@ function buildApplicantNotesTasksAnalytics({
         'Completed',
       count:
         completedTasks.length,
+    },
+
+    {
+      key:
+        'cancelled',
+      label:
+        'Cancelled',
+      count:
+        tasks.filter(
+          isCancelledTask
+        ).length,
     },
   ];
 
@@ -1840,7 +1959,7 @@ function buildApplicantNotesTasksAnalytics({
       calendarSyncErrors.length,
 
     ownerSource:
-      'author',
+      'assignee',
 
     ownerWorkload,
 

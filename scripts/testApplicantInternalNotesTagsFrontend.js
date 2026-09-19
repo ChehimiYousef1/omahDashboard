@@ -87,6 +87,36 @@ assert(
   )
 );
 
+
+for (
+  const taskUiLabel
+  of [
+    'Assigned To',
+    'Priority',
+    'Unassigned',
+    'In Progress',
+    'Cancelled',
+    'Task status',
+    'Task assignee',
+    'Task priority',
+    'All Items',
+    'All Tasks',
+    'My Tasks',
+    'Overdue',
+    'Due Today',
+    'Upcoming',
+    'Recruitment task operations',
+  ]
+) {
+  assert(
+    panel.includes(
+      taskUiLabel
+    ),
+    'Missing task workflow UI: ' +
+      taskUiLabel
+  );
+}
+
 assert(
   panel.includes(
     'Unlike'
@@ -151,6 +181,8 @@ for (
     'setApplicantInternalNoteImportance',
     'setApplicantInternalNoteLike',
     'setApplicantInternalNoteStar',
+    'setApplicantInternalTaskAssignee',
+    'setApplicantInternalTaskPriority',
     'setApplicantInternalTaskStatus',
     'updateApplicantInternalNoteSchedule',
     'addApplicantInternalNoteToCalendar',

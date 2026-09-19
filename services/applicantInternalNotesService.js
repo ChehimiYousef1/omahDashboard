@@ -41,7 +41,24 @@ const INTERNAL_ITEM_KINDS =
 const INTERNAL_TASK_STATUSES =
   Object.freeze([
     'todo',
+    'in_progress',
     'completed',
+    'cancelled',
+  ]);
+
+const INTERNAL_TASK_PRIORITIES =
+  Object.freeze([
+    'low',
+    'medium',
+    'high',
+    'urgent',
+  ]);
+
+const INTERNAL_TASK_ASSIGNEE_ROLES =
+  Object.freeze([
+    'Recruiter',
+    'Admin',
+    'Super Admin',
   ]);
 
 const MAX_REMINDER_NOTE_LENGTH =
@@ -269,11 +286,130 @@ function normalizeTaskStatus(
   ) {
     throw serviceError(
       'INTERNAL_TASK_STATUS_INVALID',
-      'Task status must be todo or completed.'
+      'Task status must be todo, in_progress, completed, or cancelled.'
     );
   }
 
   return normalized;
+}
+
+
+function normalizeTaskPriority(
+  value,
+  {
+    allowEmpty = true,
+  } = {}
+) {
+  const normalized =
+    cleanText(
+      value
+    ).toLowerCase();
+
+  if (
+    !normalized &&
+    allowEmpty
+  ) {
+    return '';
+  }
+
+  if (
+    !INTERNAL_TASK_PRIORITIES
+      .includes(
+        normalized
+      )
+  ) {
+    throw serviceError(
+      'INTERNAL_TASK_PRIORITY_INVALID',
+      'Task priority must be low, medium, high, or urgent.'
+    );
+  }
+
+  return normalized;
+}
+
+
+function normalizeTaskAssigneeUser(
+  user
+) {
+  if (
+    !user ||
+    typeof user !==
+      'object' ||
+    Array.isArray(
+      user
+    )
+  ) {
+    throw serviceError(
+      'INTERNAL_TASK_ASSIGNEE_NOT_FOUND',
+      'Task assignee was not found.'
+    );
+  }
+
+  const userId =
+    cleanText(
+      user.id ??
+      user.userId
+    );
+
+  if (!userId) {
+    throw serviceError(
+      'INTERNAL_TASK_ASSIGNEE_NOT_FOUND',
+      'Task assignee does not have a valid user ID.'
+    );
+  }
+
+  const accountStatus =
+    cleanText(
+      user.status
+    );
+
+  if (
+    accountStatus
+      .toLowerCase() !==
+    'active'
+  ) {
+    throw serviceError(
+      'INTERNAL_TASK_ASSIGNEE_INACTIVE',
+      'Task assignee must have an Active account.'
+    );
+  }
+
+  const rawRole =
+    cleanText(
+      user.role
+    );
+
+  const matchedRole =
+    INTERNAL_TASK_ASSIGNEE_ROLES
+      .find(
+        role =>
+          role.toLowerCase() ===
+          rawRole.toLowerCase()
+      );
+
+  if (!matchedRole) {
+    throw serviceError(
+      'INTERNAL_TASK_ASSIGNEE_ROLE_INVALID',
+      'Task assignee must be an active Recruiter, Admin, or Super Admin.'
+    );
+  }
+
+  return {
+    userId,
+
+    name:
+      cleanText(
+        user.name
+      ),
+
+    email:
+      cleanText(
+        user.email
+      ).toLowerCase(),
+
+    role:
+      matchedRole,
+  };
 }
 
 
@@ -611,6 +747,14 @@ async function createApplicantInternalNote({
   schedule =
     {},
 
+  priority =
+    '',
+
+  assigneeUserId =
+    '',
+
+  resolveUserById,
+
   ApplicantModel =
     Applicant,
 
@@ -652,6 +796,64 @@ async function createApplicantInternalNote({
       schedule
     );
 
+  /*
+   * Task-only creation metadata.
+   *
+   * Normal notes intentionally keep these values empty.
+   */
+  let normalizedPriority =
+    '';
+
+  let normalizedAssignee =
+    {};
+
+  if (
+    normalizedKind ===
+      'task'
+  ) {
+    normalizedPriority =
+      normalizeTaskPriority(
+        priority
+      );
+
+    const requestedAssigneeUserId =
+      cleanText(
+        assigneeUserId
+      );
+
+    if (requestedAssigneeUserId) {
+      if (
+        typeof resolveUserById !==
+          'function'
+      ) {
+        throw serviceError(
+          'INTERNAL_TASK_ASSIGNEE_RESOLVER_REQUIRED',
+          'Task assignee user lookup is unavailable.'
+        );
+      }
+
+      const user =
+        await resolveUserById(
+          requestedAssigneeUserId
+        );
+
+      normalizedAssignee =
+        normalizeTaskAssigneeUser(
+          user
+        );
+
+      if (
+        normalizedAssignee.userId !==
+        requestedAssigneeUserId
+      ) {
+        throw serviceError(
+          'INTERNAL_TASK_ASSIGNEE_NOT_FOUND',
+          'Task assignee user ID does not match the requested account.'
+        );
+      }
+    }
+  }
+
   const created =
     await NoteModel.create([
       {
@@ -666,6 +868,12 @@ async function createApplicantInternalNote({
 
         taskStatus:
           'todo',
+
+        priority:
+          normalizedPriority,
+
+        assignee:
+          normalizedAssignee,
 
         important:
           normalizedImportant,
@@ -1341,6 +1549,475 @@ async function setApplicantInternalNoteStar({
 }
 
 
+function normalizeStoredTaskAssignee(
+  value
+) {
+  if (
+    !value ||
+    typeof value !==
+      'object' ||
+    Array.isArray(
+      value
+    )
+  ) {
+    return {};
+  }
+
+  const userId =
+    cleanText(
+      value.userId ??
+      value.id
+    );
+
+  if (!userId) {
+    return {};
+  }
+
+  return {
+    userId,
+
+    name:
+      cleanText(
+        value.name
+      ),
+
+    email:
+      cleanText(
+        value.email
+      ).toLowerCase(),
+
+    role:
+      cleanText(
+        value.role
+      ),
+  };
+}
+
+
+async function readActiveInternalTaskSnapshot({
+  applicantObjectId,
+  noteObjectId,
+  NoteModel,
+} = {}) {
+  if (
+    !NoteModel ||
+    typeof NoteModel.findOne !==
+      'function'
+  ) {
+    return {
+      known:
+        false,
+
+      note:
+        null,
+    };
+  }
+
+  const note =
+    await resolveLean(
+      NoteModel.findOne({
+        _id:
+          noteObjectId,
+
+        applicantId:
+          applicantObjectId,
+
+        kind:
+          'task',
+
+        archived: {
+          $ne: true,
+        },
+      })
+    );
+
+  if (!note) {
+    throw serviceError(
+      'INTERNAL_TASK_NOT_FOUND',
+      'Active internal task was not found.'
+    );
+  }
+
+  return {
+    known:
+      true,
+
+    note,
+  };
+}
+
+
+async function setApplicantInternalTaskAssignee({
+  applicantId,
+  noteId,
+  assigneeUserId,
+  actor,
+
+  resolveUserById,
+
+  ApplicantModel =
+    Applicant,
+
+  NoteModel =
+    ApplicantInternalNote,
+} = {}) {
+  const target =
+    await requireApplicant({
+      applicantId,
+      ApplicantModel,
+    });
+
+  const noteObjectId =
+    toObjectId(
+      noteId,
+      'noteId'
+    );
+
+  const normalizedActor =
+    normalizeActor(
+      actor
+    );
+
+  const requestedUserId =
+    cleanText(
+      assigneeUserId
+    );
+
+  let normalizedAssignee =
+    {};
+
+  if (requestedUserId) {
+    if (
+      typeof resolveUserById !==
+        'function'
+    ) {
+      throw serviceError(
+        'INTERNAL_TASK_ASSIGNEE_RESOLVER_REQUIRED',
+        'Task assignee user lookup is unavailable.'
+      );
+    }
+
+    const user =
+      await resolveUserById(
+        requestedUserId
+      );
+
+    normalizedAssignee =
+      normalizeTaskAssigneeUser(
+        user
+      );
+
+    if (
+      normalizedAssignee
+        .userId !==
+      requestedUserId
+    ) {
+      throw serviceError(
+        'INTERNAL_TASK_ASSIGNEE_NOT_FOUND',
+        'Task assignee user ID does not match the requested account.'
+      );
+    }
+  }
+
+  const previous =
+    await readActiveInternalTaskSnapshot({
+      applicantObjectId:
+        target.applicantObjectId,
+
+      noteObjectId,
+
+      NoteModel,
+    });
+
+  const previousAssignee =
+    previous.known
+      ? normalizeStoredTaskAssignee(
+          previous.note
+            ?.assignee
+        )
+      : {};
+
+  const previousUserId =
+    cleanText(
+      previousAssignee
+        .userId
+    );
+
+  const nextUserId =
+    cleanText(
+      normalizedAssignee
+        .userId
+    );
+
+  const changed =
+    previous.known
+      ? previousUserId !==
+        nextUserId
+      : true;
+
+  const note =
+    await resolveLean(
+      NoteModel
+        .findOneAndUpdate(
+          {
+            _id:
+              noteObjectId,
+
+            applicantId:
+              target.applicantObjectId,
+
+            kind:
+              'task',
+
+            archived: {
+              $ne: true,
+            },
+          },
+
+          {
+            $set: {
+              assignee:
+                normalizedAssignee,
+
+              updatedBy:
+                normalizedActor,
+            },
+          },
+
+          {
+            new: true,
+            runValidators: true,
+          }
+        )
+    );
+
+  if (!note) {
+    throw serviceError(
+      'INTERNAL_TASK_NOT_FOUND',
+      'Active internal task was not found.'
+    );
+  }
+
+  let status =
+    'internal-task-assigned';
+
+  if (!changed) {
+    status =
+      'internal-task-assignee-unchanged';
+  } else if (!nextUserId) {
+    status =
+      'internal-task-unassigned';
+  } else if (previousUserId) {
+    status =
+      'internal-task-reassigned';
+  }
+
+  return {
+    status,
+
+    changed,
+
+    previousStateKnown:
+      previous.known,
+
+    previousAssignee,
+
+    assignee:
+      normalizeStoredTaskAssignee(
+        note.assignee ??
+        normalizedAssignee
+      ),
+
+    note,
+  };
+}
+
+
+async function setApplicantInternalTaskPriority({
+  applicantId,
+  noteId,
+  priority,
+  actor,
+
+  ApplicantModel =
+    Applicant,
+
+  NoteModel =
+    ApplicantInternalNote,
+} = {}) {
+  const target =
+    await requireApplicant({
+      applicantId,
+      ApplicantModel,
+    });
+
+  const noteObjectId =
+    toObjectId(
+      noteId,
+      'noteId'
+    );
+
+  const normalizedActor =
+    normalizeActor(
+      actor
+    );
+
+  const normalizedPriority =
+    normalizeTaskPriority(
+      priority
+    );
+
+  const previous =
+    await readActiveInternalTaskSnapshot({
+      applicantObjectId:
+        target.applicantObjectId,
+
+      noteObjectId,
+
+      NoteModel,
+    });
+
+  const previousPriority =
+    previous.known
+      ? normalizeTaskPriority(
+          previous.note
+            ?.priority,
+          {
+            allowEmpty:
+              true,
+          }
+        )
+      : '';
+
+  const changed =
+    previous.known
+      ? previousPriority !==
+        normalizedPriority
+      : true;
+
+  /*
+   * When the previous state is known and the
+   * priority is identical, avoid a meaningless
+   * database write and activity record.
+   */
+  if (
+    previous.known &&
+    !changed
+  ) {
+    return {
+      status:
+        'internal-task-priority-unchanged',
+
+      changed:
+        false,
+
+      previousStateKnown:
+        true,
+
+      previousPriority,
+
+      priority:
+        normalizedPriority,
+
+      note:
+        previous.note,
+    };
+  }
+
+  const note =
+    await resolveLean(
+      NoteModel
+        .findOneAndUpdate(
+          {
+            _id:
+              noteObjectId,
+
+            applicantId:
+              target.applicantObjectId,
+
+            kind:
+              'task',
+
+            archived: {
+              $ne: true,
+            },
+          },
+
+          {
+            $set: {
+              priority:
+                normalizedPriority,
+
+              updatedBy:
+                normalizedActor,
+            },
+          },
+
+          {
+            new: true,
+            runValidators: true,
+          }
+        )
+    );
+
+  if (!note) {
+    throw serviceError(
+      'INTERNAL_TASK_NOT_FOUND',
+      'Active internal task was not found.'
+    );
+  }
+
+  return {
+    status:
+      normalizedPriority
+        ? 'internal-task-priority-updated'
+        : 'internal-task-priority-cleared',
+
+    changed,
+
+    previousStateKnown:
+      previous.known,
+
+    previousPriority,
+
+    priority:
+      normalizedPriority,
+
+    note,
+  };
+}
+
+
+function taskStatusMutationResult(
+  taskStatus
+) {
+  const normalized =
+    normalizeTaskStatus(
+      taskStatus
+    );
+
+  switch (normalized) {
+    case 'todo':
+      return 'internal-task-todo';
+
+    case 'in_progress':
+      return 'internal-task-in-progress';
+
+    case 'completed':
+      return 'internal-task-completed';
+
+    case 'cancelled':
+      return 'internal-task-cancelled';
+
+    default:
+      throw serviceError(
+        'INTERNAL_TASK_STATUS_INVALID',
+        'Task status is invalid.'
+      );
+  }
+}
+
+
 async function setApplicantInternalTaskStatus({
   applicantId,
   noteId,
@@ -1374,6 +2051,61 @@ async function setApplicantInternalTaskStatus({
     normalizeTaskStatus(
       taskStatus
     );
+
+  const previous =
+    await readActiveInternalTaskSnapshot({
+      applicantObjectId:
+        target.applicantObjectId,
+
+      noteObjectId,
+
+      NoteModel,
+    });
+
+  const previousTaskStatus =
+    previous.known
+      ? normalizeTaskStatus(
+          previous.note
+            ?.taskStatus ??
+          'todo'
+        )
+      : '';
+
+  const changed =
+    previous.known
+      ? previousTaskStatus !==
+        normalizedStatus
+      : true;
+
+  /*
+   * Important idempotency:
+   *
+   * Re-saving the same completed state must not
+   * generate a new completedAt timestamp.
+   */
+  if (
+    previous.known &&
+    !changed
+  ) {
+    return {
+      status:
+        'internal-task-status-unchanged',
+
+      changed:
+        false,
+
+      previousStateKnown:
+        true,
+
+      previousTaskStatus,
+
+      taskStatus:
+        normalizedStatus,
+
+      note:
+        previous.note,
+    };
+  }
 
   const completed =
     normalizedStatus ===
@@ -1434,9 +2166,19 @@ async function setApplicantInternalTaskStatus({
 
   return {
     status:
-      completed
-        ? 'internal-task-completed'
-        : 'internal-task-reopened',
+      taskStatusMutationResult(
+        normalizedStatus
+      ),
+
+    changed,
+
+    previousStateKnown:
+      previous.known,
+
+    previousTaskStatus,
+
+    taskStatus:
+      normalizedStatus,
 
     note,
   };
@@ -2374,6 +3116,8 @@ module.exports = {
 
   INTERNAL_ITEM_KINDS,
   INTERNAL_TASK_STATUSES,
+  INTERNAL_TASK_PRIORITIES,
+  INTERNAL_TASK_ASSIGNEE_ROLES,
 
   DEFAULT_APPLICANT_TAG_TAXONOMY,
 
@@ -2382,6 +3126,9 @@ module.exports = {
   normalizeReplyContent,
   normalizeInternalItemKind,
   normalizeTaskStatus,
+  normalizeTaskPriority,
+  normalizeTaskAssigneeUser,
+  taskStatusMutationResult,
   normalizeOptionalDate,
   normalizeSchedule,
   normalizeTag,
@@ -2402,6 +3149,8 @@ module.exports = {
   setApplicantInternalNoteImportance,
   setApplicantInternalNoteLike,
   setApplicantInternalNoteStar,
+  setApplicantInternalTaskAssignee,
+  setApplicantInternalTaskPriority,
   setApplicantInternalTaskStatus,
   updateApplicantInternalNoteSchedule,
 

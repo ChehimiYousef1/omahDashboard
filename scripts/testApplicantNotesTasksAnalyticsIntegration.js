@@ -328,7 +328,7 @@ async function run() {
   assert.strictEqual(
     analytics.notesTasks
       .ownerSource,
-    'author'
+    'assignee'
   );
 
 
@@ -351,7 +351,7 @@ async function run() {
   );
 
   console.log(
-    '✅ workload ownership explicitly uses author'
+    '✅ workload ownership explicitly uses task assignee'
   );
 
   console.log(

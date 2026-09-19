@@ -31,6 +31,7 @@ import {
   fetchApplicantInternalNoteReplies,
   fetchApplicantInternalNotes,
   fetchCurrentUser,
+  fetchUsers,
   permanentlyDeleteApplicantInternalNote,
   permanentlyDeleteApplicantInternalNoteReply,
   removeApplicantInternalNoteFromCalendar,
@@ -39,6 +40,8 @@ import {
   setApplicantInternalNoteImportance,
   setApplicantInternalNoteLike,
   setApplicantInternalNoteStar,
+  setApplicantInternalTaskAssignee,
+  setApplicantInternalTaskPriority,
   setApplicantInternalTaskStatus,
   updateApplicantInternalNote,
   updateApplicantInternalNoteCalendar,
@@ -49,6 +52,9 @@ import {
   type ApplicantInternalNoteKind,
   type ApplicantInternalNoteReply,
   type ApplicantInternalNoteSchedule,
+  type ApplicantInternalTaskPriority,
+  type ApplicantInternalTaskStatus,
+  type User,
 } from "../../services/api";
 
 
@@ -64,6 +70,509 @@ const TAG_TAXONOMY = [
   "hold",
   "do-not-contact",
 ];
+
+
+const TASK_STATUS_OPTIONS:
+Array<{
+  value:
+    ApplicantInternalTaskStatus;
+  label:
+    string;
+}> = [
+  {
+    value:
+      "todo",
+    label:
+      "To Do",
+  },
+  {
+    value:
+      "in_progress",
+    label:
+      "In Progress",
+  },
+  {
+    value:
+      "completed",
+    label:
+      "Completed",
+  },
+  {
+    value:
+      "cancelled",
+    label:
+      "Cancelled",
+  },
+];
+
+
+const TASK_PRIORITY_OPTIONS:
+Array<{
+  value:
+    ApplicantInternalTaskPriority;
+  label:
+    string;
+}> = [
+  {
+    value:
+      "",
+    label:
+      "Not set",
+  },
+  {
+    value:
+      "low",
+    label:
+      "Low",
+  },
+  {
+    value:
+      "medium",
+    label:
+      "Medium",
+  },
+  {
+    value:
+      "high",
+    label:
+      "High",
+  },
+  {
+    value:
+      "urgent",
+    label:
+      "Urgent",
+  },
+];
+
+
+function taskStatusLabel(
+  status?:
+    ApplicantInternalTaskStatus
+) {
+  return (
+    TASK_STATUS_OPTIONS.find(
+      option =>
+        option.value ===
+        (status || "todo")
+    )?.label ||
+    "To Do"
+  );
+}
+
+
+function taskPriorityLabel(
+  priority?:
+    ApplicantInternalTaskPriority
+) {
+  return (
+    TASK_PRIORITY_OPTIONS.find(
+      option =>
+        option.value ===
+        (priority || "")
+    )?.label ||
+    "Not set"
+  );
+}
+
+
+type TaskViewFilter =
+  | "all"
+  | "all_tasks"
+  | "mine"
+  | "todo"
+  | "in_progress"
+  | "overdue"
+  | "due_today"
+  | "upcoming"
+  | "completed"
+  | "cancelled";
+
+
+const TASK_VIEW_OPTIONS:
+Array<{
+  value:
+    TaskViewFilter;
+  label:
+    string;
+}> = [
+  {
+    value:
+      "all",
+    label:
+      "All Items",
+  },
+  {
+    value:
+      "all_tasks",
+    label:
+      "All Tasks",
+  },
+  {
+    value:
+      "mine",
+    label:
+      "My Tasks",
+  },
+  {
+    value:
+      "todo",
+    label:
+      "To Do",
+  },
+  {
+    value:
+      "in_progress",
+    label:
+      "In Progress",
+  },
+  {
+    value:
+      "overdue",
+    label:
+      "Overdue",
+  },
+  {
+    value:
+      "due_today",
+    label:
+      "Due Today",
+  },
+  {
+    value:
+      "upcoming",
+    label:
+      "Upcoming",
+  },
+  {
+    value:
+      "completed",
+    label:
+      "Completed",
+  },
+  {
+    value:
+      "cancelled",
+    label:
+      "Cancelled",
+  },
+];
+
+
+function internalTaskStatus(
+  note:
+    ApplicantInternalNote
+): ApplicantInternalTaskStatus {
+  return (
+    note.taskStatus ||
+    "todo"
+  );
+}
+
+
+function internalTaskDueDate(
+  note:
+    ApplicantInternalNote
+) {
+  const raw =
+    note.schedule
+      ?.endAt;
+
+  if (!raw) {
+    return null;
+  }
+
+  const due =
+    new Date(raw);
+
+  return Number.isNaN(
+    due.getTime()
+  )
+    ? null
+    : due;
+}
+
+
+function localDayBounds(
+  now:
+    Date
+) {
+  const start =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+
+  const nextDay =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1
+    );
+
+  return {
+    start,
+    nextDay,
+  };
+}
+
+
+function isActionableInternalTask(
+  note:
+    ApplicantInternalNote
+) {
+  if (
+    note.kind !==
+      "task" ||
+    note.archived
+  ) {
+    return false;
+  }
+
+  const status =
+    internalTaskStatus(
+      note
+    );
+
+  return (
+    status ===
+      "todo" ||
+    status ===
+      "in_progress"
+  );
+}
+
+
+function isInternalTaskOverdue(
+  note:
+    ApplicantInternalNote,
+
+  now:
+    Date
+) {
+  if (
+    !isActionableInternalTask(
+      note
+    )
+  ) {
+    return false;
+  }
+
+  const due =
+    internalTaskDueDate(
+      note
+    );
+
+  return Boolean(
+    due &&
+    due.getTime() <
+      now.getTime()
+  );
+}
+
+
+function isInternalTaskDueToday(
+  note:
+    ApplicantInternalNote,
+
+  now:
+    Date
+) {
+  if (
+    !isActionableInternalTask(
+      note
+    )
+  ) {
+    return false;
+  }
+
+  const due =
+    internalTaskDueDate(
+      note
+    );
+
+  if (!due) {
+    return false;
+  }
+
+  const {
+    start,
+    nextDay,
+  } =
+    localDayBounds(
+      now
+    );
+
+  return (
+    due.getTime() >=
+      start.getTime() &&
+    due.getTime() <
+      nextDay.getTime()
+  );
+}
+
+
+function isInternalTaskUpcoming(
+  note:
+    ApplicantInternalNote,
+
+  now:
+    Date
+) {
+  if (
+    !isActionableInternalTask(
+      note
+    )
+  ) {
+    return false;
+  }
+
+  const due =
+    internalTaskDueDate(
+      note
+    );
+
+  if (!due) {
+    return false;
+  }
+
+  const {
+    nextDay,
+  } =
+    localDayBounds(
+      now
+    );
+
+  /*
+   * Tomorrow through the following seven
+   * local calendar days.
+   */
+  const windowEnd =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 8
+    );
+
+  return (
+    due.getTime() >=
+      nextDay.getTime() &&
+    due.getTime() <
+      windowEnd.getTime()
+  );
+}
+
+
+function matchesTaskView(
+  note:
+    ApplicantInternalNote,
+
+  filter:
+    TaskViewFilter,
+
+  currentUserId:
+    string,
+
+  now:
+    Date
+) {
+  const kind =
+    note.kind ===
+      "task"
+      ? "task"
+      : "note";
+
+  const status =
+    internalTaskStatus(
+      note
+    );
+
+  switch (filter) {
+    case "all":
+      return true;
+
+    case "all_tasks":
+      return (
+        kind ===
+        "task"
+      );
+
+    case "mine":
+      return (
+        kind ===
+          "task" &&
+        !note.archived &&
+        Boolean(
+          currentUserId
+        ) &&
+        note.assignee
+          ?.userId ===
+          currentUserId
+      );
+
+    case "todo":
+      return (
+        kind ===
+          "task" &&
+        !note.archived &&
+        status ===
+          "todo"
+      );
+
+    case "in_progress":
+      return (
+        kind ===
+          "task" &&
+        !note.archived &&
+        status ===
+          "in_progress"
+      );
+
+    case "overdue":
+      return (
+        isInternalTaskOverdue(
+          note,
+          now
+        )
+      );
+
+    case "due_today":
+      return (
+        isInternalTaskDueToday(
+          note,
+          now
+        )
+      );
+
+    case "upcoming":
+      return (
+        isInternalTaskUpcoming(
+          note,
+          now
+        )
+      );
+
+    case "completed":
+      return (
+        kind ===
+          "task" &&
+        status ===
+          "completed"
+      );
+
+    case "cancelled":
+      return (
+        kind ===
+          "task" &&
+        status ===
+          "cancelled"
+      );
+
+    default:
+      return true;
+  }
+}
 
 
 interface Props {
@@ -358,6 +867,36 @@ export function ApplicantInternalNotesTagsPanel({
   ] =
     useState("");
 
+
+  const [
+    eligibleTaskAssignees,
+    setEligibleTaskAssignees,
+  ] =
+    useState<User[]>([]);
+
+
+  const [
+    taskAssigneesLoading,
+    setTaskAssigneesLoading,
+  ] =
+    useState(false);
+
+
+  const [
+    newPriority,
+    setNewPriority,
+  ] =
+    useState<
+      ApplicantInternalTaskPriority
+    >("");
+
+
+  const [
+    newAssigneeUserId,
+    setNewAssigneeUserId,
+  ] =
+    useState("");
+
   const [
     currentUserId,
     setCurrentUserId,
@@ -369,6 +908,15 @@ export function ApplicantInternalNotesTagsPanel({
     setShowArchivedItems,
   ] =
     useState(false);
+
+
+  const [
+    taskViewFilter,
+    setTaskViewFilter,
+  ] =
+    useState<
+      TaskViewFilter
+    >("all");
 
 
   /*
@@ -534,6 +1082,79 @@ export function ApplicantInternalNotesTagsPanel({
     setTagsDirty,
   ] =
     useState(false);
+
+
+  useEffect(
+    () => {
+      let cancelled =
+        false;
+
+      async function loadTaskAssignees() {
+        try {
+          setTaskAssigneesLoading(
+            true
+          );
+
+          const users =
+            await fetchUsers();
+
+          if (cancelled) {
+            return;
+          }
+
+          setEligibleTaskAssignees(
+            users
+              .filter(
+                user =>
+                  user.status ===
+                    "Active" &&
+                  [
+                    "Recruiter",
+                    "Admin",
+                    "Super Admin",
+                  ].includes(
+                    user.role
+                  )
+              )
+              .sort(
+                (
+                  left,
+                  right
+                ) =>
+                  left.name.localeCompare(
+                    right.name
+                  )
+              )
+          );
+        } catch {
+          /*
+           * Assignment remains optional.
+           * The backend still validates every
+           * non-empty assignee ID.
+           */
+          if (!cancelled) {
+            setEligibleTaskAssignees(
+              []
+            );
+          }
+        } finally {
+          if (!cancelled) {
+            setTaskAssigneesLoading(
+              false
+            );
+          }
+        }
+      }
+
+      void loadTaskAssignees();
+
+      return () => {
+        cancelled =
+          true;
+      };
+    },
+    []
+  );
 
 
   useEffect(
@@ -775,6 +1396,18 @@ export function ApplicantInternalNotesTagsPanel({
               schedulePayload(
                 newSchedule
               ),
+
+            priority:
+              newKind ===
+                "task"
+                ? newPriority
+                : "",
+
+            assigneeUserId:
+              newKind ===
+                "task"
+                ? newAssigneeUserId
+                : "",
           }
         );
 
@@ -788,6 +1421,8 @@ export function ApplicantInternalNotesTagsPanel({
       setNewContent("");
       setNewKind("note");
       setNewImportant(false);
+      setNewPriority("");
+      setNewAssigneeUserId("");
 
       setNewSchedule(
         emptySchedule()
@@ -981,16 +1616,13 @@ export function ApplicantInternalNotesTagsPanel({
   }
 
 
-  async function toggleTaskStatus(
+  async function changeTaskStatus(
     note:
-      ApplicantInternalNote
-  ) {
-    const next =
-      note.taskStatus ===
-        "completed"
-        ? "todo"
-        : "completed";
+      ApplicantInternalNote,
 
+    taskStatus:
+      ApplicantInternalTaskStatus
+  ) {
     try {
       setBusy(true);
       setError("");
@@ -999,7 +1631,71 @@ export function ApplicantInternalNotesTagsPanel({
         await setApplicantInternalTaskStatus(
           applicantId,
           note._id,
-          next
+          taskStatus
+        )
+      );
+    } catch (
+      actionError
+    ) {
+      setError(
+        messageFromError(
+          actionError
+        )
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
+  async function changeTaskPriority(
+    note:
+      ApplicantInternalNote,
+
+    priority:
+      ApplicantInternalTaskPriority
+  ) {
+    try {
+      setBusy(true);
+      setError("");
+
+      replaceNote(
+        await setApplicantInternalTaskPriority(
+          applicantId,
+          note._id,
+          priority
+        )
+      );
+    } catch (
+      actionError
+    ) {
+      setError(
+        messageFromError(
+          actionError
+        )
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
+  async function changeTaskAssignee(
+    note:
+      ApplicantInternalNote,
+
+    assigneeUserId:
+      string
+  ) {
+    try {
+      setBusy(true);
+      setError("");
+
+      replaceNote(
+        await setApplicantInternalTaskAssignee(
+          applicantId,
+          note._id,
+          assigneeUserId
         )
       );
     } catch (
@@ -1717,6 +2413,87 @@ export function ApplicantInternalNotesTagsPanel({
   }
 
 
+  const operationalNow =
+    new Date();
+
+
+  const activeTasks =
+    notes.filter(
+      note =>
+        note.kind ===
+          "task" &&
+        !note.archived
+    );
+
+
+  const actionableTasks =
+    activeTasks.filter(
+      note =>
+        isActionableInternalTask(
+          note
+        )
+    );
+
+
+  const taskMetrics = {
+    open:
+      actionableTasks.length,
+
+    inProgress:
+      actionableTasks.filter(
+        note =>
+          internalTaskStatus(
+            note
+          ) ===
+          "in_progress"
+      ).length,
+
+    overdue:
+      actionableTasks.filter(
+        note =>
+          isInternalTaskOverdue(
+            note,
+            operationalNow
+          )
+      ).length,
+
+    dueToday:
+      actionableTasks.filter(
+        note =>
+          isInternalTaskDueToday(
+            note,
+            operationalNow
+          )
+      ).length,
+
+    urgent:
+      actionableTasks.filter(
+        note =>
+          note.priority ===
+            "urgent"
+      ).length,
+
+    unassigned:
+      actionableTasks.filter(
+        note =>
+          !note.assignee
+            ?.userId
+      ).length,
+  };
+
+
+  const visibleNotes =
+    notes.filter(
+      note =>
+        matchesTaskView(
+          note,
+          taskViewFilter,
+          currentUserId,
+          operationalNow
+        )
+    );
+
+
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
@@ -1957,6 +2734,131 @@ export function ApplicantInternalNotesTagsPanel({
         </div>
 
 
+        <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/30 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">
+                Recruitment task operations
+              </p>
+
+              <p className="mt-0.5 text-[9px] text-slate-400">
+                Open workload means To Do or In Progress. Overdue is derived from End / Due.
+              </p>
+            </div>
+
+            <span className="rounded-full bg-white px-2.5 py-1 text-[9px] font-semibold text-slate-500">
+              7-day upcoming window
+            </span>
+          </div>
+
+
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            {[
+              {
+                label:
+                  "Open",
+                value:
+                  taskMetrics.open,
+              },
+              {
+                label:
+                  "In Progress",
+                value:
+                  taskMetrics.inProgress,
+              },
+              {
+                label:
+                  "Overdue",
+                value:
+                  taskMetrics.overdue,
+              },
+              {
+                label:
+                  "Due Today",
+                value:
+                  taskMetrics.dueToday,
+              },
+              {
+                label:
+                  "Urgent",
+                value:
+                  taskMetrics.urgent,
+              },
+              {
+                label:
+                  "Unassigned",
+                value:
+                  taskMetrics.unassigned,
+              },
+            ].map(
+              metric => (
+                <div
+                  key={
+                    metric.label
+                  }
+                  className="rounded-lg border border-white bg-white px-3 py-2 shadow-sm"
+                >
+                  <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+                    {metric.label}
+                  </p>
+
+                  <p className="mt-1 text-lg font-bold text-slate-800">
+                    {metric.value}
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {TASK_VIEW_OPTIONS.map(
+              option => {
+                const selected =
+                  taskViewFilter ===
+                  option.value;
+
+                const disabled =
+                  option.value ===
+                    "mine" &&
+                  !currentUserId;
+
+                return (
+                  <button
+                    key={
+                      option.value
+                    }
+                    type="button"
+                    disabled={
+                      disabled
+                    }
+                    title={
+                      disabled
+                        ? "Current user could not be resolved."
+                        : undefined
+                    }
+                    onClick={() =>
+                      setTaskViewFilter(
+                        option.value
+                      )
+                    }
+                    className={
+                      `rounded-lg border px-2.5 py-1.5 text-[9px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                        selected
+                          ? "border-indigo-600 bg-indigo-600 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
+                      }`
+                    }
+                  >
+                    {option.label}
+                  </button>
+                );
+              }
+            )}
+          </div>
+        </div>
+
+
         {!archived && (
           <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="grid gap-3 sm:grid-cols-[140px_1fr_auto]">
@@ -2021,6 +2923,103 @@ export function ApplicantInternalNotesTagsPanel({
                 Important
               </label>
             </div>
+
+
+            {newKind ===
+              "task" && (
+              <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">
+                  Task ownership & priority
+                </p>
+
+                <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                  <label>
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      Assigned To
+                    </span>
+
+                    <select
+                      value={
+                        newAssigneeUserId
+                      }
+                      disabled={
+                        busy ||
+                        taskAssigneesLoading
+                      }
+                      onChange={
+                        event =>
+                          setNewAssigneeUserId(
+                            event.target
+                              .value
+                          )
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                    >
+                      <option value="">
+                        Unassigned
+                      </option>
+
+                      {eligibleTaskAssignees.map(
+                        user => (
+                          <option
+                            key={
+                              user.id
+                            }
+                            value={
+                              user.id
+                            }
+                          >
+                            {user.name} · {user.role}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span className="text-[10px] font-semibold text-slate-500">
+                      Priority
+                    </span>
+
+                    <select
+                      value={
+                        newPriority
+                      }
+                      disabled={busy}
+                      onChange={
+                        event =>
+                          setNewPriority(
+                            event.target
+                              .value as
+                              ApplicantInternalTaskPriority
+                          )
+                      }
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                    >
+                      {TASK_PRIORITY_OPTIONS.map(
+                        option => (
+                          <option
+                            key={
+                              option.value ||
+                              "unset"
+                            }
+                            value={
+                              option.value
+                            }
+                          >
+                            {option.label}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                </div>
+
+                <p className="mt-2 text-[9px] text-slate-400">
+                  Assignment identifies responsibility for this recruiting action.
+                </p>
+              </div>
+            )}
 
 
             <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
@@ -2192,14 +3191,42 @@ export function ApplicantInternalNotesTagsPanel({
             <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
               No internal notes or tasks yet.
             </div>
+          ) : visibleNotes.length ===
+            0 ? (
+            <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/30 p-6 text-center text-xs text-slate-500">
+              No items match the selected task view.
+            </div>
           ) : (
-            notes.map(
+            visibleNotes.map(
               note => {
                 const kind =
                   note.kind ===
                   "task"
                     ? "task"
                     : "note";
+
+                const taskOverdue =
+                  kind ===
+                    "task" &&
+                  isInternalTaskOverdue(
+                    note,
+                    operationalNow
+                  );
+
+                const taskDueToday =
+                  kind ===
+                    "task" &&
+                  isInternalTaskDueToday(
+                    note,
+                    operationalNow
+                  );
+
+                const taskUnassigned =
+                  kind ===
+                    "task" &&
+                  !note.archived &&
+                  !note.assignee
+                    ?.userId;
 
                 const liked =
                   Boolean(
@@ -2297,12 +3324,47 @@ export function ApplicantInternalNotesTagsPanel({
                         )}
 
                         {kind ===
+                          "task" && (
+                          <>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-1 text-[9px] font-bold uppercase text-indigo-700">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {taskStatusLabel(
+                                note.taskStatus
+                              )}
+                            </span>
+
+                            {note.priority && (
+                              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[9px] font-bold uppercase text-rose-700">
+                                {taskPriorityLabel(
+                                  note.priority
+                                )} Priority
+                              </span>
+                            )}
+                          </>
+                        )}
+
+                        {kind ===
                           "task" &&
-                          note.taskStatus ===
-                            "completed" && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[9px] font-bold uppercase text-emerald-700">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Completed
+                          taskOverdue && (
+                          <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[9px] font-bold uppercase text-rose-700">
+                            Overdue
+                          </span>
+                        )}
+
+                        {kind ===
+                          "task" &&
+                          !taskOverdue &&
+                          taskDueToday && (
+                          <span className="rounded-full bg-orange-100 px-2.5 py-1 text-[9px] font-bold uppercase text-orange-700">
+                            Due Today
+                          </span>
+                        )}
+
+                        {kind ===
+                          "task" &&
+                          taskUnassigned && (
+                          <span className="rounded-full bg-slate-200 px-2.5 py-1 text-[9px] font-bold uppercase text-slate-600">
+                            Unassigned
                           </span>
                         )}
 
@@ -2407,6 +3469,30 @@ export function ApplicantInternalNotesTagsPanel({
                       <p className="mt-3 whitespace-pre-wrap text-xs leading-5 text-slate-700">
                         {note.content}
                       </p>
+                    )}
+
+
+                    {kind ===
+                      "task" && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px]">
+                        <span className="rounded-md bg-white px-2 py-1 font-semibold text-slate-600">
+                          Assigned to:{" "}
+                          {
+                            note.assignee
+                              ?.name ||
+                            note.assignee
+                              ?.email ||
+                            "Unassigned"
+                          }
+                        </span>
+
+                        <span className="rounded-md bg-white px-2 py-1 font-semibold text-slate-600">
+                          Priority:{" "}
+                          {taskPriorityLabel(
+                            note.priority
+                          )}
+                        </span>
+                      </div>
                     )}
 
 
@@ -2931,23 +4017,117 @@ export function ApplicantInternalNotesTagsPanel({
 
                             {kind ===
                               "task" && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() =>
-                                  void toggleTaskStatus(
-                                    note
-                                  )
-                                }
-                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-emerald-700 disabled:opacity-40"
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  aria-label="Task status"
+                                  value={
+                                    note.taskStatus ||
+                                    "todo"
+                                  }
+                                  disabled={busy}
+                                  onChange={
+                                    event =>
+                                      void changeTaskStatus(
+                                        note,
+                                        event.target
+                                          .value as
+                                          ApplicantInternalTaskStatus
+                                      )
+                                  }
+                                  className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-indigo-700 disabled:opacity-40"
+                                >
+                                  {TASK_STATUS_OPTIONS.map(
+                                    option => (
+                                      <option
+                                        key={
+                                          option.value
+                                        }
+                                        value={
+                                          option.value
+                                        }
+                                      >
+                                        {option.label}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
 
-                                {note.taskStatus ===
-                                  "completed"
-                                  ? "Reopen"
-                                  : "Complete"}
-                              </button>
+                                <select
+                                  aria-label="Task assignee"
+                                  value={
+                                    note.assignee
+                                      ?.userId ||
+                                    ""
+                                  }
+                                  disabled={
+                                    busy ||
+                                    taskAssigneesLoading
+                                  }
+                                  onChange={
+                                    event =>
+                                      void changeTaskAssignee(
+                                        note,
+                                        event.target
+                                          .value
+                                      )
+                                  }
+                                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 disabled:opacity-40"
+                                >
+                                  <option value="">
+                                    Unassigned
+                                  </option>
+
+                                  {eligibleTaskAssignees.map(
+                                    user => (
+                                      <option
+                                        key={
+                                          user.id
+                                        }
+                                        value={
+                                          user.id
+                                        }
+                                      >
+                                        {user.name} · {user.role}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+
+                                <select
+                                  aria-label="Task priority"
+                                  value={
+                                    note.priority ||
+                                    ""
+                                  }
+                                  disabled={busy}
+                                  onChange={
+                                    event =>
+                                      void changeTaskPriority(
+                                        note,
+                                        event.target
+                                          .value as
+                                          ApplicantInternalTaskPriority
+                                      )
+                                  }
+                                  className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 disabled:opacity-40"
+                                >
+                                  {TASK_PRIORITY_OPTIONS.map(
+                                    option => (
+                                      <option
+                                        key={
+                                          option.value ||
+                                          "unset"
+                                        }
+                                        value={
+                                          option.value
+                                        }
+                                      >
+                                        {option.label}
+                                      </option>
+                                    )
+                                  )}
+                                </select>
+                              </div>
                             )}
 
 
