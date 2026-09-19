@@ -5,10 +5,17 @@
 | Applicant Management Permissions
 |--------------------------------------------------------------------------
 |
-| Applicant data contains private recruitment information.
+| Admin and Super Admin retain full Applicant Management access.
 |
-| Until a formal recruiter/employer RBAC policy is introduced,
-| Applicant Management is restricted to the existing administrative roles.
+| A Recruiter may receive explicit access to only the Applicants +
+| Calendar administrative workspace by storing:
+|
+|   consoleAccess: 'applicants_calendar'
+|
+| on that ACTIVE user account.
+|
+| This is intentionally account-specific. Merely having the Recruiter
+| role does not grant Applicant Management access.
 |
 */
 
@@ -17,6 +24,11 @@ const APPLICANT_ADMIN_ROLES =
     'Admin',
     'Super Admin',
   ]);
+
+
+const RESTRICTED_APPLICANT_CONSOLE_ACCESS =
+  'applicants_calendar';
+
 
 const APPLICANT_PERMISSIONS =
   Object.freeze([
@@ -39,26 +51,113 @@ const APPLICANT_PERMISSIONS =
     'applicant:sync',
   ]);
 
-function normalizeRole(role) {
-  return String(role ?? '').trim();
+
+function normalizeRole(
+  role
+) {
+  return String(
+    role ?? ''
+  ).trim();
 }
 
-function isApplicantAdmin(role) {
-  return APPLICANT_ADMIN_ROLES.includes(
-    normalizeRole(role)
+
+function normalizeStatus(
+  status
+) {
+  return String(
+    status ?? ''
+  )
+    .trim()
+    .toLowerCase();
+}
+
+
+function normalizeConsoleAccess(
+  consoleAccess
+) {
+  return String(
+    consoleAccess ?? ''
+  )
+    .trim()
+    .toLowerCase();
+}
+
+
+function isApplicantAdmin(
+  role
+) {
+  return APPLICANT_ADMIN_ROLES
+    .includes(
+      normalizeRole(
+        role
+      )
+    );
+}
+
+
+function isRestrictedApplicantRecruiter({
+  role,
+  status,
+  consoleAccess,
+} = {}) {
+  return (
+    normalizeRole(
+      role
+    ) ===
+      'Recruiter' &&
+
+    normalizeStatus(
+      status
+    ) ===
+      'active' &&
+
+    normalizeConsoleAccess(
+      consoleAccess
+    ) ===
+      RESTRICTED_APPLICANT_CONSOLE_ACCESS
   );
 }
+
+
+function resolveConsoleAccess(
+  user
+) {
+  if (
+    isApplicantAdmin(
+      user?.role
+    )
+  ) {
+    return 'full';
+  }
+
+  if (
+    isRestrictedApplicantRecruiter(
+      user
+    )
+  ) {
+    return RESTRICTED_APPLICANT_CONSOLE_ACCESS;
+  }
+
+  return 'none';
+}
+
 
 function isApplicantPermission(
   permission
 ) {
-  return APPLICANT_PERMISSIONS.includes(
-    String(permission ?? '').trim()
-  );
+  return APPLICANT_PERMISSIONS
+    .includes(
+      String(
+        permission ?? ''
+      ).trim()
+    );
 }
+
 
 function canApplicantAction({
   role,
+  status,
+  consoleAccess,
   permission,
 }) {
   if (
@@ -69,14 +168,35 @@ function canApplicantAction({
     return false;
   }
 
-  return isApplicantAdmin(role);
+  if (
+    isApplicantAdmin(
+      role
+    )
+  ) {
+    return true;
+  }
+
+  return isRestrictedApplicantRecruiter({
+    role,
+    status,
+    consoleAccess,
+  });
 }
+
 
 module.exports = {
   APPLICANT_ADMIN_ROLES,
   APPLICANT_PERMISSIONS,
+  RESTRICTED_APPLICANT_CONSOLE_ACCESS,
+
   normalizeRole,
+  normalizeStatus,
+  normalizeConsoleAccess,
+
   isApplicantAdmin,
+  isRestrictedApplicantRecruiter,
+  resolveConsoleAccess,
+
   isApplicantPermission,
   canApplicantAction,
 };

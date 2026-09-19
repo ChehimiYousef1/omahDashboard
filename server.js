@@ -16,21 +16,12 @@ const applicationStore = require('./applicationStore');
 
 const { authenticateToken } = require('./middleware/auth');
 const requireAdmin = require('./middleware/requireAdmin');
+const requireApplicantAccess = require('./middleware/requireApplicantAccess');
 const requireApplicantPermission = require('./middleware/requireApplicantPermission');
-const swaggerUi = require('swagger-ui-express');
-const applicantSwaggerSpec = require('./docs/applicantSwagger');
-const applicantDocumentSwagger = require('./docs/applicantDocumentSwagger');
 
-Object.assign(
-  applicantSwaggerSpec.paths,
-  applicantDocumentSwagger.paths
-);
-
-applicantSwaggerSpec.tags = [
-  ...(applicantSwaggerSpec.tags || []),
-  ...(applicantDocumentSwagger.tags || []),
-];
-
+const {
+  registerApiRoutes,
+} = require('./src/bootstrap/registerApiRoutes');
 const {
   syncApplicantForm,
   normalizeSheetCsvUrl,
@@ -472,249 +463,30 @@ app.use(
 
 
 /* =========================
-   API ROUTES
+   API ROUTES + SWAGGER
 ========================= */
 
-app.use(
-  '/api/auth',
-
-  require('./src/routes/auth.routes')({
+registerApiRoutes(
+  app,
+  {
     JWT_SECRET,
+
     authenticateToken,
+    requireAdmin,
+    requireApplicantAccess,
+    requireApplicantPermission,
+
     bcrypt,
-    db,
     jwt,
-  })
-);
 
-
-app.use(
-  '/api/users',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require('./src/routes/users.routes')({
-    authenticateToken,
     db,
-  })
-);
-
-
-app.use(
-  '/api/posts',
-
-  require('./src/routes/posts.routes')({
-    db,
-  })
-);
-
-
-app.use(
-  '/api/emails',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require('./src/routes/emails.routes')({
     applicationStore,
-    authenticateToken,
-    db,
     transporter,
-  })
-);
 
-
-app.use(
-  '/api/calls',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require('./src/routes/calls.routes')({
-    authenticateToken,
-    db,
-  })
-);
-
-
-app.use(
-  '/api/notifications',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require(
-    './src/routes/notifications.routes'
-  )({
-    authenticateToken,
-    db,
-  })
-);
-
-
-app.use(
-  '/api/messages',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require('./src/routes/messages.routes')({
-    authenticateToken,
-    db,
-  })
-);
-
-
-app.use(
-  '/api/companies',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require(
-    './src/routes/companies.routes'
-  )({
-    authenticateToken,
-    db,
-  })
-);
-
-
-/*
- * Applicant routes.
- *
- * The new Google Form synchronization
- * service is injected here.
- */
-
-app.use(
-  '/api/applications',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require(
-    './src/routes/applications.routes'
-  )({
     DEFAULT_APPLICANT_SHEET_CSV_URL,
-
-    applicationStore,
-
-    authenticateToken,
-
-    db,
-
     normalizeSheetCsvUrl,
-
     syncApplicantsFromSheet,
-  })
-);
-
-
-
-/*
- * New Applicant master-profile API.
- *
- * Legacy /api/applications remains untouched
- * during migration.
- */
-
-/*
- * Applicant Document & CV Management.
- *
- * Files remain private and every action
- * requires Applicant Management admin
- * authorization.
- */
-app.use(
-  '/api/applicants/:applicantId/documents',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require(
-    './src/routes/applicantDocuments.routes'
-  )({
-    requireApplicantPermission,
-  })
-);
-
-
-app.use(
-  '/api/applicants',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require(
-    './src/routes/applicants.routes'
-  )({
-    requireApplicantPermission,
-    db,
-    transporter,
-  })
-);
-
-
-/*
- * Applicant API Swagger UI.
- *
- * Documentation is itself admin protected.
- */
-function swaggerDocsCsp(
-  req,
-  res,
-  next
-) {
-  res.setHeader(
-    'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'"
-  );
-
-  return next();
-}
-
-app.use(
-  '/api-docs',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  swaggerDocsCsp,
-
-  swaggerUi.serve,
-
-  swaggerUi.setup(
-    applicantSwaggerSpec,
-    {
-      customSiteTitle:
-        'OMAH Applicant API',
-    }
-  )
-);
-
-app.use(
-  '/api/dev',
-
-  authenticateToken,
-
-  requireAdmin,
-
-  require('./src/routes/dev.routes')({
-    authenticateToken,
-    db,
-  })
+  }
 );
 
 

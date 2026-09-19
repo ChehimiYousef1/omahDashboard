@@ -11,6 +11,12 @@ export interface User {
   email: string;
   name: string;
   role: string;
+  consoleAccess?:
+    | "full"
+    | "applicants_calendar"
+    | "none";
+  applicantTaskAssigneeEnabled?:
+    boolean;
   avatar: string | null;
   coverPage: string | null;
   gender?: string;
@@ -162,6 +168,11 @@ export interface Conversation {
 export const fetchCurrentUser = async (): Promise<User> => {
   const response = await apiClient.get('/auth/me');
   return response.data.user;
+};
+
+
+export const logoutCurrentUser = async (): Promise<void> => {
+  await apiClient.post('/auth/logout');
 };
 
 /* =========================

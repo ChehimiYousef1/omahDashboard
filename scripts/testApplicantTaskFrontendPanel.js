@@ -18,9 +18,7 @@ for (
   const token of [
     'fetchUsers',
     'eligibleTaskAssignees',
-    '"Recruiter"',
-    '"Admin"',
-    '"Super Admin"',
+    'applicantTaskAssigneeEnabled',
     'newAssigneeUserId',
     'newPriority',
     'changeTaskStatus',
@@ -43,6 +41,21 @@ for (
     `Missing Applicant task panel token: ${token}`
   );
 }
+
+
+/*
+ * Task assignment is account-authorized, not role-authorized.
+ *
+ * A generic Recruiter/Admin/Super Admin role must never be enough
+ * to enter the Applicant task assignee directory.
+ */
+assert.strictEqual(
+  /"Recruiter"[\s\S]{0,140}"Admin"[\s\S]{0,140}"Super Admin"/.test(
+    panel
+  ),
+  false,
+  'Applicant task assignment must not use broad role eligibility'
+);
 
 
 /*

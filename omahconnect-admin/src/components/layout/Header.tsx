@@ -8,10 +8,13 @@ import {
   BookOpen,
   Shield,
   Sparkles,
+  UserRound,
+  Mail,
+  LogOut,
   Info
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import { fetchCurrentUser, type User } from "../../services/api";
+import { fetchCurrentUser, logoutCurrentUser, type User } from "../../services/api";
 
 export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: string }) {
   const [user, setUser] = useState<User | null>(null);
@@ -20,6 +23,9 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [showDateMenu, setShowDateMenu] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [selectedDateRange, setSelectedDateRange] = useState("May 12 – Jun 11, 2025");
 
   // Notifications State
@@ -34,6 +40,7 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
   const notifRef = useRef<HTMLDivElement | null>(null);
   const helpRef = useRef<HTMLDivElement | null>(null);
   const dateRef = useRef<HTMLDivElement | null>(null);
+  const profileRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetchCurrentUser()
@@ -53,6 +60,15 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
       if (dateRef.current && !dateRef.current.contains(event.target as Node)) {
         setShowDateMenu(false);
       }
+
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setShowProfileMenu(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -60,12 +76,54 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
+  const isSuperAdmin =
+    user?.role
+      ?.trim()
+      .toLowerCase() ===
+    "super admin";
+
+
+  const usesOmahProfileLogo =
+    isSuperAdmin ||
+    user?.consoleAccess ===
+      "applicants_calendar";
+
   const handleMarkAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
   };
 
   const handleToggleRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: !n.unread } : n));
+  };
+
+  const handleLogout = async () => {
+    if (logoutBusy) {
+      return;
+    }
+
+    setLogoutBusy(true);
+    setProfileError("");
+
+    try {
+      await logoutCurrentUser();
+
+      /*
+       * Reload after the server clears the HttpOnly auth cookie.
+       * App.tsx will then fail /auth/me and render LoginPage.
+       */
+      window.location.reload();
+    } catch (error) {
+      console.error(
+        "Failed to logout:",
+        error
+      );
+
+      setProfileError(
+        "Unable to sign out. Please try again."
+      );
+
+      setLogoutBusy(false);
+    }
   };
 
   return (
@@ -94,6 +152,7 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
                 setShowNotifMenu(!showNotifMenu);
                 setShowHelpMenu(false);
                 setShowDateMenu(false);
+                setShowProfileMenu(false);
               }}
               className={`relative rounded-lg p-2 transition-all ${
                 showNotifMenu ? "bg-slate-100 text-blue-600" : "text-slate-500 hover:bg-slate-100"
@@ -151,6 +210,7 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
                 setShowHelpMenu(!showHelpMenu);
                 setShowNotifMenu(false);
                 setShowDateMenu(false);
+                setShowProfileMenu(false);
               }}
               className={`rounded-lg p-2 transition-all ${
                 showHelpMenu ? "bg-slate-100 text-blue-600" : "text-slate-500 hover:bg-slate-100"
@@ -200,26 +260,219 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
             )}
           </div>
 
-          {/* Profile Badge */}
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 select-none">
-            {user?.avatar ? (
-              <img
-                src={user.avatar}
-                alt="Profile"
-                className="h-8 w-8 rounded-full object-cover"
+          {/* Account / Profile Menu */}
+          <div
+            className="relative"
+            ref={profileRef}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowProfileMenu(
+                  previous =>
+                    !previous
+                );
+
+                setShowNotifMenu(false);
+                setShowHelpMenu(false);
+                setShowDateMenu(false);
+                setProfileError("");
+              }}
+              className={`flex items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-left transition-all ${
+                showProfileMenu
+                  ? "border-blue-300 bg-blue-50/30 shadow-sm"
+                  : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+              }`}
+              aria-label="Open account menu"
+              aria-haspopup="menu"
+              aria-expanded={
+                showProfileMenu
+              }
+            >
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={
+                    user.name
+                      ? `${user.name} profile`
+                      : "Profile"
+                  }
+                  className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200"
+                />
+              ) : usesOmahProfileLogo ? (
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-slate-200">
+                  <img
+                    src="/branding/omah-logo.svg"
+                    alt="OMAH account"
+                    className="h-full w-full object-contain p-1.5"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                  {user?.name
+                    ? user.name
+                        .substring(
+                          0,
+                          2
+                        )
+                        .toUpperCase()
+                    : "AD"}
+                </div>
+              )}
+
+              <div className="min-w-0 text-left">
+                <p className="max-w-40 truncate text-sm font-semibold text-slate-900">
+                  {user?.name ||
+                    "Admin"}
+                </p>
+
+                <p className="max-w-40 truncate text-xs text-slate-500">
+                  {user?.role ||
+                    "Administrator"}
+                </p>
+              </div>
+
+              <ChevronDown
+                className={`h-4 w-4 text-slate-400 transition-transform ${
+                  showProfileMenu
+                    ? "rotate-180"
+                    : ""
+                }`}
               />
-            ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
-                {user?.name ? user.name.substring(0, 2).toUpperCase() : "AD"}
+            </button>
+
+            {showProfileMenu && (
+              <div
+                role="menu"
+                className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-fade-in"
+              >
+                <div className="border-b border-slate-100 bg-slate-50/70 p-4">
+                  <div className="flex items-center gap-3">
+                    {user?.avatar ? (
+                      <img
+                        src={
+                          user.avatar
+                        }
+                        alt={
+                          user.name
+                            ? `${user.name} profile`
+                            : "Profile"
+                        }
+                        className="h-11 w-11 rounded-full object-cover ring-2 ring-white shadow-sm"
+                      />
+                    ) : usesOmahProfileLogo ? (
+                      <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-slate-200 shadow-sm">
+                        <img
+                          src="/branding/omah-logo.svg"
+                          alt="OMAH account"
+                          className="h-full w-full object-contain p-2"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                        {user?.name
+                          ? user.name
+                              .substring(
+                                0,
+                                2
+                              )
+                              .toUpperCase()
+                          : "AD"}
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {user?.name ||
+                          "Administrator"}
+                      </p>
+
+                      <p className="truncate text-xs font-medium text-blue-600">
+                        {user?.role ||
+                          "Administrator"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Signed in account
+                  </p>
+
+                  <div className="flex items-start gap-3">
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Email
+                      </p>
+
+                      <p className="truncate text-xs font-medium text-slate-700">
+                        {user?.email ||
+                          "Not available"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Account role
+                      </p>
+
+                      <p className="truncate text-xs font-medium text-slate-700">
+                        {user?.role ||
+                          "Not available"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+                    <p className="text-[10px] font-semibold text-emerald-700">
+                      Authenticated session
+                    </p>
+
+                    <p className="mt-0.5 text-[10px] leading-relaxed text-emerald-600">
+                      You are securely signed in to the OMAH administration console.
+                    </p>
+                  </div>
+
+                  {profileError && (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-medium text-red-600"
+                    >
+                      {profileError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-slate-100 p-2">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      void handleLogout();
+                    }}
+                    disabled={
+                      logoutBusy
+                    }
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <LogOut className="h-4 w-4" />
+
+                    <span>
+                      {logoutBusy
+                        ? "Signing out..."
+                        : "Logout"}
+                    </span>
+                  </button>
+                </div>
               </div>
             )}
-            <div className="text-left">
-              <p className="text-sm font-semibold text-slate-900">
-                {user?.name || "Admin"}
-              </p>
-              <p className="text-xs text-slate-500">{user?.role || "Super Admin"}</p>
-            </div>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
           </div>
         </div>
       </div>
@@ -233,6 +486,7 @@ export function Header({ title = "OMAHCONNECT Admin Dashboard" }: { title?: stri
               setShowDateMenu(!showDateMenu);
               setShowNotifMenu(false);
               setShowHelpMenu(false);
+              setShowProfileMenu(false);
             }}
             className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-all ${
               showDateMenu

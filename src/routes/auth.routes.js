@@ -1,5 +1,11 @@
 const express = require('express');
 
+const {
+  resolveConsoleAccess,
+} = require(
+  '../../utils/applicantPermissions'
+);
+
 module.exports = (deps) => {
   const router = express.Router();
   const { JWT_SECRET, authenticateToken, bcrypt, db, jwt } = deps;
@@ -44,7 +50,11 @@ module.exports = (deps) => {
           email: newUser.email,
           role: newUser.role,
           avatar: newUser.avatar,
-          coverPage: newUser.coverPage
+          coverPage: newUser.coverPage,
+          consoleAccess:
+            resolveConsoleAccess(
+              newUser
+            )
         }
       });
     } catch (error) {
@@ -82,7 +92,11 @@ module.exports = (deps) => {
           email: user.email,
           role: user.role,
           avatar: user.avatar,
-          coverPage: user.coverPage
+          coverPage: user.coverPage,
+          consoleAccess:
+            resolveConsoleAccess(
+              user
+            )
         }
       });
     } catch (error) {
@@ -105,7 +119,11 @@ module.exports = (deps) => {
         name: req.user.name,
         role: req.user.role,
         avatar: req.user.avatar,
-        coverPage: req.user.coverPage
+        coverPage: req.user.coverPage,
+        consoleAccess:
+          resolveConsoleAccess(
+            req.user
+          )
       }
     });
   });

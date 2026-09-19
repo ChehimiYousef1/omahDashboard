@@ -2378,7 +2378,7 @@ module.exports = {
           'Assign or unassign a recruitment task',
 
         description:
-          'Assigns an active internal recruitment task to a trusted active OMAH Recruiter, Admin, or Super Admin account. The server resolves assigneeUserId against the trusted user directory. An empty assigneeUserId explicitly unassigns the task.',
+          'Assigns an internal recruitment task to an explicitly enabled active OMAH task-assignee account. The server resolves assigneeUserId against the trusted user directory and rejects accounts that are not enabled for Applicant task assignment. An empty assigneeUserId explicitly unassigns the task.',
 
         parameters: [
           idParameter,

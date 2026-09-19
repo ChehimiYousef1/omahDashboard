@@ -9,7 +9,6 @@ import {
   BarChart3,
   Code2,
   Settings,
-  Infinity as InfinityIcon,
   Mail,
   Bell,
   CalendarDays,
@@ -34,24 +33,43 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 interface SidebarProps {
   activeId: string;
-  onNavigate: (id: string) => void;
+
+  onNavigate:
+    (id: string) =>
+      void;
+
+  visibleIds?:
+    readonly string[];
 }
 
-export function Sidebar({ activeId, onNavigate }: SidebarProps) {
+export function Sidebar({
+  activeId,
+  onNavigate,
+  visibleIds,
+}: SidebarProps) {
+  const visibleItems =
+    visibleIds
+      ? navItems.filter(
+          item =>
+            visibleIds.includes(
+              item.id
+            )
+        )
+      : navItems;
+
   return (
     <aside className="fixed left-0 top-0 z-30 flex h-screen w-56 flex-col bg-[#0a192f] text-slate-300">
-      <div className="flex items-center gap-2 border-b border-slate-700/50 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600">
-          <InfinityIcon className="h-5 w-5 text-white" />
-        </div>
-        <span className="text-sm font-bold tracking-wide text-white">
-          OMAHCONNECT
-        </span>
+      <div className="flex min-h-[73px] items-center border-b border-slate-700/50 px-4 py-4">
+        <img
+          src="/branding/omah-logo.svg"
+          alt="OMAHCONNECT"
+          className="h-8 w-auto max-w-[180px] object-contain object-left brightness-0 invert"
+        />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = iconMap[item.icon];
             const isActive = activeId === item.id;
             return (

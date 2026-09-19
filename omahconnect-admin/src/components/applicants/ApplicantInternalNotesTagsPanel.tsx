@@ -1108,13 +1108,9 @@ export function ApplicantInternalNotesTagsPanel({
                 user =>
                   user.status ===
                     "Active" &&
-                  [
-                    "Recruiter",
-                    "Admin",
-                    "Super Admin",
-                  ].includes(
-                    user.role
-                  )
+                  user
+                    .applicantTaskAssigneeEnabled ===
+                    true
               )
               .sort(
                 (

@@ -34,7 +34,15 @@ function requireApplicantPermission(
 
     const allowed =
       canApplicantAction({
-        role: req.user.role,
+        role:
+          req.user.role,
+
+        status:
+          req.user.status,
+
+        consoleAccess:
+          req.user.consoleAccess,
+
         permission,
       });
 

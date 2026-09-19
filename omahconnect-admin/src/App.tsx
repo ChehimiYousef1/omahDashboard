@@ -75,6 +75,23 @@ const pageConfig: Record<
   },
 };
 
+const applicantCalendarNavIds =
+  [
+    "applications",
+    "calendar",
+  ] as const;
+
+
+function initialNavForUser(
+  user: User
+) {
+  return user.consoleAccess ===
+    "applicants_calendar"
+    ? "applications"
+    : "dashboard";
+}
+
+
 function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -92,7 +109,16 @@ function App() {
     async function checkAuth() {
       try {
         const user = await fetchCurrentUser();
-        setCurrentUser(user);
+
+        setCurrentUser(
+          user
+        );
+
+        setActiveNav(
+          initialNavForUser(
+            user
+          )
+        );
       } catch {
         setCurrentUser(null);
       } finally {
@@ -101,6 +127,22 @@ function App() {
     }
     checkAuth();
   }, []);
+
+
+  const handleLoginSuccess =
+    (
+      user: User
+    ) => {
+      setCurrentUser(
+        user
+      );
+
+      setActiveNav(
+        initialNavForUser(
+          user
+        )
+      );
+    };
 
   const handleTriggerEmail = (recipientId: string, campaignType: string, recipientType: "direct" | "applicant" | "bulk" = "direct") => {
     setEmailTargetUserId(recipientId);
@@ -132,46 +174,92 @@ function App() {
   }
 
   if (!currentUser) {
-    return <LoginPage onSuccess={setCurrentUser} />;
+    return (
+      <LoginPage
+        onSuccess={
+          handleLoginSuccess
+        }
+      />
+    );
   }
 
-  const config = pageConfig[activeNav] || { title: "Admin Console", description: "" };
+  const applicantCalendarOnly =
+    currentUser.consoleAccess ===
+      "applicants_calendar";
+
+
+  const visibleNavIds =
+    applicantCalendarOnly
+      ? applicantCalendarNavIds
+      : undefined;
+
+
+  const effectiveActiveNav =
+    applicantCalendarOnly &&
+    !applicantCalendarNavIds.includes(
+      activeNav as
+        (typeof applicantCalendarNavIds)[number]
+    )
+      ? "applications"
+      : activeNav;
+
+
+  const config =
+    pageConfig[
+      effectiveActiveNav
+    ] || {
+      title:
+        "Admin Console",
+
+      description:
+        "",
+    };
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <Sidebar activeId={activeNav} onNavigate={setActiveNav} />
+      <Sidebar
+        activeId={
+          effectiveActiveNav
+        }
+        onNavigate={
+          setActiveNav
+        }
+        visibleIds={
+          visibleNavIds
+        }
+      />
 
       <main className="ml-56 flex-1 p-6 lg:p-8">
-        {activeNav === "dashboard" ? (
+        {effectiveActiveNav === "dashboard" ? (
           <DashboardPage />
-        ) : activeNav === "posts" ? (
+        ) : effectiveActiveNav === "posts" ? (
           <PostsPage />
-        ) : activeNav === "users" ? (
+        ) : effectiveActiveNav === "users" ? (
           <UsersPage onTriggerEmail={handleTriggerEmail} onInitiateCall={handleInitiateCall} />
-        ) : activeNav === "analytics" ? (
+        ) : effectiveActiveNav === "analytics" ? (
           <AnalyticsPage />
-        ) : activeNav === "emails" ? (
+        ) : effectiveActiveNav === "emails" ? (
           <EmailsPage
             initialTargetUserId={emailTargetUserId}
             initialCampaignType={emailCampaignType}
             initialRecipientType={emailRecipientType}
             onClearInitialState={handleClearEmailState}
           />
-        ) : activeNav === "communications" ? (
+        ) : effectiveActiveNav === "communications" ? (
           <CommunicationsPage />
-        ) : activeNav === "companies" ? (
+        ) : effectiveActiveNav === "companies" ? (
           <CompaniesPage onTriggerEmail={handleTriggerEmail} onInitiateCall={handleInitiateCall} />
-        ) : activeNav === "jobs" ? (
+        ) : effectiveActiveNav === "jobs" ? (
           <JobsPage />
-        ) : activeNav === "applications" ? (
+        ) : effectiveActiveNav === "applications" ? (
           <ApplicationsPage onTriggerEmail={handleTriggerEmail} />
-        ) : activeNav === "calendar" ? (
+        ) : effectiveActiveNav === "calendar" ? (
           <CalendarPage />
-        ) : activeNav === "reports" ? (
+        ) : effectiveActiveNav === "reports" ? (
           <ReportsPage />
-        ) : activeNav === "developer" && import.meta.env.DEV ? (
+        ) : effectiveActiveNav === "developer" && import.meta.env.DEV ? (
           <DeveloperToolsPage />
-        ) : activeNav === "settings" ? (
+        ) : effectiveActiveNav === "settings" ? (
           <SettingsPage />
         ) : (
           <>

@@ -36,8 +36,21 @@ export function LoginPage({ onSuccess }: { onSuccess: (user: User) => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-xl">
-        <h1 className="text-xl font-bold text-slate-900">OMAHCONNECT</h1>
-        <p className="mb-6 text-sm text-slate-500">Administrative console</p>
+        <div className="mb-5">
+          <img
+            src="/branding/omah-logo.svg"
+            alt="OMAHCONNECT"
+            className="h-12 w-auto max-w-full object-contain object-left"
+          />
+        </div>
+
+        <h1 className="text-xl font-bold text-slate-900">
+          OMAHCONNECT
+        </h1>
+
+        <p className="mb-6 text-sm text-slate-500">
+          Administrative console
+        </p>
 
         <label className="mb-1 block text-xs font-semibold text-slate-600">Email</label>
         <input

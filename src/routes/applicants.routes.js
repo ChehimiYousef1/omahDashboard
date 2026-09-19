@@ -2021,7 +2021,18 @@ function createApplicantRouter({
               '',
 
             resolveUserById:
-              db?.getUserById,
+              async userId => {
+                const user =
+                  await db?.getUserById?.(
+                    userId
+                  );
+
+                return user
+                  ?.applicantTaskAssigneeEnabled ===
+                  true
+                    ? user
+                    : null;
+              },
 
             actor:
               applicantRequestActor(
@@ -2716,7 +2727,18 @@ function createApplicantRouter({
               ),
 
             resolveUserById:
-              db.getUserById,
+              async userId => {
+                const user =
+                  await db.getUserById(
+                    userId
+                  );
+
+                return user
+                  ?.applicantTaskAssigneeEnabled ===
+                  true
+                    ? user
+                    : null;
+              },
           });
 
         const activity =
