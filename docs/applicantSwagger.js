@@ -4432,3 +4432,337 @@ module.exports = {
   },
 };
 
+
+
+/*
+|--------------------------------------------------------------------------
+| APPLICANT_SWAGGER_SECTION_GROUPING
+|--------------------------------------------------------------------------
+|
+| Swagger presentation only.
+|
+| This block does NOT change:
+|
+| - Express routes
+| - HTTP methods
+| - API URLs
+| - RBAC
+| - MongoDB behavior
+| - frontend API calls
+|
+| It assigns each documented operation to a focused Swagger section so the
+| Applicant API is easier to navigate and understand.
+|
+*/
+
+const APPLICANT_SWAGGER_SECTION_TAGS = [
+  {
+    name:
+      'Applicant Core',
+
+    description:
+      'Applicant master profile, activity timeline, recruitment status, archive/restore lifecycle, and permanent deletion.'
+  },
+
+  {
+    name:
+      'Applicant Search & Analytics',
+
+    description:
+      'Applicant search, filtering, recruitment pipeline, analytics dashboards, and drill-down data.'
+  },
+
+  {
+    name:
+      'Applicant Duplicate Review',
+
+    description:
+      'Review and resolve potential duplicate Applicant records.'
+  },
+
+  {
+    name:
+      'Applicant Interviews',
+
+    description:
+      'Interview availability, scheduling, rescheduling, completion, cancellation, no-show handling, archive, and permanent deletion.'
+  },
+
+  {
+    name:
+      'Applicant Calendar',
+
+    description:
+      'Unified read-only Applicant Calendar aggregation across interviews, tasks, scheduled notes, and reminders.'
+  },
+
+  {
+    name:
+      'Applicant Communications',
+
+    description:
+      'Applicant communication provider status and outbound email or WhatsApp operations.'
+  },
+
+  {
+    name:
+      'Applicant Notes & Tasks',
+
+    description:
+      'Internal notes, recruitment tasks, assignees, priorities, workflow state, reminders, scheduling, and explicit Google Calendar synchronization.'
+  },
+
+  {
+    name:
+      'Applicant Replies',
+
+    description:
+      'Threaded replies attached to internal Applicant notes and recruitment tasks.'
+  },
+
+  {
+    name:
+      'Applicant Tags',
+
+    description:
+      'Applicant categorization and recruitment tags.'
+  },
+
+  {
+    name:
+      'Applicant Submissions',
+
+    description:
+      'Immutable application submissions, profile approval, submission linking, and Applicant/submission relationship integrity.'
+  },
+
+  {
+    name:
+      'Applicant Evaluations',
+
+    description:
+      'Applicant evaluation creation, editing, submission, reopening, and evaluation history.'
+  }
+];
+
+
+function resolveApplicantSwaggerSection(
+  path,
+  method
+) {
+  /*
+   * Interviews.
+   */
+  if (
+    path.includes(
+      '/interviews'
+    )
+  ) {
+    return 'Applicant Interviews';
+  }
+
+
+  /*
+   * Duplicate review.
+   */
+  if (
+    path.startsWith(
+      '/api/applicants/duplicates'
+    )
+  ) {
+    return 'Applicant Duplicate Review';
+  }
+
+
+  /*
+   * Centralized document library joins the
+   * dedicated Applicant Documents Swagger
+   * section supplied by applicantDocumentSwagger.
+   */
+  if (
+    path ===
+      '/api/applicants/documents/library'
+  ) {
+    return 'Applicant Documents';
+  }
+
+
+  /*
+   * Search / analytics / pipeline.
+   */
+  if (
+    path ===
+      '/api/applicants' ||
+
+    path ===
+      '/api/applicants/search-options' ||
+
+    path ===
+      '/api/applicants/pipeline' ||
+
+    path.startsWith(
+      '/api/applicants/analytics'
+    )
+  ) {
+    return 'Applicant Search & Analytics';
+  }
+
+
+  /*
+   * Unified Calendar.
+   */
+  if (
+    path ===
+      '/api/applicants/calendar/events'
+  ) {
+    return 'Applicant Calendar';
+  }
+
+
+  /*
+   * Applicant communication.
+   */
+  if (
+    path.includes(
+      '/communications/'
+    )
+  ) {
+    return 'Applicant Communications';
+  }
+
+
+  /*
+   * Replies must be detected BEFORE notes
+   * because reply routes also contain /notes.
+   */
+  if (
+    path.includes(
+      '/notes/'
+    ) &&
+    path.includes(
+      '/replies'
+    )
+  ) {
+    return 'Applicant Replies';
+  }
+
+
+  /*
+   * Notes / tasks / reminders / task Calendar.
+   */
+  if (
+    path.includes(
+      '/notes'
+    )
+  ) {
+    return 'Applicant Notes & Tasks';
+  }
+
+
+  /*
+   * Categorization tags.
+   */
+  if (
+    path.endsWith(
+      '/tags'
+    )
+  ) {
+    return 'Applicant Tags';
+  }
+
+
+  /*
+   * Evaluations.
+   */
+  if (
+    path.includes(
+      '/evaluations'
+    )
+  ) {
+    return 'Applicant Evaluations';
+  }
+
+
+  /*
+   * Submission history / approval / linking /
+   * relationship integrity.
+   */
+  if (
+    path.includes(
+      '/submissions'
+    ) ||
+
+    path.endsWith(
+      '/approve-profile'
+    ) ||
+
+    path.endsWith(
+      '/relationship-integrity'
+    )
+  ) {
+    return 'Applicant Submissions';
+  }
+
+
+  /*
+   * Remaining documented Applicant operations
+   * are master-profile/lifecycle operations.
+   */
+  return 'Applicant Core';
+}
+
+
+/*
+ * The Applicant Documents definition already
+ * comes from applicantDocumentSwagger.js.
+ *
+ * Keeping it there prevents duplicate top-level
+ * tag definitions when Swagger specs are merged.
+ */
+module.exports.tags =
+  APPLICANT_SWAGGER_SECTION_TAGS;
+
+
+const APPLICANT_SWAGGER_HTTP_METHODS =
+  new Set([
+    'get',
+    'post',
+    'put',
+    'patch',
+    'delete',
+    'head',
+    'options'
+  ]);
+
+
+for (
+  const [path, pathItem]
+  of Object.entries(
+    module.exports.paths ||
+    {}
+  )
+) {
+  for (
+    const [method, operation]
+    of Object.entries(
+      pathItem ||
+      {}
+    )
+  ) {
+    if (
+      !APPLICANT_SWAGGER_HTTP_METHODS.has(
+        method.toLowerCase()
+      )
+    ) {
+      continue;
+    }
+
+
+    operation.tags = [
+      resolveApplicantSwaggerSection(
+        path,
+        method
+      )
+    ];
+  }
+}
