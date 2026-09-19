@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const dotenv = require('dotenv');
@@ -78,112 +79,6 @@ if (!JWT_SECRET) {
 
 
 /* =========================
-   AUTHENTICATION ENDPOINTS
-========================= */
-
-// Signup
-
-// Login
-
-// Logout
-
-// Auth Me
-
-
-/* =========================
-   USER DIRECTORY ENDPOINTS
-========================= */
-
-// Get all users
-
-// Toggle User Notification Permissions
-
-
-/* =========================
-   POSTS ENDPOINTS
-========================= */
-
-
-/* =========================
-   EMAIL CAMPAIGN ENDPOINTS
-========================= */
-
-// Get emails history
-
-// Send simulated emails (Direct or Bulk)
-
-
-/* =========================
-   CRM CALLING ENDPOINTS
-========================= */
-
-// Get call logs
-
-// Initiate simulated call
-
-
-/* =========================
-   NOTIFICATION HUB ENDPOINTS
-========================= */
-
-// Get notification history
-
-// Send simulated notification
-
-// Resend notification
-
-
-/* =========================
-   MESSAGE CENTER / CHAT
-   ENDPOINTS
-========================= */
-
-// Get all conversations list
-
-// Get messages for a single conversation
-
-// Flag conversation
-
-// Send Chat Message
-// (Admin or Mock User)
-// with AI/Spam moderation
-
-
-/* =========================
-   COMPANY MODULE ENDPOINTS
-========================= */
-
-// Get all companies
-
-// Get recruiters directory
-// (synced with users in db.json)
-
-// Get all jobs
-
-// Get all reports/flags
-
-// Get audit logs
-
-// Get settings
-
-// Save settings
-
-// Verify company
-
-// Suspend company
-// (with cascades)
-
-// Send email campaign
-// to recruiters
-
-// Toggle Job Featured Star
-
-// Expire/Active job status
-
-// Resolve Report ticket
-
-
-/* =========================
    APPLICATION MODULE
    CONFIGURATION
 ========================= */
@@ -248,18 +143,8 @@ async function syncApplicantsFromSheet(
 
 
 /* =========================
-   DATABASE STATS
-========================= */
-
-// Get database stats summary
-
-
-/* =========================
    STATIC FRONTEND
 ========================= */
-
-const path = require('path');
-
 
 app.use(
   express.static(
