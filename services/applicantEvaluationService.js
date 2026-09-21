@@ -364,6 +364,212 @@ async function createApplicantEvaluation({
 |
 */
 
+function evaluationAuditNumber(
+  value
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return null;
+  }
+
+  const numeric =
+    Number(value);
+
+  return Number.isFinite(
+    numeric
+  )
+    ? numeric
+    : null;
+}
+
+
+function buildEvaluationAuditChanges({
+  previous,
+  next,
+}) {
+  const candidates = [
+    {
+      field:
+        'evaluation.criteria.technicalFit',
+
+      label:
+        'Technical fit',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.criteria
+            ?.technicalFit
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.criteria
+            ?.technicalFit
+        ),
+    },
+
+    {
+      field:
+        'evaluation.criteria.relevantExperience',
+
+      label:
+        'Relevant experience',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.criteria
+            ?.relevantExperience
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.criteria
+            ?.relevantExperience
+        ),
+    },
+
+    {
+      field:
+        'evaluation.criteria.communication',
+
+      label:
+        'Communication',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.criteria
+            ?.communication
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.criteria
+            ?.communication
+        ),
+    },
+
+    {
+      field:
+        'evaluation.criteria.motivationCommitment',
+
+      label:
+        'Motivation & commitment',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.criteria
+            ?.motivationCommitment
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.criteria
+            ?.motivationCommitment
+        ),
+    },
+
+    {
+      field:
+        'evaluation.criteria.learningPotential',
+
+      label:
+        'Learning potential',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.criteria
+            ?.learningPotential
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.criteria
+            ?.learningPotential
+        ),
+    },
+
+    {
+      field:
+        'evaluation.averageRating',
+
+      label:
+        'Average rating',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.averageRating
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.averageRating
+        ),
+    },
+
+    {
+      field:
+        'evaluation.weightedScore',
+
+      label:
+        'Weighted score',
+
+      before:
+        evaluationAuditNumber(
+          previous
+            ?.weightedScore
+        ),
+
+      after:
+        evaluationAuditNumber(
+          next
+            ?.weightedScore
+        ),
+    },
+
+    {
+      field:
+        'evaluation.recommendation',
+
+      label:
+        'Recommendation',
+
+      before:
+        cleanText(
+          previous
+            ?.recommendation
+        ) || null,
+
+      after:
+        cleanText(
+          next
+            ?.recommendation
+        ) || null,
+    },
+  ];
+
+  return candidates.filter(
+    change =>
+      change.before !==
+      change.after
+  );
+}
+
+
 async function updateApplicantEvaluationDraft({
   applicantId,
   evaluationId,
@@ -374,6 +580,9 @@ async function updateApplicantEvaluationDraft({
   strengths = '',
   concerns = '',
   summary = '',
+
+  includeAuditResult =
+    false,
 
   EvaluationModel =
     ApplicantEvaluation,
@@ -517,7 +726,7 @@ async function updateApplicantEvaluationDraft({
     );
   }
 
-  return {
+  const mutationResult = {
     status:
       'evaluation-updated',
 
@@ -528,6 +737,57 @@ async function updateApplicantEvaluationDraft({
 
     ...update,
   };
+
+  if (includeAuditResult) {
+    const auditChanges =
+      buildEvaluationAuditChanges({
+        previous:
+          evaluation,
+
+        next:
+          update,
+      });
+
+    const auditMetadata = {
+      strengthsChanged:
+        cleanText(
+          evaluation
+            ?.strengths
+        ) !==
+        cleanText(
+          update.strengths
+        ),
+
+      concernsChanged:
+        cleanText(
+          evaluation
+            ?.concerns
+        ) !==
+        cleanText(
+          update.concerns
+        ),
+
+      summaryChanged:
+        cleanText(
+          evaluation
+            ?.summary
+        ) !==
+        cleanText(
+          update.summary
+        ),
+    };
+
+    return {
+      result:
+        mutationResult,
+
+      auditChanges,
+
+      auditMetadata,
+    };
+  }
+
+  return mutationResult;
 }
 
 
@@ -1000,6 +1260,7 @@ async function listApplicantEvaluations({
 
 module.exports = {
   buildEvaluationData,
+  buildEvaluationAuditChanges,
   normalizeEvaluator,
   validateEvaluationTarget,
   createApplicantEvaluation,

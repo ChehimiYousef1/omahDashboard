@@ -1238,7 +1238,7 @@ function createApplicantRouter({
 
     async (req, res) => {
       try {
-        const result =
+        const evaluationUpdate =
           await updateEvaluation({
             applicantId:
               req.params.id,
@@ -1267,7 +1267,126 @@ function createApplicantRouter({
             summary:
               req.body?.summary ||
               '',
+
+            includeAuditResult:
+              true,
           });
+
+        /*
+         * Preserve compatibility with injected/legacy
+         * updateEvaluation implementations that return
+         * the original mutation result directly.
+         */
+        const hasAuditEnvelope =
+          evaluationUpdate &&
+          typeof evaluationUpdate ===
+            'object' &&
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              evaluationUpdate,
+              'result'
+            );
+
+        const result =
+          hasAuditEnvelope
+            ? evaluationUpdate.result
+            : evaluationUpdate;
+
+        const auditChanges =
+          hasAuditEnvelope &&
+          Array.isArray(
+            evaluationUpdate
+              ?.auditChanges
+          )
+            ? evaluationUpdate
+                .auditChanges
+            : [];
+
+        const auditMetadata =
+          hasAuditEnvelope &&
+          evaluationUpdate
+            ?.auditMetadata &&
+          typeof evaluationUpdate
+            .auditMetadata ===
+            'object'
+            ? evaluationUpdate
+                .auditMetadata
+            : {};
+
+        const freeTextChanged =
+          auditMetadata
+            .strengthsChanged ===
+            true ||
+          auditMetadata
+            .concernsChanged ===
+            true ||
+          auditMetadata
+            .summaryChanged ===
+            true;
+
+        if (
+          auditChanges.length > 0 ||
+          freeTextChanged
+        ) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params.id,
+
+            type:
+              'evaluation.updated',
+
+            title:
+              'Applicant evaluation updated',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'evaluation',
+
+              id:
+                result
+                  ?.evaluationId ||
+                req.params
+                  .evaluationId,
+            },
+
+            changes:
+              auditChanges,
+
+            metadata: {
+              strengthsChanged:
+                Boolean(
+                  auditMetadata
+                    .strengthsChanged
+                ),
+
+              concernsChanged:
+                Boolean(
+                  auditMetadata
+                    .concernsChanged
+                ),
+
+              summaryChanged:
+                Boolean(
+                  auditMetadata
+                    .summaryChanged
+                ),
+            },
+          });
+        }
 
         return res.json({
           success: true,
