@@ -81,7 +81,9 @@ const APPLICANT_ACTIVITY_TYPES = [
 
   'document.uploaded',
   'document.replaced',
+  'document.current_changed',
   'document.archived',
+  'document.restored',
 ];
 
 

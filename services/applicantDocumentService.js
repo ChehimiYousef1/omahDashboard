@@ -696,9 +696,211 @@ async function getDocumentDownload({
   };
 }
 
+function documentAuditId(
+  value
+) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return null;
+  }
+
+  if (
+    value &&
+    typeof value.toHexString ===
+      'function'
+  ) {
+    return String(
+      value.toHexString()
+    );
+  }
+
+  const text =
+    String(value).trim();
+
+  return text || null;
+}
+
+
+function documentAuditText(
+  value
+) {
+  return String(
+    value ?? ''
+  ).trim();
+}
+
+
+function documentAuditVersion(
+  value
+) {
+  const parsed =
+    Number(value);
+
+  return Number.isFinite(
+    parsed
+  )
+    ? parsed
+    : null;
+}
+
+
+function documentLifecycleAuditMetadata(
+  document
+) {
+  return {
+    documentType:
+      documentAuditText(
+        document?.documentType
+      ),
+
+    version:
+      documentAuditVersion(
+        document?.version
+      ),
+
+    source:
+      documentAuditText(
+        document?.source
+      ),
+  };
+}
+
+
+function buildDocumentCurrentAuditChanges({
+  previous,
+  target,
+}) {
+  const before =
+    documentAuditId(
+      previous?._id
+    );
+
+  const after =
+    documentAuditId(
+      target?._id
+    );
+
+  if (before === after) {
+    return [];
+  }
+
+  return [
+    {
+      field:
+        'document.currentDocumentId',
+
+      label:
+        'Current document',
+
+      before,
+
+      after,
+    },
+  ];
+}
+
+
+function buildDocumentArchiveAuditChanges({
+  target,
+  replacementVersion,
+}) {
+  const changes = [
+    {
+      field:
+        'document.archived',
+
+      label:
+        'Document archived',
+
+      before:
+        false,
+
+      after:
+        true,
+    },
+  ];
+
+
+  if (
+    target?.isCurrent ===
+      true
+  ) {
+    changes.push({
+      field:
+        'document.currentDocumentId',
+
+      label:
+        'Current document',
+
+      before:
+        documentAuditId(
+          target?._id
+        ),
+
+      after:
+        documentAuditId(
+          replacementVersion?._id
+        ),
+    });
+  }
+
+
+  return changes;
+}
+
+
+function buildDocumentRestoreAuditChanges({
+  previous,
+}) {
+  const changes = [
+    {
+      field:
+        'document.archived',
+
+      label:
+        'Document archived',
+
+      before:
+        true,
+
+      after:
+        false,
+    },
+  ];
+
+
+  if (
+    previous?.isCurrent ===
+      true
+  ) {
+    changes.push({
+      field:
+        'document.isCurrent',
+
+      label:
+        'Current version',
+
+      before:
+        true,
+
+      after:
+        false,
+    });
+  }
+
+
+  return changes;
+}
+
+
 async function setCurrentDocumentVersion({
   applicantId,
   documentId,
+
+  includeAuditResult =
+    false,
 
   ApplicantModel =
     Applicant,
@@ -760,7 +962,26 @@ async function setCurrentDocumentVersion({
   }
 
   if (target.isCurrent) {
-    return target;
+    if (!includeAuditResult) {
+      return target;
+    }
+
+    return {
+      document:
+        target,
+
+      auditChanges:
+        [],
+
+      auditMetadata: {
+        ...documentLifecycleAuditMetadata(
+          target
+        ),
+
+        changed:
+          false,
+      },
+    };
   }
 
   const previous =
@@ -857,11 +1078,42 @@ async function setCurrentDocumentVersion({
     throw error;
   }
 
-  return queryLean(
-    DocumentModel.findById(
-      documentObjectId
-    )
-  );
+  const document =
+    await queryLean(
+      DocumentModel.findById(
+        documentObjectId
+      )
+    );
+
+
+  if (!includeAuditResult) {
+    return document;
+  }
+
+
+  const auditChanges =
+    buildDocumentCurrentAuditChanges({
+      previous,
+      target,
+    });
+
+
+  return {
+    document,
+
+    auditChanges,
+
+    auditMetadata: {
+      ...documentLifecycleAuditMetadata(
+        document ||
+        target
+      ),
+
+      changed:
+        auditChanges.length >
+        0,
+    },
+  };
 }
 
 async function archiveApplicantDocument({
@@ -870,6 +1122,9 @@ async function archiveApplicantDocument({
   archivedBy,
   reason = '',
   now = new Date(),
+
+  includeAuditResult =
+    false,
 
   ApplicantModel =
     Applicant,
@@ -1079,14 +1334,62 @@ async function archiveApplicantDocument({
     }
   }
 
+  const archiveResult = {
+    archived:
+      true,
+  };
+
+
+  if (!includeAuditResult) {
+    return archiveResult;
+  }
+
+
   return {
-    archived: true,
+    result:
+      archiveResult,
+
+    auditChanges:
+      buildDocumentArchiveAuditChanges({
+        target,
+        replacementVersion,
+      }),
+
+    auditMetadata: {
+      ...documentLifecycleAuditMetadata(
+        target
+      ),
+
+      archiveReasonProvided:
+        Boolean(
+          String(
+            reason ?? ''
+          ).trim()
+        ),
+
+      wasCurrent:
+        target?.isCurrent ===
+        true,
+
+      replacementDocumentId:
+        (
+          target?.isCurrent ===
+            true
+        )
+          ? documentAuditId(
+              replacementVersion?._id
+            )
+          : null,
+    },
   };
 }
 
 async function restoreApplicantDocument({
   applicantId,
   documentId,
+
+  includeAuditResult =
+    false,
 
   ApplicantModel =
     Applicant,
@@ -1100,65 +1403,150 @@ async function restoreApplicantDocument({
       ApplicantModel,
     });
 
+
   const documentObjectId =
     toObjectId(
       documentId,
       'documentId'
     );
 
-  const result =
-    await DocumentModel.updateOne(
-      {
-        _id:
-          documentObjectId,
 
-        applicantId:
-          applicantObjectId,
+  const filter = {
+    _id:
+      documentObjectId,
 
-        'lifecycle.archived':
-          true,
-      },
-      {
-        $set: {
-          /*
-           * Restored versions do not
-           * silently become current.
-           */
-          isCurrent:
-            false,
+    applicantId:
+      applicantObjectId,
 
-          'lifecycle.archived':
-            false,
+    'lifecycle.archived':
+      true,
+  };
 
-          'lifecycle.archivedAt':
-            null,
 
-          'lifecycle.archivedBy':
-            '',
+  const mutation = {
+    $set: {
+      /*
+       * Restored versions do not
+       * silently become current.
+       */
+      isCurrent:
+        false,
 
-          'lifecycle.archiveReason':
-            '',
-        },
-      },
-      {
-        runValidators:
-          true,
-      }
-    );
+      'lifecycle.archived':
+        false,
+
+      'lifecycle.archivedAt':
+        null,
+
+      'lifecycle.archivedBy':
+        '',
+
+      'lifecycle.archiveReason':
+        '',
+    },
+  };
+
+
+  /*
+   * Preserve the existing updateOne
+   * behavior for callers that do not
+   * request precise Audit output.
+   */
+  if (!includeAuditResult) {
+    const result =
+      await DocumentModel.updateOne(
+        filter,
+        mutation,
+        {
+          runValidators:
+            true,
+        }
+      );
+
+
+    if (
+      result.matchedCount !==
+      1
+    ) {
+      throw serviceError(
+        'DOCUMENT_NOT_FOUND',
+        'Archived Applicant document was not found.'
+      );
+    }
+
+
+    return {
+      restored:
+        true,
+
+      isCurrent:
+        false,
+    };
+  }
+
 
   if (
-    result.matchedCount !==
-    1
+    typeof DocumentModel
+      .findOneAndUpdate !==
+      'function'
   ) {
+    throw serviceError(
+      'DOCUMENT_AUDIT_PREIMAGE_UNAVAILABLE',
+      'Document restore Audit requires atomic pre-image support.'
+    );
+  }
+
+
+  const previous =
+    await queryLean(
+      DocumentModel
+        .findOneAndUpdate(
+          filter,
+          mutation,
+          {
+            new:
+              false,
+
+            runValidators:
+              true,
+          }
+        )
+    );
+
+
+  if (!previous) {
     throw serviceError(
       'DOCUMENT_NOT_FOUND',
       'Archived Applicant document was not found.'
     );
   }
 
+
+  const result = {
+    restored:
+      true,
+
+    isCurrent:
+      false,
+  };
+
+
   return {
-    restored: true,
-    isCurrent: false,
+    result,
+
+    auditChanges:
+      buildDocumentRestoreAuditChanges({
+        previous,
+      }),
+
+    auditMetadata: {
+      ...documentLifecycleAuditMetadata(
+        previous
+      ),
+
+      changed:
+        true,
+    },
   };
 }
 
@@ -1169,6 +1557,12 @@ module.exports = {
   getApplicantDocuments,
   getDocumentVersions,
   getDocumentDownload,
+
+  documentLifecycleAuditMetadata,
+  buildDocumentCurrentAuditChanges,
+  buildDocumentArchiveAuditChanges,
+  buildDocumentRestoreAuditChanges,
+
   setCurrentDocumentVersion,
   archiveApplicantDocument,
   restoreApplicantDocument,

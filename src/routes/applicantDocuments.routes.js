@@ -651,7 +651,7 @@ function createApplicantDocumentRouter({
       res
     ) => {
       try {
-        const document =
+        const currentChange =
           await api
             .setCurrentDocumentVersion({
               applicantId:
@@ -661,7 +661,95 @@ function createApplicantDocumentRouter({
               documentId:
                 req.params
                   .documentId,
+
+              includeAuditResult:
+                true,
             });
+
+        const hasAuditEnvelope =
+          currentChange &&
+          typeof currentChange ===
+            'object' &&
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              currentChange,
+              'document'
+            );
+
+        const document =
+          hasAuditEnvelope
+            ? currentChange
+                .document
+            : currentChange;
+
+        const auditChanges =
+          hasAuditEnvelope &&
+          Array.isArray(
+            currentChange
+              ?.auditChanges
+          )
+            ? currentChange
+                .auditChanges
+            : [];
+
+
+        if (
+          hasAuditEnvelope &&
+          currentChange
+            ?.auditMetadata
+            ?.changed ===
+            true &&
+          auditChanges.length >
+            0
+        ) {
+          await recordDocumentActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params
+                .applicantId,
+
+            type:
+              'document.current_changed',
+
+            title:
+              'Current Applicant document changed',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              documentRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'document',
+
+              id:
+                String(
+                  document
+                    ?._id ||
+                  req.params
+                    .documentId
+                ),
+            },
+
+            changes:
+              auditChanges,
+
+            metadata:
+              documentAuditMetadata(
+                document
+              ),
+          });
+        }
+
 
         return res.json({
           success: true,
@@ -688,7 +776,7 @@ function createApplicantDocumentRouter({
       res
     ) => {
       try {
-        const result =
+        const archiveChange =
           await api
             .archiveApplicantDocument({
               applicantId:
@@ -708,7 +796,135 @@ function createApplicantDocumentRouter({
                 req.body
                   ?.reason ||
                 '',
+
+              includeAuditResult:
+                true,
             });
+
+        const hasAuditEnvelope =
+          archiveChange &&
+          typeof archiveChange ===
+            'object' &&
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              archiveChange,
+              'result'
+            );
+
+        const result =
+          hasAuditEnvelope
+            ? archiveChange
+                .result
+            : archiveChange;
+
+        const auditChanges =
+          hasAuditEnvelope &&
+          Array.isArray(
+            archiveChange
+              ?.auditChanges
+          )
+            ? archiveChange
+                .auditChanges
+            : [];
+
+        const archiveMetadata =
+          hasAuditEnvelope &&
+          archiveChange
+            ?.auditMetadata &&
+          typeof archiveChange
+            .auditMetadata ===
+            'object'
+            ? archiveChange
+                .auditMetadata
+            : {};
+
+
+        if (hasAuditEnvelope) {
+          await recordDocumentActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params
+                .applicantId,
+
+            type:
+              'document.archived',
+
+            title:
+              'Applicant document archived',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              documentRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'document',
+
+              id:
+                String(
+                  req.params
+                    .documentId
+                ),
+            },
+
+            changes:
+              auditChanges,
+
+            metadata: {
+              documentType:
+                cleanDocumentAuditText(
+                  archiveMetadata
+                    .documentType
+                ),
+
+              version:
+                Number.isFinite(
+                  Number(
+                    archiveMetadata
+                      .version
+                  )
+                )
+                  ? Number(
+                      archiveMetadata
+                        .version
+                    )
+                  : null,
+
+              source:
+                cleanDocumentAuditText(
+                  archiveMetadata
+                    .source
+                ),
+
+              archiveReasonProvided:
+                archiveMetadata
+                  .archiveReasonProvided ===
+                true,
+
+              wasCurrent:
+                archiveMetadata
+                  .wasCurrent ===
+                true,
+
+              replacementDocumentId:
+                cleanDocumentAuditText(
+                  archiveMetadata
+                    .replacementDocumentId
+                ) ||
+                null,
+            },
+          });
+        }
+
 
         return res.json({
           success: true,
@@ -735,7 +951,7 @@ function createApplicantDocumentRouter({
       res
     ) => {
       try {
-        const result =
+        const restoreChange =
           await api
             .restoreApplicantDocument({
               applicantId:
@@ -745,7 +961,118 @@ function createApplicantDocumentRouter({
               documentId:
                 req.params
                   .documentId,
+
+              includeAuditResult:
+                true,
             });
+
+        const hasAuditEnvelope =
+          restoreChange &&
+          typeof restoreChange ===
+            'object' &&
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              restoreChange,
+              'result'
+            );
+
+        const result =
+          hasAuditEnvelope
+            ? restoreChange
+                .result
+            : restoreChange;
+
+        const auditChanges =
+          hasAuditEnvelope &&
+          Array.isArray(
+            restoreChange
+              ?.auditChanges
+          )
+            ? restoreChange
+                .auditChanges
+            : [];
+
+        const restoreMetadata =
+          hasAuditEnvelope &&
+          restoreChange
+            ?.auditMetadata &&
+          typeof restoreChange
+            .auditMetadata ===
+            'object'
+            ? restoreChange
+                .auditMetadata
+            : {};
+
+
+        if (hasAuditEnvelope) {
+          await recordDocumentActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params
+                .applicantId,
+
+            type:
+              'document.restored',
+
+            title:
+              'Applicant document restored',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              documentRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'document',
+
+              id:
+                String(
+                  req.params
+                    .documentId
+                ),
+            },
+
+            changes:
+              auditChanges,
+
+            metadata: {
+              documentType:
+                cleanDocumentAuditText(
+                  restoreMetadata
+                    .documentType
+                ),
+
+              version:
+                Number.isFinite(
+                  Number(
+                    restoreMetadata
+                      .version
+                  )
+                )
+                  ? Number(
+                      restoreMetadata
+                        .version
+                    )
+                  : null,
+
+              source:
+                cleanDocumentAuditText(
+                  restoreMetadata
+                    .source
+                ),
+            },
+          });
+        }
+
 
         return res.json({
           success: true,
