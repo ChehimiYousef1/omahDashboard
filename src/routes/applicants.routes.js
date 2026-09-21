@@ -1564,6 +1564,82 @@ function createApplicantRouter({
               transporter,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'interview.created',
+
+          title:
+            'Interview scheduled',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'interview',
+
+            id:
+              String(
+                interview?._id ||
+                ''
+              ),
+          },
+
+          changes: [
+            {
+              field:
+                'interview.exists',
+
+              label:
+                'Interview exists',
+
+              before:
+                false,
+
+              after:
+                true,
+            },
+
+            {
+              field:
+                'interview.status',
+
+              label:
+                'Interview status',
+
+              before:
+                null,
+
+              after:
+                interview?.status ||
+                'scheduled',
+            },
+          ],
+
+          metadata: {
+            interviewType:
+              interview?.type ||
+              '',
+
+            format:
+              interview?.format ||
+              '',
+          },
+        });
+
         return res
           .status(201)
           .json({
@@ -1692,6 +1768,60 @@ function createApplicantRouter({
               req.body?.notes,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'interview.completed',
+
+          title:
+            'Interview completed',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'interview',
+
+            id:
+              req.params.interviewId,
+          },
+
+          changes: [
+            {
+              field:
+                'interview.status',
+
+              label:
+                'Interview status',
+
+              before:
+                'scheduled',
+
+              after:
+                'completed',
+            },
+          ],
+
+          metadata: {
+            outcome:
+              interview?.outcome ||
+              'pending',
+          },
+        });
+
         return res.json({
           success: true,
           interview,
@@ -1737,6 +1867,61 @@ function createApplicantRouter({
               transporter,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'interview.cancelled',
+
+          title:
+            'Interview cancelled',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'interview',
+
+            id:
+              req.params.interviewId,
+          },
+
+          changes: [
+            {
+              field:
+                'interview.status',
+
+              label:
+                'Interview status',
+
+              before:
+                'scheduled',
+
+              after:
+                'cancelled',
+            },
+          ],
+
+          metadata: {
+            cancellationReason:
+              interview
+                ?.cancellationReason ||
+              '',
+          },
+        });
+
         return res.json({
           success: true,
           interview,
@@ -1777,6 +1962,54 @@ function createApplicantRouter({
               req.body?.notes,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'interview.no_show',
+
+          title:
+            'Interview marked as no-show',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'interview',
+
+            id:
+              req.params.interviewId,
+          },
+
+          changes: [
+            {
+              field:
+                'interview.status',
+
+              label:
+                'Interview status',
+
+              before:
+                'scheduled',
+
+              after:
+                'no_show',
+            },
+          ],
+        });
+
         return res.json({
           success: true,
           interview,
@@ -1816,6 +2049,55 @@ function createApplicantRouter({
               req.params
                 .interviewId,
           });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'interview.deleted_permanently',
+
+          title:
+            'Interview permanently deleted',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'interview',
+
+            id:
+              result.interviewId ||
+              req.params.interviewId,
+          },
+
+          changes: [
+            {
+              field:
+                'interview.exists',
+
+              label:
+                'Interview exists',
+
+              before:
+                true,
+
+              after:
+                false,
+            },
+          ],
+        });
 
         return res.json({
           success: true,
@@ -1863,6 +2145,61 @@ function createApplicantRouter({
                 ?.reason ||
               '',
           });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'interview.archived',
+
+          title:
+            'Interview archived',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'interview',
+
+            id:
+              req.params.interviewId,
+          },
+
+          changes: [
+            {
+              field:
+                'interview.archived',
+
+              label:
+                'Interview archived',
+
+              before:
+                false,
+
+              after:
+                true,
+            },
+          ],
+
+          metadata: {
+            archiveReason:
+              interview
+                ?.archiveReason ||
+              '',
+          },
+        });
 
         return res.json({
           success: true,
