@@ -5582,7 +5582,7 @@ function createApplicantRouter({
           fields,
         } = req.body || {};
 
-        const result =
+        const approval =
           await approveProfile({
             applicantId:
               req.params.id,
@@ -5590,7 +5590,101 @@ function createApplicantRouter({
             submissionId,
 
             fields,
+
+            includeAuditResult:
+              true,
           });
+
+        /*
+         * Preserve compatibility with injected
+         * approveProfile implementations that
+         * still return the original result.
+         */
+        const hasAuditEnvelope =
+          approval &&
+          typeof approval ===
+            'object' &&
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              approval,
+              'result'
+            );
+
+        const result =
+          hasAuditEnvelope
+            ? approval.result
+            : approval;
+
+        const auditChanges =
+          hasAuditEnvelope &&
+          Array.isArray(
+            approval
+              ?.auditChanges
+          )
+            ? approval
+                .auditChanges
+            : [];
+
+
+        /*
+         * Only the precise Audit-capable service
+         * emits profile.approved here.
+         *
+         * Manual profile editing continues to use
+         * profile.updated in its own route.
+         */
+        if (hasAuditEnvelope) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              result
+                ?.applicantId ||
+              req.params.id,
+
+            type:
+              'profile.approved',
+
+            title:
+              'Applicant profile fields approved',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'submission',
+
+              id:
+                result
+                  ?.submissionId ||
+                submissionId ||
+                '',
+            },
+
+            changes:
+              auditChanges,
+
+            metadata: {
+              approvedFields:
+                result
+                  ?.approvedFields ||
+                [],
+
+              changedFieldCount:
+                auditChanges.length,
+            },
+          });
+        }
 
         return res.json({
           success: true,

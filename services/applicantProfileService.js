@@ -359,10 +359,260 @@ function buildApprovedProfileUpdate({
 |
 */
 
+function cloneAuditValue(
+  value
+) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return new Date(
+      value.getTime()
+    );
+  }
+
+  if (
+    value &&
+    typeof value.toHexString ===
+      'function'
+  ) {
+    return String(
+      value.toHexString()
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(
+      item =>
+        cloneAuditValue(
+          item
+        )
+    );
+  }
+
+  if (
+    typeof value ===
+      'object'
+  ) {
+    const source =
+      typeof value.toObject ===
+        'function'
+        ? value.toObject()
+        : value;
+
+    const result = {};
+
+    for (
+      const [
+        key,
+        child,
+      ]
+      of Object.entries(
+        source
+      )
+    ) {
+      result[key] =
+        cloneAuditValue(
+          child
+        );
+    }
+
+    return result;
+  }
+
+  return value;
+}
+
+
+function profileApprovalComparable(
+  value
+) {
+  if (
+    value === undefined ||
+    value === null
+  ) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (
+    value &&
+    typeof value.toHexString ===
+      'function'
+  ) {
+    return String(
+      value.toHexString()
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(
+      item =>
+        profileApprovalComparable(
+          item
+        )
+    );
+  }
+
+  if (
+    typeof value ===
+      'object'
+  ) {
+    const source =
+      typeof value.toObject ===
+        'function'
+        ? value.toObject()
+        : value;
+
+    return Object.keys(
+      source
+    )
+      .sort()
+      .reduce(
+        (
+          output,
+          key
+        ) => {
+          output[key] =
+            profileApprovalComparable(
+              source[key]
+            );
+
+          return output;
+        },
+        {}
+      );
+  }
+
+  return value;
+}
+
+
+function profileApprovalValuesEqual(
+  left,
+  right
+) {
+  return JSON.stringify(
+    profileApprovalComparable(
+      left
+    )
+  ) ===
+    JSON.stringify(
+      profileApprovalComparable(
+        right
+      )
+    );
+}
+
+
+function buildProfileApprovalAuditChanges({
+  previous,
+  approvedUpdate,
+  approvedFields,
+  submissionId,
+}) {
+  const changes = [];
+
+  for (
+    const field
+    of [
+      ...new Set(
+        approvedFields || []
+      ),
+    ]
+  ) {
+    const before =
+      cloneAuditValue(
+        getPathValue(
+          previous,
+          field
+        )
+      );
+
+    const after =
+      cloneAuditValue(
+        approvedUpdate?.[
+          field
+        ]
+      );
+
+    if (
+      profileApprovalValuesEqual(
+        before,
+        after
+      )
+    ) {
+      continue;
+    }
+
+    changes.push({
+      field,
+
+      label:
+        field,
+
+      before,
+
+      after,
+    });
+  }
+
+
+  const previousSubmissionId =
+    cloneAuditValue(
+      getPathValue(
+        previous,
+        'latestApprovedSubmissionId'
+      )
+    );
+
+  const nextSubmissionId =
+    cloneAuditValue(
+      submissionId
+    );
+
+
+  if (
+    !profileApprovalValuesEqual(
+      previousSubmissionId,
+      nextSubmissionId
+    )
+  ) {
+    changes.push({
+      field:
+        'latestApprovedSubmissionId',
+
+      label:
+        'Latest approved submission',
+
+      before:
+        previousSubmissionId,
+
+      after:
+        nextSubmissionId,
+    });
+  }
+
+
+  return changes;
+}
+
+
 async function approveProfileFieldsFromSubmission({
   applicantId,
   submissionId,
   fields,
+
+  includeAuditResult =
+    false,
+
   ApplicantModel = Applicant,
   SubmissionModel =
     ApplicantFormSubmission,
@@ -414,42 +664,144 @@ async function approveProfileFieldsFromSubmission({
     'latestApprovedSubmissionId'
   ] = submissionObjectId;
 
-  const result =
-    await ApplicantModel.updateOne(
-      {
-        _id: applicantObjectId,
+  const filter = {
+    _id:
+      applicantObjectId,
 
-        'lifecycle.archived': {
-          $ne: true,
-        },
-      },
-      {
-        $set: approvedUpdate,
+    'lifecycle.archived': {
+      $ne: true,
+    },
+  };
 
-        $inc: {
-          profileVersion: 1,
-        },
-      }
+  const mutation = {
+    $set:
+      approvedUpdate,
+
+    $inc: {
+      profileVersion:
+        1,
+    },
+  };
+
+
+  /*
+   * Preserve the original service contract
+   * unless precise Audit output is requested.
+   */
+  if (!includeAuditResult) {
+    const result =
+      await ApplicantModel.updateOne(
+        filter,
+        mutation
+      );
+
+    if (
+      result.matchedCount !==
+      1
+    ) {
+      throw serviceError(
+        'APPLICANT_NOT_FOUND',
+        'Applicant was not found or is archived.'
+      );
+    }
+
+    return {
+      status:
+        'profile-updated',
+
+      applicantId:
+        String(
+          applicantObjectId
+        ),
+
+      submissionId:
+        String(
+          submissionObjectId
+        ),
+
+      approvedFields:
+        [
+          ...new Set(
+            fields
+          ),
+        ],
+    };
+  }
+
+
+  if (
+    typeof ApplicantModel
+      .findOneAndUpdate !==
+      'function'
+  ) {
+    throw serviceError(
+      'PROFILE_AUDIT_PREIMAGE_UNAVAILABLE',
+      'Applicant profile approval Audit requires atomic pre-image support.'
     );
+  }
 
-  if (result.matchedCount !== 1) {
+
+  const previous =
+    await ApplicantModel
+      .findOneAndUpdate(
+        filter,
+        mutation,
+        {
+          new:
+            false,
+
+          runValidators:
+            true,
+        }
+      );
+
+
+  if (!previous) {
     throw serviceError(
       'APPLICANT_NOT_FOUND',
       'Applicant was not found or is archived.'
     );
   }
 
-  return {
-    status: 'profile-updated',
+
+  const result = {
+    status:
+      'profile-updated',
 
     applicantId:
-      String(applicantObjectId),
+      String(
+        applicantObjectId
+      ),
 
     submissionId:
-      String(submissionObjectId),
+      String(
+        submissionObjectId
+      ),
 
     approvedFields:
-      [...new Set(fields)],
+      [
+        ...new Set(
+          fields
+        ),
+      ],
+  };
+
+
+  return {
+    result,
+
+    auditChanges:
+      buildProfileApprovalAuditChanges({
+        previous,
+
+        approvedUpdate,
+
+        approvedFields:
+          result.approvedFields,
+
+        submissionId:
+          submissionObjectId,
+      }),
   };
 }
 
@@ -457,5 +809,6 @@ module.exports = {
   PROFILE_FIELD_MAP,
   getPathValue,
   buildApprovedProfileUpdate,
+  buildProfileApprovalAuditChanges,
   approveProfileFieldsFromSubmission,
 };
