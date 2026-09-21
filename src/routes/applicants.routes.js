@@ -988,7 +988,7 @@ function createApplicantRouter({
 
     async (req, res) => {
       try {
-        const duplicateCase =
+        const resolution =
           await resolveDuplicate({
             duplicateCaseId:
               req.params.caseId,
@@ -1002,7 +1002,144 @@ function createApplicantRouter({
 
             resolvedBy:
               req.user.id,
+
+            includeAuditResult:
+              true,
           });
+
+        /*
+         * Preserve compatibility with injected
+         * duplicate-resolution implementations
+         * that still return the original
+         * duplicateCase directly.
+         */
+        const hasAuditEnvelope =
+          resolution &&
+          typeof resolution ===
+            'object' &&
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              resolution,
+              'duplicateCase'
+            );
+
+        const duplicateCase =
+          hasAuditEnvelope
+            ? resolution
+                .duplicateCase
+            : resolution;
+
+        const auditChanges =
+          hasAuditEnvelope &&
+          Array.isArray(
+            resolution
+              ?.auditChanges
+          )
+            ? resolution
+                .auditChanges
+            : [];
+
+
+        /*
+         * A duplicate review concerns both
+         * Applicants.
+         *
+         * Write the same administrative
+         * decision to both Applicant histories.
+         */
+        if (hasAuditEnvelope) {
+          const sourceApplicantId =
+            String(
+              duplicateCase
+                ?.sourceApplicantId ||
+              ''
+            ).trim();
+
+          const candidateApplicantId =
+            String(
+              duplicateCase
+                ?.candidateApplicantId ||
+              ''
+            ).trim();
+
+          const applicantIds =
+            [
+              ...new Set(
+                [
+                  sourceApplicantId,
+                  candidateApplicantId,
+                ].filter(Boolean)
+              ),
+            ];
+
+
+          for (
+            const applicantId
+            of applicantIds
+          ) {
+            const counterpartApplicantId =
+              applicantId ===
+                sourceApplicantId
+                ? candidateApplicantId
+                : sourceApplicantId;
+
+
+            await recordApplicantActivitySafely({
+              recordActivity,
+
+              logger:
+                activityLogger,
+
+              applicantId,
+
+              type:
+                'duplicate.resolved',
+
+              title:
+                'Duplicate review resolved',
+
+              occurredAt:
+                duplicateCase
+                  ?.resolution
+                  ?.resolvedAt ||
+                new Date(),
+
+              actor:
+                applicantRequestActor(
+                  req
+                ),
+
+              source: {
+                type:
+                  'duplicate_case',
+
+                id:
+                  String(
+                    duplicateCase
+                      ?._id ||
+                    req.params.caseId
+                  ),
+              },
+
+              changes:
+                auditChanges,
+
+              metadata: {
+                notesProvided:
+                  resolution
+                    ?.auditMetadata
+                    ?.notesProvided ===
+                  true,
+
+                counterpartApplicantId:
+                  counterpartApplicantId ||
+                  '',
+              },
+            });
+          }
+        }
+
 
         return res.json({
           success: true,

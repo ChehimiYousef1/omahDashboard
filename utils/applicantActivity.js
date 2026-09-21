@@ -11,6 +11,7 @@ const APPLICANT_ACTIVITY_CATEGORIES = [
   'lifecycle',
   'note',
   'task',
+  'duplicate',
   'document',
   'system',
 ];
@@ -75,6 +76,8 @@ const APPLICANT_ACTIVITY_TYPES = [
   'task.calendar_added',
   'task.calendar_updated',
   'task.calendar_removed',
+
+  'duplicate.resolved',
 
   'document.uploaded',
   'document.replaced',

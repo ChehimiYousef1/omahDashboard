@@ -711,13 +711,96 @@ async function getDuplicateCase({
 }
 
 
+function buildDuplicateResolutionAuditChanges({
+  previous,
+  updated,
+}) {
+  const changes = [];
+
+  const beforeStatus =
+    String(
+      previous?.status ??
+      ''
+    ).trim() || null;
+
+  const afterStatus =
+    String(
+      updated?.status ??
+      ''
+    ).trim() || null;
+
+  if (
+    beforeStatus !==
+    afterStatus
+  ) {
+    changes.push({
+      field:
+        'duplicate.status',
+
+      label:
+        'Duplicate review status',
+
+      before:
+        beforeStatus,
+
+      after:
+        afterStatus,
+    });
+  }
+
+
+  const beforeDecision =
+    String(
+      previous
+        ?.resolution
+        ?.decision ??
+      ''
+    ).trim() || null;
+
+  const afterDecision =
+    String(
+      updated
+        ?.resolution
+        ?.decision ??
+      ''
+    ).trim() || null;
+
+  if (
+    beforeDecision !==
+    afterDecision
+  ) {
+    changes.push({
+      field:
+        'duplicate.resolution.decision',
+
+      label:
+        'Duplicate review decision',
+
+      before:
+        beforeDecision,
+
+      after:
+        afterDecision,
+    });
+  }
+
+
+  return changes;
+}
+
+
 async function resolveDuplicateCase({
   duplicateCaseId,
   decision,
   notes = '',
   resolvedBy,
+
+  includeAuditResult =
+    false,
+
   DuplicateCaseModel =
     ApplicantDuplicateCase,
+
   ApplicantModel =
     Applicant,
 }) {
@@ -728,30 +811,106 @@ async function resolveDuplicateCase({
       resolvedBy,
     });
 
-  const updated =
+
+  const filter = {
+    _id:
+      duplicateCaseId,
+
+    status: {
+      $ne:
+        'resolved',
+    },
+  };
+
+
+  /*
+   * Preserve the original contract and
+   * query behavior for existing callers.
+   */
+  if (!includeAuditResult) {
+    const updated =
+      await DuplicateCaseModel
+        .findOneAndUpdate(
+          filter,
+          {
+            $set:
+              update,
+          },
+          {
+            new:
+              true,
+
+            runValidators:
+              true,
+          }
+        )
+        .lean();
+
+
+    if (!updated) {
+      const existing =
+        await DuplicateCaseModel
+          .findById(
+            duplicateCaseId
+          )
+          .lean();
+
+      if (!existing) {
+        throw serviceError(
+          'DUPLICATE_CASE_NOT_FOUND',
+          'Duplicate case was not found.'
+        );
+      }
+
+      throw serviceError(
+        'DUPLICATE_CASE_ALREADY_RESOLVED',
+        'Duplicate case has already been resolved.'
+      );
+    }
+
+
+    const hydrated =
+      await hydrateDuplicateCases({
+        duplicateCases: [
+          updated,
+        ],
+
+        ApplicantModel,
+      });
+
+
+    return hydrated[0];
+  }
+
+
+  /*
+   * Audit mode requests the atomic
+   * pre-update document.
+   *
+   * The resolved document is then read
+   * back for the existing hydrated HTTP
+   * response contract.
+   */
+  const previous =
     await DuplicateCaseModel
       .findOneAndUpdate(
-        {
-          _id:
-            duplicateCaseId,
-
-          status: {
-            $ne:
-              'resolved',
-          },
-        },
+        filter,
         {
           $set:
             update,
         },
         {
-          new: true,
-          runValidators: true,
+          new:
+            false,
+
+          runValidators:
+            true,
         }
       )
       .lean();
 
-  if (!updated) {
+
+  if (!previous) {
     const existing =
       await DuplicateCaseModel
         .findById(
@@ -772,17 +931,59 @@ async function resolveDuplicateCase({
     );
   }
 
+
+  const updated =
+    await DuplicateCaseModel
+      .findById(
+        duplicateCaseId
+      )
+      .lean();
+
+
+  if (!updated) {
+    throw serviceError(
+      'DUPLICATE_CASE_AUDIT_READ_FAILED',
+      'Resolved duplicate case could not be reloaded for Audit.'
+    );
+  }
+
+
   const hydrated =
     await hydrateDuplicateCases({
       duplicateCases: [
         updated,
       ],
+
       ApplicantModel,
     });
 
-  return hydrated[0];
-}
 
+  const duplicateCase =
+    hydrated[0];
+
+
+  return {
+    duplicateCase,
+
+    auditChanges:
+      buildDuplicateResolutionAuditChanges({
+        previous,
+        updated,
+      }),
+
+    auditMetadata: {
+      notesProvided:
+        Boolean(
+          String(
+            update[
+              'resolution.notes'
+            ] ||
+            ''
+          ).trim()
+        ),
+    },
+  };
+}
 
 module.exports = {
   serviceError,
@@ -795,6 +996,7 @@ module.exports = {
   normalizeDuplicateReviewDecision,
   normalizeDuplicateStatusFilter,
   buildDuplicateResolutionUpdate,
+  buildDuplicateResolutionAuditChanges,
   hydrateDuplicateCases,
   listDuplicateCases,
   getDuplicateCase,
