@@ -1117,6 +1117,98 @@ function createApplicantRouter({
               'draft',
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'evaluation.created',
+
+          title:
+            'Applicant evaluation created',
+
+          occurredAt:
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'evaluation',
+
+            id:
+              String(
+                evaluation?._id ||
+                ''
+              ),
+          },
+
+          changes: [
+            {
+              field:
+                'evaluation.exists',
+
+              label:
+                'Evaluation exists',
+
+              before:
+                false,
+
+              after:
+                true,
+            },
+
+            {
+              field:
+                'evaluation.status',
+
+              label:
+                'Evaluation status',
+
+              before:
+                null,
+
+              after:
+                evaluation?.status ||
+                'draft',
+            },
+          ],
+
+          metadata: {
+            recommendation:
+              evaluation
+                ?.recommendation ||
+              '',
+
+            weightedScore:
+              evaluation
+                ?.weightedScore ??
+              null,
+
+            averageRating:
+              evaluation
+                ?.averageRating ??
+              null,
+
+            submissionId:
+              String(
+                evaluation
+                  ?.submissionId ||
+                req.body
+                  ?.submissionId ||
+                ''
+              ),
+          },
+        });
+
         return res
           .status(201)
           .json({
@@ -1217,6 +1309,63 @@ function createApplicantRouter({
               req.user.id,
           });
 
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'evaluation.submitted',
+
+          title:
+            'Applicant evaluation submitted',
+
+          occurredAt:
+            result.submittedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'evaluation',
+
+            id:
+              result.evaluationId ||
+              req.params
+                .evaluationId,
+          },
+
+          changes: [
+            {
+              field:
+                'evaluation.status',
+
+              label:
+                'Evaluation status',
+
+              before:
+                'draft',
+
+              after:
+                'submitted',
+            },
+          ],
+
+          metadata: {
+            submittedAt:
+              result.submittedAt ||
+              null,
+          },
+        });
+
         return res.json({
           success: true,
           result,
@@ -1258,6 +1407,63 @@ function createApplicantRouter({
             evaluatorId:
               req.user.id,
           });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'evaluation.reopened',
+
+          title:
+            'Applicant evaluation reopened',
+
+          occurredAt:
+            result.reopenedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'evaluation',
+
+            id:
+              result.evaluationId ||
+              req.params
+                .evaluationId,
+          },
+
+          changes: [
+            {
+              field:
+                'evaluation.status',
+
+              label:
+                'Evaluation status',
+
+              before:
+                'submitted',
+
+              after:
+                'draft',
+            },
+          ],
+
+          metadata: {
+            reopenedAt:
+              result.reopenedAt ||
+              null,
+          },
+        });
 
         return res.json({
           success: true,
@@ -1304,6 +1510,71 @@ function createApplicantRouter({
               req.body?.reason ||
               '',
           });
+
+        await recordApplicantActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params.id,
+
+          type:
+            'evaluation.archived',
+
+          title:
+            'Applicant evaluation archived',
+
+          occurredAt:
+            result.archivedAt ||
+            new Date(),
+
+          actor:
+            applicantRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'evaluation',
+
+            id:
+              result.evaluationId ||
+              req.params
+                .evaluationId,
+          },
+
+          changes: [
+            {
+              field:
+                'evaluation.archived',
+
+              label:
+                'Evaluation archived',
+
+              before:
+                false,
+
+              after:
+                true,
+            },
+          ],
+
+          metadata: {
+            archivedAt:
+              result.archivedAt ||
+              null,
+
+            archiveReasonProvided:
+              Boolean(
+                String(
+                  req.body?.reason ??
+                  ''
+                ).trim()
+              ),
+          },
+        });
 
         return res.json({
           success: true,
