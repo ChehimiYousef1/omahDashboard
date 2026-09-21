@@ -776,6 +776,304 @@ async function getActiveInterview({
 }
 
 
+function interviewAuditDateValue(
+  value
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return null;
+  }
+
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return (
+      cleanText(value) ||
+      null
+    );
+  }
+
+  return date.toISOString();
+}
+
+
+function interviewAuditParticipantValue(
+  participant = {}
+) {
+  return {
+    userId:
+      cleanText(
+        participant?.userId
+      ),
+
+    name:
+      cleanText(
+        participant?.name
+      ),
+
+    email:
+      cleanText(
+        participant?.email
+      ).toLowerCase(),
+
+    participantType:
+      cleanText(
+        participant
+          ?.participantType
+      ).toLowerCase() ||
+      'guest',
+
+    role:
+      cleanText(
+        participant?.role
+      ),
+  };
+}
+
+
+function interviewAuditParticipantsValue(
+  participants
+) {
+  if (
+    !Array.isArray(
+      participants
+    )
+  ) {
+    return [];
+  }
+
+  return participants
+    .map(
+      interviewAuditParticipantValue
+    )
+    .sort(
+      (
+        left,
+        right
+      ) => {
+        const leftKey = [
+          left.userId,
+          left.email,
+          left.name.toLowerCase(),
+          left.participantType,
+          left.role.toLowerCase(),
+        ].join('|');
+
+        const rightKey = [
+          right.userId,
+          right.email,
+          right.name.toLowerCase(),
+          right.participantType,
+          right.role.toLowerCase(),
+        ].join('|');
+
+        return leftKey.localeCompare(
+          rightKey
+        );
+      }
+    );
+}
+
+
+function interviewAuditValuesEqual(
+  left,
+  right
+) {
+  return (
+    JSON.stringify(left) ===
+    JSON.stringify(right)
+  );
+}
+
+
+function buildInterviewAuditChanges({
+  previous,
+  next,
+}) {
+  const previousProvider =
+    cleanText(
+      previous
+        ?.meeting
+        ?.provider
+    ).toLowerCase() ||
+    'none';
+
+  const nextProvider =
+    cleanText(
+      next
+        ?.meeting
+        ?.provider
+    ).toLowerCase() ||
+    'none';
+
+  const candidates = [
+    {
+      field:
+        'interview.type',
+
+      label:
+        'Interview type',
+
+      before:
+        cleanText(
+          previous?.type
+        ) || null,
+
+      after:
+        cleanText(
+          next?.type
+        ) || null,
+    },
+
+    {
+      field:
+        'interview.scheduledStart',
+
+      label:
+        'Scheduled start',
+
+      before:
+        interviewAuditDateValue(
+          previous
+            ?.scheduledStart
+        ),
+
+      after:
+        interviewAuditDateValue(
+          next
+            ?.scheduledStart
+        ),
+    },
+
+    {
+      field:
+        'interview.scheduledEnd',
+
+      label:
+        'Scheduled end',
+
+      before:
+        interviewAuditDateValue(
+          previous
+            ?.scheduledEnd
+        ),
+
+      after:
+        interviewAuditDateValue(
+          next
+            ?.scheduledEnd
+        ),
+    },
+
+    {
+      field:
+        'interview.timezone',
+
+      label:
+        'Timezone',
+
+      before:
+        cleanText(
+          previous?.timezone
+        ) || null,
+
+      after:
+        cleanText(
+          next?.timezone
+        ) || null,
+    },
+
+    {
+      field:
+        'interview.format',
+
+      label:
+        'Interview format',
+
+      before:
+        cleanText(
+          previous?.format
+        ) || null,
+
+      after:
+        cleanText(
+          next?.format
+        ) || null,
+    },
+
+    {
+      field:
+        'interview.meetingProvider',
+
+      label:
+        'Meeting provider',
+
+      before:
+        previousProvider,
+
+      after:
+        nextProvider,
+    },
+
+    {
+      field:
+        'interview.location',
+
+      label:
+        'Location',
+
+      before:
+        cleanText(
+          previous?.location
+        ),
+
+      after:
+        cleanText(
+          next?.location
+        ),
+    },
+
+    {
+      field:
+        'interview.participants',
+
+      label:
+        'Participants',
+
+      before:
+        interviewAuditParticipantsValue(
+          previous
+            ?.participants
+        ),
+
+      after:
+        interviewAuditParticipantsValue(
+          next
+            ?.participants
+        ),
+    },
+  ];
+
+  return candidates.filter(
+    change =>
+      !interviewAuditValuesEqual(
+        change.before,
+        change.after
+      )
+  );
+}
+
+
 async function updateApplicantInterview({
   applicantId,
   interviewId,
@@ -789,6 +1087,9 @@ async function updateApplicantInterview({
   location,
   participants,
   notes,
+
+  includeAuditResult =
+    false,
 
   ApplicantModel =
     Applicant,
@@ -1162,6 +1463,50 @@ async function updateApplicantInterview({
             error
         );
     }
+  }
+
+  if (includeAuditResult) {
+    const auditChanges =
+      buildInterviewAuditChanges({
+        previous:
+          current.interview,
+
+        next:
+          syncedInterview,
+      });
+
+    const notesChanged =
+      cleanText(
+        current.interview
+          ?.notes
+      ) !==
+      cleanText(
+        syncedInterview
+          ?.notes
+      );
+
+    const rescheduled =
+      auditChanges.some(
+        change =>
+          change.field ===
+            'interview.scheduledStart' ||
+          change.field ===
+            'interview.scheduledEnd' ||
+          change.field ===
+            'interview.timezone'
+      );
+
+    return {
+      interview:
+        syncedInterview,
+
+      auditChanges,
+
+      auditMetadata: {
+        notesChanged,
+        rescheduled,
+      },
+    };
   }
 
   return syncedInterview;
@@ -1762,6 +2107,7 @@ module.exports = {
   normalizeActor,
   normalizeParticipants,
   buildInterviewScheduleData,
+  buildInterviewAuditChanges,
   createApplicantInterview,
   listApplicantInterviews,
   updateApplicantInterview,

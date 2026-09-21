@@ -1671,7 +1671,11 @@ function createApplicantRouter({
 
     async (req, res) => {
       try {
-        const interview =
+        const {
+          interview,
+          auditChanges,
+          auditMetadata,
+        } =
           await updateApplicantInterview({
             applicantId:
               req.params.id,
@@ -1716,7 +1720,78 @@ function createApplicantRouter({
 
             notificationTransporter:
               transporter,
+
+            includeAuditResult:
+              true,
           });
+
+        const structuredInterviewChanges =
+          Array.isArray(
+            auditChanges
+          )
+            ? auditChanges
+            : [];
+
+        if (
+          structuredInterviewChanges
+            .length > 0 ||
+          auditMetadata
+            ?.notesChanged ===
+            true
+        ) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params.id,
+
+            type:
+              'interview.updated',
+
+            title:
+              auditMetadata
+                ?.rescheduled
+                ? 'Interview rescheduled'
+                : 'Interview updated',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'interview',
+
+              id:
+                req.params
+                  .interviewId,
+            },
+
+            changes:
+              structuredInterviewChanges,
+
+            metadata: {
+              rescheduled:
+                Boolean(
+                  auditMetadata
+                    ?.rescheduled
+                ),
+
+              notesChanged:
+                Boolean(
+                  auditMetadata
+                    ?.notesChanged
+                ),
+            },
+          });
+        }
 
         return res.json({
           success: true,
