@@ -81,6 +81,14 @@ const {
 */
 
 
+
+const {
+  recordApplicantActivity,
+} = require(
+  '../../services/applicantActivityService'
+);
+
+
 function registerApiRoutes(
   app,
   {
@@ -277,6 +285,9 @@ function registerApiRoutes(
 
     createApplicantDocumentsRouter({
       requireApplicantPermission,
+
+      recordActivity:
+        recordApplicantActivity,
     })
   );
 

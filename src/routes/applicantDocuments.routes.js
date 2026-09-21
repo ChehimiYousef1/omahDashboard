@@ -93,9 +93,114 @@ function sendError(
     });
 }
 
+function documentRequestActor(
+  req
+) {
+  return {
+    userId:
+      String(
+        req?.user?.id ??
+        ''
+      ).trim(),
+
+    name:
+      String(
+        req?.user?.name ??
+        req?.user?.email ??
+        ''
+      ).trim(),
+
+    email:
+      String(
+        req?.user?.email ??
+        ''
+      ).trim(),
+
+    role:
+      String(
+        req?.user?.role ??
+        ''
+      ).trim(),
+  };
+}
+
+
+async function recordDocumentActivitySafely({
+  recordActivity,
+  logger = console,
+  ...payload
+}) {
+  if (
+    typeof recordActivity !==
+      'function'
+  ) {
+    return false;
+  }
+
+  try {
+    await recordActivity(
+      payload
+    );
+
+    return true;
+  } catch (error) {
+    logger?.error?.(
+      'Applicant document activity logging failed:',
+      error
+    );
+
+    return false;
+  }
+}
+
+
+function cleanDocumentAuditText(
+  value
+) {
+  return String(
+    value ?? ''
+  ).trim();
+}
+
+
+function documentAuditMetadata(
+  document
+) {
+  const version =
+    Number(
+      document?.version
+    );
+
+  return {
+    documentType:
+      cleanDocumentAuditText(
+        document?.documentType
+      ),
+
+    version:
+      Number.isFinite(
+        version
+      )
+        ? version
+        : null,
+
+    source:
+      cleanDocumentAuditText(
+        document?.source
+      ),
+  };
+}
+
+
 module.exports =
 function createApplicantDocumentRouter({
   requireApplicantPermission,
+
+  recordActivity =
+    null,
+
+  activityLogger =
+    console,
 
   services = {},
 } = {}) {
@@ -207,6 +312,65 @@ function createApplicantDocumentRouter({
                 ),
             });
 
+        await recordDocumentActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params
+              .applicantId,
+
+          type:
+            'document.uploaded',
+
+          title:
+            'Applicant document uploaded',
+
+          occurredAt:
+            document
+              ?.uploadedAt ||
+            new Date(),
+
+          actor:
+            documentRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'document',
+
+            id:
+              cleanDocumentAuditText(
+                document?._id
+              ),
+          },
+
+          changes: [
+            {
+              field:
+                'document.exists',
+
+              label:
+                'Document exists',
+
+              before:
+                false,
+
+              after:
+                true,
+            },
+          ],
+
+          metadata:
+            documentAuditMetadata(
+              document
+            ),
+        });
+
+
         return res
           .status(201)
           .json({
@@ -259,6 +423,105 @@ function createApplicantDocumentRouter({
                   req.user
                 ),
             });
+
+        const nextVersion =
+          Number(
+            document
+              ?.version
+          );
+
+        const previousVersion =
+          Number.isFinite(
+            nextVersion
+          ) &&
+          nextVersion >
+            1
+            ? nextVersion -
+              1
+            : null;
+
+
+        await recordDocumentActivitySafely({
+          recordActivity,
+
+          logger:
+            activityLogger,
+
+          applicantId:
+            req.params
+              .applicantId,
+
+          type:
+            'document.replaced',
+
+          title:
+            'Applicant document replaced',
+
+          occurredAt:
+            document
+              ?.uploadedAt ||
+            new Date(),
+
+          actor:
+            documentRequestActor(
+              req
+            ),
+
+          source: {
+            type:
+              'document',
+
+            id:
+              cleanDocumentAuditText(
+                document?._id
+              ),
+          },
+
+          changes: [
+            {
+              field:
+                'document.version',
+
+              label:
+                'Document version',
+
+              before:
+                previousVersion,
+
+              after:
+                Number.isFinite(
+                  nextVersion
+                )
+                  ? nextVersion
+                  : null,
+            },
+
+            {
+              field:
+                'document.currentDocumentId',
+
+              label:
+                'Current document version',
+
+              before:
+                cleanDocumentAuditText(
+                  req.params
+                    .documentId
+                ),
+
+              after:
+                cleanDocumentAuditText(
+                  document?._id
+                ),
+            },
+          ],
+
+          metadata:
+            documentAuditMetadata(
+              document
+            ),
+        });
+
 
         return res
           .status(201)
