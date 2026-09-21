@@ -5628,6 +5628,76 @@ function createApplicantRouter({
                 .submissionId,
           });
 
+        /*
+         * Only record a relationship mutation.
+         *
+         * `already-linked` is intentionally
+         * idempotent and must not create a
+         * second Audit event.
+         */
+        if (
+          result?.status ===
+          'linked'
+        ) {
+          await recordApplicantActivitySafely({
+            recordActivity,
+
+            logger:
+              activityLogger,
+
+            applicantId:
+              req.params.id,
+
+            type:
+              'submission.linked',
+
+            title:
+              'Submission linked to Applicant',
+
+            occurredAt:
+              new Date(),
+
+            actor:
+              applicantRequestActor(
+                req
+              ),
+
+            source: {
+              type:
+                'submission',
+
+              id:
+                result
+                  ?.submissionId ||
+                req.params
+                  .submissionId,
+            },
+
+            changes: [
+              {
+                field:
+                  'submission.applicantId',
+
+                label:
+                  'Linked Applicant',
+
+                before:
+                  null,
+
+                after:
+                  result
+                    ?.applicantId ||
+                  req.params.id,
+              },
+            ],
+
+            metadata: {
+              linkStatus:
+                result.status,
+            },
+          });
+        }
+
         return res.json({
           success: true,
           result,
