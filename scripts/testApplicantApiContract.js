@@ -60,6 +60,7 @@ const expectedRoutes = [
   'GET /',
   'GET /:id',
   'GET /:id/activity',
+  'GET /:id/audit',
   'GET /:id/evaluations',
   'GET /:id/relationship-integrity',
   'GET /:id/submissions',
@@ -181,6 +182,11 @@ const swaggerRoutes = [
   [
     'get',
     '/api/applicants/{id}/activity',
+  ],
+
+  [
+    'get',
+    '/api/applicants/{id}/audit',
   ],
 
   [

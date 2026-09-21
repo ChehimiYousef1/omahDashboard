@@ -108,6 +108,213 @@ function normalizeSource(
 }
 
 
+const SENSITIVE_AUDIT_KEYS =
+  /(?:password|passwd|token|secret|authorization|cookie|credential|hash)/i;
+
+
+function isSensitiveAuditField(
+  value
+) {
+  return SENSITIVE_AUDIT_KEYS.test(
+    cleanText(value)
+  );
+}
+
+
+function sanitizeAuditValue(
+  value,
+  depth = 0
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+
+  if (
+    typeof value ===
+      'boolean' ||
+    typeof value ===
+      'number'
+  ) {
+    return value;
+  }
+
+
+  if (
+    value instanceof Date
+  ) {
+    return value.toISOString();
+  }
+
+
+  if (
+    typeof value ===
+    'string'
+  ) {
+    return value.length >
+      2000
+        ? `${value.slice(
+            0,
+            2000
+          )}…`
+        : value;
+  }
+
+
+  if (
+    depth >= 4
+  ) {
+    return '[depth-limited]';
+  }
+
+
+  if (
+    Array.isArray(value)
+  ) {
+    return value
+      .slice(
+        0,
+        50
+      )
+      .map(
+        item =>
+          sanitizeAuditValue(
+            item,
+            depth + 1
+          )
+      );
+  }
+
+
+  if (
+    typeof value ===
+    'object'
+  ) {
+    /*
+     * ObjectId / BSON-like scalar values.
+     */
+    if (
+      typeof value.toHexString ===
+      'function'
+    ) {
+      return String(
+        value.toHexString()
+      );
+    }
+
+
+    const result = {};
+
+    for (
+      const [
+        key,
+        child
+      ]
+      of Object.entries(
+        value
+      ).slice(
+        0,
+        50
+      )
+    ) {
+      if (
+        isSensitiveAuditField(
+          key
+        )
+      ) {
+        continue;
+      }
+
+
+      result[key] =
+        sanitizeAuditValue(
+          child,
+          depth + 1
+        );
+    }
+
+    return result;
+  }
+
+
+  return cleanText(
+    value
+  );
+}
+
+
+function normalizeAuditChanges(
+  changes = []
+) {
+  if (
+    !Array.isArray(
+      changes
+    )
+  ) {
+    return [];
+  }
+
+
+  return changes
+    .slice(
+      0,
+      100
+    )
+    .map(
+      change => {
+        if (
+          !change ||
+          typeof change !==
+            'object' ||
+          Array.isArray(change)
+        ) {
+          return null;
+        }
+
+
+        const field =
+          cleanText(
+            change.field
+          );
+
+
+        if (
+          !field ||
+          isSensitiveAuditField(
+            field
+          )
+        ) {
+          return null;
+        }
+
+
+        return {
+          field,
+
+          label:
+            cleanText(
+              change.label
+            ),
+
+          before:
+            sanitizeAuditValue(
+              change.before
+            ),
+
+          after:
+            sanitizeAuditValue(
+              change.after
+            ),
+        };
+      }
+    )
+    .filter(Boolean);
+}
+
+
 function buildApplicantActivity({
   applicantId,
   type,
@@ -117,6 +324,7 @@ function buildApplicantActivity({
     new Date(),
   actor = {},
   source = {},
+  changes = [],
   metadata = {},
 }) {
   const applicantObjectId =
@@ -202,6 +410,14 @@ function buildApplicantActivity({
         source
       ),
 
+    auditVersion:
+      1,
+
+    changes:
+      normalizeAuditChanges(
+        changes
+      ),
+
     metadata:
       (
         metadata &&
@@ -238,6 +454,9 @@ module.exports = {
   cleanText,
   normalizeActor,
   normalizeSource,
+  isSensitiveAuditField,
+  sanitizeAuditValue,
+  normalizeAuditChanges,
   buildApplicantActivity,
   recordApplicantActivity,
 };

@@ -30,6 +30,9 @@ const expectedApplicantCounts = {
   'Applicant Core':
     7,
 
+  'Applicant Audit & History':
+    1,
+
   'Applicant Search & Analytics':
     5,
 
@@ -137,7 +140,7 @@ for (
 
 assert.strictEqual(
   applicantOperationCount,
-  63,
+  64,
   'Applicant Swagger operation count changed'
 );
 
@@ -261,6 +264,16 @@ assert.deepStrictEqual(
  */
 assert.deepStrictEqual(
   applicantSwagger.paths[
+    '/api/applicants/{id}/audit'
+  ].get.tags,
+  [
+    'Applicant Audit & History'
+  ]
+);
+
+
+assert.deepStrictEqual(
+  applicantSwagger.paths[
     '/api/applicants/{id}/interviews'
   ].get.tags,
   [
@@ -310,7 +323,7 @@ assert.deepStrictEqual(
 
 
 console.log(
-  '✅ 63 Applicant APIs grouped'
+  '✅ 64 Applicant APIs grouped'
 );
 
 console.log(

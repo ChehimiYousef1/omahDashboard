@@ -211,6 +211,13 @@ const {
 );
 
 
+
+const {
+  getApplicantAuditHistory,
+} = require(
+  '../../services/applicantAuditService'
+);
+
 const {
   taskAssigneeActivityForTransition,
   taskPriorityActivityForTransition,
@@ -2570,10 +2577,18 @@ function createApplicantRouter({
               ),
           },
 
+          changes:
+            result.auditChanges ||
+            [],
+
           metadata: {
             important:
               result.note
                 ?.important ===
+              true,
+
+            previousStateKnown:
+              result.previousStateKnown ===
               true,
           },
         });
@@ -2788,6 +2803,22 @@ function createApplicantRouter({
                 ),
             },
 
+            changes: [
+              {
+                field:
+                  'task.assignee',
+
+                label:
+                  'Task assignee',
+
+                before:
+                  result.previousAssignee,
+
+                after:
+                  result.assignee,
+              },
+            ],
+
             metadata: {
               ...activity.metadata,
 
@@ -2898,6 +2929,22 @@ function createApplicantRouter({
                 ),
             },
 
+            changes: [
+              {
+                field:
+                  'task.priority',
+
+                label:
+                  'Task priority',
+
+                before:
+                  result.previousPriority,
+
+                after:
+                  result.priority,
+              },
+            ],
+
             metadata: {
               ...activity.metadata,
 
@@ -3007,6 +3054,22 @@ function createApplicantRouter({
                 ),
             },
 
+            changes: [
+              {
+                field:
+                  'task.status',
+
+                label:
+                  'Task status',
+
+                before:
+                  result.previousTaskStatus,
+
+                after:
+                  result.taskStatus,
+              },
+            ],
+
             metadata: {
               ...activity.metadata,
 
@@ -3100,7 +3163,15 @@ function createApplicantRouter({
               ),
           },
 
+          changes:
+            result.auditChanges ||
+            [],
+
           metadata: {
+            previousStateKnown:
+              result.previousStateKnown ===
+              true,
+
             startAt:
               result.note
                 ?.schedule
@@ -3955,6 +4026,22 @@ function createApplicantRouter({
               result.applicantId,
           },
 
+          changes: [
+            {
+              field:
+                'recruitment.tags',
+
+              label:
+                'Applicant tags',
+
+              before:
+                result.previousTags,
+
+              after:
+                result.tags,
+            },
+          ],
+
           metadata: {
             previousTags:
               result.previousTags,
@@ -3967,6 +4054,66 @@ function createApplicantRouter({
         return res.json({
           success: true,
           result,
+        });
+      } catch (error) {
+        return sendError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * GET /api/applicants/:id/audit
+   *
+   * Paginated audit and change history.
+   *
+   * Uses the same append-only ApplicantActivity
+   * collection as the Activity timeline, while
+   * exposing structured actors, actions, and
+   * before/after changes for administrative review.
+   */
+  router.get(
+    '/:id/audit',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await getApplicantAuditHistory({
+            applicantId:
+              req.params.id,
+
+            category:
+              req.query?.category,
+
+            action:
+              req.query?.action,
+
+            actorId:
+              req.query?.actorId,
+
+            from:
+              req.query?.from,
+
+            to:
+              req.query?.to,
+
+            page:
+              req.query?.page,
+
+            limit:
+              req.query?.limit,
+          });
+
+        return res.json({
+          success: true,
+          ...result,
         });
       } catch (error) {
         return sendError(
@@ -4237,6 +4384,10 @@ function createApplicantRouter({
               result.applicantId,
           },
 
+          changes:
+            result.auditChanges ||
+            [],
+
           metadata: {
             editedFields:
               result.editedFields ||
@@ -4314,6 +4465,22 @@ function createApplicantRouter({
               id:
                 result.applicantId,
             },
+
+            changes: [
+              {
+                field:
+                  'recruitment.status',
+
+                label:
+                  'Recruitment status',
+
+                before:
+                  result.previousStatus,
+
+                after:
+                  result.currentStatus,
+              },
+            ],
 
             metadata: {
               previousStatus:
@@ -4397,6 +4564,22 @@ function createApplicantRouter({
               result.applicantId,
           },
 
+          changes: [
+            {
+              field:
+                'lifecycle.archived',
+
+              label:
+                'Applicant archived',
+
+              before:
+                false,
+
+              after:
+                true,
+            },
+          ],
+
           metadata: {
             reason:
               result.archiveReason ||
@@ -4463,6 +4646,22 @@ function createApplicantRouter({
             id:
               result.applicantId,
           },
+
+          changes: [
+            {
+              field:
+                'lifecycle.archived',
+
+              label:
+                'Applicant archived',
+
+              before:
+                true,
+
+              after:
+                false,
+            },
+          ],
         });
 
         return res.json({

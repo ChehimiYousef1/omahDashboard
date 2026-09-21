@@ -233,19 +233,27 @@ async function run() {
   let capturedOptions;
 
   const MockApplicantModel = {
-    async updateOne(
+    async findOneAndUpdate(
       filter,
       updateOperation,
       options
     ) {
       capturedFilter = filter;
+
       capturedUpdate =
         updateOperation;
-      capturedOptions = options;
 
+      capturedOptions =
+        options;
+
+      /*
+       * Atomic pre-image returned by MongoDB.
+       */
       return {
-        matchedCount: 1,
-        modifiedCount: 1,
+        identity: {
+          city:
+            'Tripoli',
+        },
       };
     },
   };

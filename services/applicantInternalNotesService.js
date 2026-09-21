@@ -1253,6 +1253,168 @@ async function restoreApplicantInternalNote({
 }
 
 
+function auditDateValue(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return null;
+  }
+
+  const date =
+    value instanceof Date
+      ? value
+      : new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return cleanText(value);
+  }
+
+  return date.toISOString();
+}
+
+
+function scheduleAuditSnapshot(
+  schedule = {}
+) {
+  return {
+    startAt:
+      auditDateValue(
+        schedule?.startAt
+      ),
+
+    endAt:
+      auditDateValue(
+        schedule?.endAt
+      ),
+
+    reminderAt:
+      auditDateValue(
+        schedule?.reminderAt
+      ),
+
+    reminderNote:
+      cleanText(
+        schedule?.reminderNote
+      ),
+  };
+}
+
+
+async function readActiveInternalItemAuditSnapshot({
+  applicantObjectId,
+  noteObjectId,
+  NoteModel,
+}) {
+  if (
+    !NoteModel ||
+    typeof NoteModel.findOne !==
+      'function'
+  ) {
+    return {
+      known: false,
+      note: null,
+    };
+  }
+
+  const note =
+    await resolveLean(
+      NoteModel.findOne({
+        _id:
+          noteObjectId,
+
+        applicantId:
+          applicantObjectId,
+
+        archived: {
+          $ne: true,
+        },
+      })
+    );
+
+  return {
+    known:
+      Boolean(note),
+
+    note:
+      note || null,
+  };
+}
+
+
+function buildScheduleAuditChanges({
+  previousSchedule,
+  nextSchedule,
+  previousStateKnown,
+}) {
+  if (!previousStateKnown) {
+    return [];
+  }
+
+  const before =
+    scheduleAuditSnapshot(
+      previousSchedule
+    );
+
+  const after =
+    scheduleAuditSnapshot(
+      nextSchedule
+    );
+
+  const fields = [
+    {
+      key: 'startAt',
+      field: 'schedule.startAt',
+      label: 'Schedule start',
+    },
+    {
+      key: 'endAt',
+      field: 'schedule.endAt',
+      label: 'Schedule end',
+    },
+    {
+      key: 'reminderAt',
+      field: 'schedule.reminderAt',
+      label: 'Reminder time',
+    },
+    {
+      key: 'reminderNote',
+      field: 'schedule.reminderNote',
+      label: 'Reminder note',
+    },
+  ];
+
+  return fields
+    .filter(
+      item =>
+        before[item.key] !==
+        after[item.key]
+    )
+    .map(
+      item => ({
+        field:
+          item.field,
+
+        label:
+          item.label,
+
+        before:
+          before[item.key],
+
+        after:
+          after[item.key],
+      })
+    );
+}
+
+
 async function setApplicantInternalNoteImportance({
   applicantId,
   noteId,
@@ -1287,6 +1449,23 @@ async function setApplicantInternalNoteImportance({
       important,
       'important'
     );
+
+  const previous =
+    await readActiveInternalItemAuditSnapshot({
+      applicantObjectId:
+        target.applicantObjectId,
+
+      noteObjectId,
+
+      NoteModel,
+    });
+
+  const previousImportant =
+    previous.known
+      ? previous.note
+          ?.important ===
+        true
+      : null;
 
   const note =
     await resolveLean(
@@ -1328,16 +1507,57 @@ async function setApplicantInternalNoteImportance({
     );
   }
 
+  const currentImportant =
+    typeof note?.important ===
+      'boolean'
+      ? note.important
+      : normalizedImportant;
+
+  const changed =
+    previous.known
+      ? previousImportant !==
+        currentImportant
+      : true;
+
   return {
     status:
-      normalizedImportant
+      currentImportant
         ? 'internal-item-important'
         : 'internal-item-normal',
+
+    changed,
+
+    previousStateKnown:
+      previous.known,
+
+    previousImportant,
+
+    important:
+      currentImportant,
+
+    auditChanges:
+      previous.known &&
+      changed
+        ? [
+            {
+              field:
+                'internal.important',
+
+              label:
+                'Importance',
+
+              before:
+                previousImportant,
+
+              after:
+                currentImportant,
+            },
+          ]
+        : [],
 
     note,
   };
 }
-
 
 async function setApplicantInternalNoteLike({
   applicantId,
@@ -2219,6 +2439,16 @@ async function updateApplicantInternalNoteSchedule({
       schedule
     );
 
+  const previous =
+    await readActiveInternalItemAuditSnapshot({
+      applicantObjectId:
+        target.applicantObjectId,
+
+      noteObjectId,
+
+      NoteModel,
+    });
+
   const note =
     await resolveLean(
       NoteModel
@@ -2240,14 +2470,6 @@ async function updateApplicantInternalNoteSchedule({
               schedule:
                 normalizedSchedule,
 
-              /*
-               * Scheduling changes do not write
-               * to Google automatically.
-               *
-               * Preserve the event link and let
-               * the recruiter explicitly choose
-               * Update Calendar.
-               */
               'calendar.syncStatus':
                 'not_synced',
 
@@ -2276,14 +2498,55 @@ async function updateApplicantInternalNoteSchedule({
     );
   }
 
+  const resultingSchedule =
+    note?.schedule ||
+    normalizedSchedule;
+
+  const auditChanges =
+    buildScheduleAuditChanges({
+      previousSchedule:
+        previous.note
+          ?.schedule ||
+        {},
+
+      nextSchedule:
+        resultingSchedule,
+
+      previousStateKnown:
+        previous.known,
+    });
+
   return {
     status:
       'internal-item-schedule-updated',
 
+    changed:
+      previous.known
+        ? auditChanges.length > 0
+        : true,
+
+    previousStateKnown:
+      previous.known,
+
+    previousSchedule:
+      previous.known
+        ? scheduleAuditSnapshot(
+            previous.note
+              ?.schedule ||
+            {}
+          )
+        : null,
+
+    schedule:
+      scheduleAuditSnapshot(
+        resultingSchedule
+      ),
+
+    auditChanges,
+
     note,
   };
 }
-
 
 
 async function requireInternalNote({

@@ -92,6 +92,77 @@ function cloneValue(value) {
 |
 */
 
+function readProfileField(
+  applicant,
+  field
+) {
+  if (!applicant) {
+    return null;
+  }
+
+  if (
+    typeof applicant.get ===
+      'function'
+  ) {
+    const value =
+      applicant.get(field);
+
+    return value === undefined
+      ? null
+      : cloneValue(value);
+  }
+
+  let current =
+    applicant;
+
+  for (
+    const part
+    of String(field)
+      .split('.')
+  ) {
+    if (
+      current === null ||
+      current === undefined
+    ) {
+      return null;
+    }
+
+    current =
+      current[part];
+  }
+
+  return current === undefined
+    ? null
+    : cloneValue(current);
+}
+
+
+function buildProfileAuditChanges({
+  previous,
+  changes,
+}) {
+  return Object.entries(
+    changes || {}
+  ).map(
+    ([field, after]) => ({
+      field,
+
+      label:
+        field,
+
+      before:
+        readProfileField(
+          previous,
+          field
+        ),
+
+      after:
+        cloneValue(after),
+    })
+  );
+}
+
+
 function buildManualApplicantUpdate(
   changes
 ) {
@@ -201,8 +272,8 @@ async function editApplicantProfile({
       changes
     );
 
-  const result =
-    await ApplicantModel.updateOne(
+  const previous =
+    await ApplicantModel.findOneAndUpdate(
       {
         _id: applicantObjectId,
 
@@ -218,11 +289,12 @@ async function editApplicantProfile({
         },
       },
       {
+        new: false,
         runValidators: true,
       }
     );
 
-  if (result.matchedCount !== 1) {
+  if (!previous) {
     throw serviceError(
       'APPLICANT_NOT_FOUND',
       'Applicant was not found or is archived.'
@@ -237,6 +309,12 @@ async function editApplicantProfile({
 
     editedFields:
       Object.keys(changes),
+
+    auditChanges:
+      buildProfileAuditChanges({
+        previous,
+        changes,
+      }),
   };
 }
 

@@ -1271,6 +1271,270 @@ module.exports = {
       },
     },
 
+    '/api/applicants/{id}/audit': {
+      get: {
+        tags: [
+          'Applicant Audit & History',
+        ],
+
+        summary:
+          'Get Applicant audit and change history',
+
+        description:
+          'Returns paginated, reverse-chronological Applicant audit events including actor snapshots, action/category, source context, and structured before/after changes where available. Historical ApplicantActivity records remain supported without rewriting existing data.',
+
+        /*
+         * Authentication is inherited from the
+         * global OpenAPI cookieAuth requirement.
+         */
+
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            name: 'category',
+            in: 'query',
+            required: false,
+
+            description:
+              'Optional Applicant activity category.',
+
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            name: 'action',
+            in: 'query',
+            required: false,
+
+            description:
+              'Optional exact audited action/event type.',
+
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            name: 'actorId',
+            in: 'query',
+            required: false,
+
+            description:
+              'Optional user ID that performed the action.',
+
+            schema: {
+              type: 'string',
+            },
+          },
+
+          {
+            name: 'from',
+            in: 'query',
+            required: false,
+
+            description:
+              'Optional inclusive audit start date/time.',
+
+            schema: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+
+          {
+            name: 'to',
+            in: 'query',
+            required: false,
+
+            description:
+              'Optional inclusive audit end date/time.',
+
+            schema: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+
+          {
+            name: 'page',
+            in: 'query',
+            required: false,
+
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              default: 1,
+            },
+          },
+
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+
+            schema: {
+              type: 'integer',
+              minimum: 1,
+              maximum: 100,
+              default: 50,
+            },
+          },
+        ],
+
+        responses: {
+          200: {
+            description:
+              'Applicant audit and change history',
+
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+
+                  properties: {
+                    success: {
+                      type: 'boolean',
+                      example: true,
+                    },
+
+                    events: {
+                      type: 'array',
+
+                      items: {
+                        type: 'object',
+
+                        properties: {
+                          id: {
+                            type: 'string',
+                          },
+
+                          action: {
+                            type: 'string',
+                          },
+
+                          category: {
+                            type: 'string',
+                          },
+
+                          title: {
+                            type: 'string',
+                          },
+
+                          description: {
+                            type: 'string',
+                          },
+
+                          occurredAt: {
+                            type: 'string',
+                            format: 'date-time',
+                          },
+
+                          recordedAt: {
+                            type: 'string',
+                            format: 'date-time',
+                          },
+
+                          actor: {
+                            type: 'object',
+                          },
+
+                          source: {
+                            type: 'object',
+                          },
+
+                          changes: {
+                            type: 'array',
+
+                            items: {
+                              type: 'object',
+
+                              properties: {
+                                field: {
+                                  type: 'string',
+                                },
+
+                                label: {
+                                  type: 'string',
+                                },
+
+                                before: {},
+
+                                after: {},
+                              },
+                            },
+                          },
+
+                          details: {
+                            type: 'object',
+                          },
+
+                          auditVersion: {
+                            type: 'integer',
+                          },
+                        },
+                      },
+                    },
+
+                    total: {
+                      type: 'integer',
+                    },
+
+                    page: {
+                      type: 'integer',
+                    },
+
+                    limit: {
+                      type: 'integer',
+                    },
+
+                    pages: {
+                      type: 'integer',
+                    },
+
+                    filters: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          400: {
+            description:
+              'Invalid audit filter or date range.',
+          },
+
+          401: {
+            description:
+              'Not authenticated.',
+          },
+
+          403: {
+            description:
+              'Applicant access denied.',
+          },
+
+          500: {
+            $ref:
+              '#/components/responses/InternalError',
+          },
+        },
+      },
+    },
+
+
     '/api/applicants/{id}/activity': {
       get: {
         tags: [
@@ -4466,6 +4730,14 @@ const APPLICANT_SWAGGER_SECTION_TAGS = [
 
   {
     name:
+      'Applicant Audit & History',
+
+    description:
+      'Immutable Applicant audit trail showing who changed what and when, with actor snapshots and structured before/after values where available.'
+  },
+
+  {
+    name:
       'Applicant Search & Analytics',
 
     description:
@@ -4550,6 +4822,18 @@ function resolveApplicantSwaggerSection(
   path,
   method
 ) {
+  /*
+   * Audit & Change History.
+   */
+  if (
+    path.endsWith(
+      '/audit'
+    )
+  ) {
+    return 'Applicant Audit & History';
+  }
+
+
   /*
    * Interviews.
    */

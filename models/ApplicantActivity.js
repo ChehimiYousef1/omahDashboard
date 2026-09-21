@@ -70,6 +70,57 @@ const sourceSchema =
   );
 
 
+/*
+|--------------------------------------------------------------------------
+| Structured Audit Changes
+|--------------------------------------------------------------------------
+|
+| Existing ApplicantActivity documents remain valid.
+|
+| New audit-aware writes may additionally capture exact before/after values.
+| Historical records without this field continue to use metadata fallback.
+|
+*/
+
+const auditChangeSchema =
+  new Schema(
+    {
+      field: {
+        type: String,
+        required: true,
+        trim: true,
+        maxlength: 200,
+      },
+
+      label: {
+        type: String,
+        default: '',
+        trim: true,
+        maxlength: 200,
+      },
+
+      before: {
+        type:
+          Schema.Types.Mixed,
+
+        default:
+          null,
+      },
+
+      after: {
+        type:
+          Schema.Types.Mixed,
+
+        default:
+          null,
+      },
+    },
+    {
+      _id: false,
+    }
+  );
+
+
 const applicantActivitySchema =
   new Schema(
     {
@@ -145,6 +196,34 @@ const applicantActivitySchema =
 
         default:
           () => ({}),
+      },
+
+      /*
+       * Audit schema version.
+       *
+       * Version 1 keeps old ApplicantActivity
+       * records fully backward-compatible.
+       */
+      auditVersion: {
+        type: Number,
+        default: 1,
+        min: 1,
+      },
+
+      /*
+       * Structured before/after changes.
+       *
+       * Empty for legacy/general activity
+       * events that did not capture an
+       * exact field-level transition.
+       */
+      changes: {
+        type: [
+          auditChangeSchema
+        ],
+
+        default:
+          () => [],
       },
 
       metadata: {
