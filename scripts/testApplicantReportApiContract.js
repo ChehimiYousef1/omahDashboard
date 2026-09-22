@@ -12,57 +12,122 @@ const createApplicantReportRouter =
   );
 
 
-const requestedPermissions = [];
+const EXPECTED_PERMISSIONS = [
+  'applicant:view',
+  'applicant:interviews:view',
+  'applicant:evaluations:view',
+];
+
+
+function permissionMiddleware(
+  permission
+) {
+  const middleware =
+    (
+      req,
+      res,
+      next
+    ) => next();
+
+  /*
+   * Test-only metadata.
+   * Lets us inspect the permission chain
+   * attached to each individual route.
+   */
+  middleware
+    ._applicantPermission =
+    permission;
+
+  return middleware;
+}
+
 
 const router =
   createApplicantReportRouter({
     requireApplicantPermission:
-      permission => {
-        requestedPermissions.push(
+      permission =>
+        permissionMiddleware(
           permission
-        );
-
-        return (
-          req,
-          res,
-          next
-        ) =>
-          next();
-      },
+        ),
 
     services: {
       async buildApplicantSummaryReport() {
         throw new Error(
-          'Handler must not execute during contract inspection'
+          'Summary handler must not execute during contract inspection'
         );
       },
 
       async renderApplicantSummaryPdf() {
         return Buffer.from(
-          '%PDF-test'
+          '%PDF-summary-test'
+        );
+      },
+
+      async buildApplicantRecruitmentReport() {
+        throw new Error(
+          'Recruitment handler must not execute during contract inspection'
+        );
+      },
+
+      async renderApplicantRecruitmentPdf() {
+        return Buffer.from(
+          '%PDF-recruitment-test'
         );
       },
     },
   });
 
 
-const routeLayer =
-  router.stack.find(
+function findRoute(
+  path
+) {
+  return router.stack.find(
     layer =>
       layer
         ?.route
         ?.path ===
-      '/summary.pdf'
+      path
+  );
+}
+
+
+function routePermissions(
+  path
+) {
+  const route =
+    findRoute(path);
+
+  assert.ok(
+    route,
+    `Missing report route: ${path}`
+  );
+
+  return route
+    .route
+    .stack
+    .map(
+      layer =>
+        layer
+          ?.handle
+          ?._applicantPermission
+    )
+    .filter(Boolean);
+}
+
+
+const summaryRoute =
+  findRoute(
+    '/summary.pdf'
   );
 
 assert.ok(
-  routeLayer,
+  summaryRoute,
   'Summary PDF route missing'
 );
 
 assert.strictEqual(
   Boolean(
-    routeLayer
+    summaryRoute
       .route
       .methods
       .get
@@ -71,13 +136,40 @@ assert.strictEqual(
 );
 
 assert.deepStrictEqual(
-  requestedPermissions,
-  [
-    'applicant:view',
-    'applicant:interviews:view',
-    'applicant:evaluations:view',
-  ]
+  routePermissions(
+    '/summary.pdf'
+  ),
+  EXPECTED_PERMISSIONS
 );
+
+
+const recruitmentRoute =
+  findRoute(
+    '/recruitment.pdf'
+  );
+
+assert.ok(
+  recruitmentRoute,
+  'Recruitment PDF route missing'
+);
+
+assert.strictEqual(
+  Boolean(
+    recruitmentRoute
+      .route
+      .methods
+      .get
+  ),
+  true
+);
+
+assert.deepStrictEqual(
+  routePermissions(
+    '/recruitment.pdf'
+  ),
+  EXPECTED_PERMISSIONS
+);
+
 
 const bootstrap =
   fs.readFileSync(
@@ -97,11 +189,24 @@ assert.ok(
   )
 );
 
+
 const source =
   fs.readFileSync(
     'src/routes/applicantReports.routes.js',
     'utf8'
   );
+
+assert.ok(
+  source.includes(
+    "'/summary.pdf'"
+  )
+);
+
+assert.ok(
+  source.includes(
+    "'/recruitment.pdf'"
+  )
+);
 
 assert.ok(
   source.includes(
@@ -121,12 +226,37 @@ assert.ok(
   )
 );
 
+assert.ok(
+  source.includes(
+    'omah-applicant-summary-'
+  )
+);
+
+assert.ok(
+  source.includes(
+    'omah-recruitment-report-'
+  )
+);
+
+
 console.log(
   '✅ Summary PDF route registered'
 );
 
 console.log(
-  '✅ Applicant + Interview + Evaluation read permissions required'
+  '✅ Recruitment PDF route registered'
+);
+
+console.log(
+  '✅ Summary permission chain exact'
+);
+
+console.log(
+  '✅ Recruitment permission chain exact'
+);
+
+console.log(
+  '✅ Applicant + Interview + Evaluation read permissions preserved'
 );
 
 console.log(
@@ -134,7 +264,7 @@ console.log(
 );
 
 console.log(
-  '✅ attachment response configured'
+  '✅ attachment responses configured'
 );
 
 console.log(

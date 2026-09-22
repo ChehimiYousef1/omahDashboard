@@ -176,6 +176,8 @@ run_node_test "scripts/testApplicantReportApiContract.js"
 
 run_node_test "scripts/testApplicantReportSwagger.js"
 
+run_node_test "scripts/testApplicantRecruitmentReport.js"
+
 echo ""
 echo "===================================================="
 echo " 3. AUDIT FOUNDATION"

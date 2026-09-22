@@ -111,5 +111,90 @@ module.exports = {
           },
         },
       },
+
+
+    '/api/applicants/{applicantId}/reports/recruitment.pdf':
+      {
+        get: {
+          tags: [
+            'Applicant Reports & Export',
+          ],
+
+          summary:
+            'Export Applicant recruitment report PDF',
+
+          description:
+            'Generates a detailed recruitment report containing whitelisted Applicant profile data, active Interview history, Evaluation scoring history, and recruitment assessment metadata.',
+
+          security: [
+            {
+              cookieAuth: [],
+            },
+          ],
+
+          parameters: [
+            {
+              name:
+                'applicantId',
+
+              in:
+                'path',
+
+              required:
+                true,
+
+              schema: {
+                type:
+                  'string',
+              },
+            },
+          ],
+
+          responses: {
+            200: {
+              description:
+                'Applicant recruitment report PDF',
+
+              content: {
+                'application/pdf':
+                  {
+                    schema: {
+                      type:
+                        'string',
+
+                      format:
+                        'binary',
+                    },
+                  },
+              },
+            },
+
+            400: {
+              $ref:
+                '#/components/responses/BadRequest',
+            },
+
+            401: {
+              $ref:
+                '#/components/responses/Unauthorized',
+            },
+
+            403: {
+              $ref:
+                '#/components/responses/Forbidden',
+            },
+
+            404: {
+              $ref:
+                '#/components/responses/NotFound',
+            },
+
+            500: {
+              $ref:
+                '#/components/responses/InternalError',
+            },
+          },
+        },
+      },
   },
 };

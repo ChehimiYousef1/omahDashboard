@@ -16,6 +16,19 @@ const {
 );
 
 
+const {
+  buildApplicantRecruitmentReport,
+} = require(
+  '../../services/applicantRecruitmentReportService'
+);
+
+const {
+  renderApplicantRecruitmentPdf,
+} = require(
+  '../../services/applicantRecruitmentPdfRenderer'
+);
+
+
 function cleanText(
   value
 ) {
@@ -150,6 +163,8 @@ function createApplicantReportRouter({
   const api = {
     buildApplicantSummaryReport,
     renderApplicantSummaryPdf,
+    buildApplicantRecruitmentReport,
+    renderApplicantRecruitmentPdf,
 
     ...services,
   };
@@ -211,6 +226,126 @@ function createApplicantReportRouter({
           reportFileName(
             report
           );
+
+        res.setHeader(
+          'Content-Type',
+          'application/pdf'
+        );
+
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="${filename}"`
+        );
+
+        res.setHeader(
+          'Content-Length',
+          String(
+            pdf.length
+          )
+        );
+
+        res.setHeader(
+          'Cache-Control',
+          'private, no-store'
+        );
+
+        return res
+          .status(200)
+          .end(pdf);
+      } catch (error) {
+        return sendReportError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  router.get(
+    '/recruitment.pdf',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    requireApplicantPermission(
+      'applicant:interviews:view'
+    ),
+
+    requireApplicantPermission(
+      'applicant:evaluations:view'
+    ),
+
+    async (
+      req,
+      res
+    ) => {
+      try {
+        const report =
+          await api
+            .buildApplicantRecruitmentReport({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              generatedBy:
+                generatedBy(
+                  req.user
+                ),
+            });
+
+        const pdf =
+          await api
+            .renderApplicantRecruitmentPdf(
+              report
+            );
+
+        if (
+          !Buffer.isBuffer(pdf)
+        ) {
+          throw new Error(
+            'Recruitment PDF renderer returned a non-buffer result.'
+          );
+        }
+
+        const rawName =
+          cleanText(
+            report
+              ?.candidate
+              ?.fullName
+          ) ||
+          'applicant';
+
+        const slug =
+          rawName
+            .normalize('NFKD')
+            .replace(
+              /[^\x00-\x7F]/g,
+              ''
+            )
+            .replace(
+              /[^a-zA-Z0-9]+/g,
+              '-'
+            )
+            .replace(
+              /^-+|-+$/g,
+              ''
+            )
+            .toLowerCase() ||
+          'applicant';
+
+        const date =
+          cleanText(
+            report
+              ?.report
+              ?.generatedAt
+          )
+            .slice(0, 10) ||
+          'report';
+
+        const filename =
+          `omah-recruitment-report-${slug}-${date}.pdf`;
 
         res.setHeader(
           'Content-Type',
