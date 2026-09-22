@@ -162,6 +162,20 @@ run_node_test \
   scripts/testApplicantDocumentSwagger.js
 
 
+
+echo ""
+echo "----------------------------------------------------"
+echo " APPLICANT REPORT EXPORT"
+echo "----------------------------------------------------"
+
+run_node_test "scripts/testApplicantReportService.js"
+
+run_node_test "scripts/testApplicantReportPdfRenderer.js"
+
+run_node_test "scripts/testApplicantReportApiContract.js"
+
+run_node_test "scripts/testApplicantReportSwagger.js"
+
 echo ""
 echo "===================================================="
 echo " 3. AUDIT FOUNDATION"

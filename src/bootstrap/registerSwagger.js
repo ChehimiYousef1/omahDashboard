@@ -15,6 +15,11 @@ const applicantDocumentSwagger =
     '../../docs/applicantDocumentSwagger'
   );
 
+const applicantReportSwagger =
+  require(
+    '../../docs/applicantReportSwagger'
+  );
+
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +48,11 @@ function buildApplicantSwaggerSpec() {
         applicantDocumentSwagger.paths ||
         {}
       ),
+
+        ...(
+          applicantReportSwagger.paths ||
+          {}
+        ),
     },
 
     tags: [
@@ -55,6 +65,11 @@ function buildApplicantSwaggerSpec() {
         applicantDocumentSwagger.tags ||
         []
       ),
+
+        ...(
+          applicantReportSwagger.tags ||
+          []
+        ),
     ],
   };
 }

@@ -378,6 +378,74 @@ console.log(
   '✅ existing 8 Applicant Document APIs preserved'
 );
 
+
+
+/*
+|--------------------------------------------------------------------------
+| Applicant Reports & Export
+|--------------------------------------------------------------------------
+*/
+
+const applicantReportSwagger =
+  require(
+    '../docs/applicantReportSwagger'
+  );
+
+const reportPath =
+  '/api/applicants/{applicantId}/reports/summary.pdf';
+
+assert.ok(
+  applicantReportSwagger
+    .paths
+    ?.[reportPath]
+    ?.get,
+  'Applicant Summary PDF Swagger path missing'
+);
+
+assert.deepStrictEqual(
+  applicantReportSwagger
+    .paths
+    [reportPath]
+    .get
+    .tags,
+  [
+    'Applicant Reports & Export',
+  ]
+);
+
+const mergedApplicantReportSwaggerSpec =
+  require(
+    '../src/bootstrap/registerSwagger'
+  ).buildApplicantSwaggerSpec();
+
+
+const mergedReportPath =
+  mergedApplicantReportSwaggerSpec
+    .paths
+    ?.[reportPath]
+    ?.get;
+
+assert.ok(
+  mergedReportPath,
+  'Applicant report path missing from merged Swagger'
+);
+
+assert.ok(
+  (
+    mergedApplicantReportSwaggerSpec.tags ||
+    []
+  ).some(
+    tag =>
+      tag.name ===
+      'Applicant Reports & Export'
+  ),
+  'Applicant Reports & Export Swagger group missing'
+);
+
+console.log(
+  '✅ Applicant Reports & Export APIs separated'
+);
+
 console.log(
   '\nAPPLICANT SWAGGER GROUPING TEST PASSED'
 );

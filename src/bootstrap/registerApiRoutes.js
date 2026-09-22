@@ -50,6 +50,11 @@ const createApplicantDocumentsRouter =
     '../routes/applicantDocuments.routes'
   );
 
+const createApplicantReportsRouter =
+  require(
+    '../routes/applicantReports.routes'
+  );
+
 const createApplicantsRouter =
   require(
     '../routes/applicants.routes'
@@ -288,6 +293,25 @@ function registerApiRoutes(
 
       recordActivity:
         recordApplicantActivity,
+    })
+  );
+
+
+
+  /*
+   * Applicant report exports.
+   *
+   * Read-only protected Applicant reporting.
+   */
+  app.use(
+    '/api/applicants/:applicantId/reports',
+
+    authenticateToken,
+
+    requireApplicantAccess,
+
+    createApplicantReportsRouter({
+      requireApplicantPermission,
     })
   );
 
