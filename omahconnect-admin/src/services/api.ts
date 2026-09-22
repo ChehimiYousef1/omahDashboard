@@ -3621,6 +3621,184 @@ export const downloadApplicantDocumentFile = async (
 
 
 
+
+/* =========================
+   APPLICANT REPORT EXPORT
+========================= */
+
+export type ApplicantReportExportKind =
+  | "summary"
+  | "recruitment";
+
+
+function applicantReportFallbackFileName(
+  kind: ApplicantReportExportKind
+): string {
+  return kind ===
+    "summary"
+    ? "omah-applicant-summary.pdf"
+    : "omah-recruitment-report.pdf";
+}
+
+
+function applicantReportFileNameFromHeader(
+  contentDisposition: unknown,
+  fallback: string
+): string {
+  const header =
+    typeof contentDisposition ===
+      "string"
+      ? contentDisposition
+      : "";
+
+  const quoted =
+    header.match(
+      /filename="([^"]+)"/i
+    );
+
+  const plain =
+    header.match(
+      /filename=([^;]+)/i
+    );
+
+  const candidate =
+    (
+      quoted?.[1] ||
+      plain?.[1] ||
+      fallback
+    )
+      .trim()
+      .replace(
+        /^["']|["']$/g,
+        ""
+      );
+
+  const safe =
+    candidate.replace(
+      /[\\/:*?"<>|]/g,
+      "-"
+    );
+
+  return safe ||
+    fallback;
+}
+
+
+export const downloadApplicantReportPdf =
+  async (
+    applicantId: string,
+    kind: ApplicantReportExportKind
+  ): Promise<void> => {
+    const response =
+      await apiClient.get(
+        `/applicants/${encodeURIComponent(
+          applicantId
+        )}/reports/${kind}.pdf`,
+        {
+          responseType:
+            "blob",
+        }
+      );
+
+    const contentType =
+      String(
+        response.headers[
+          "content-type"
+        ] || ""
+      );
+
+    if (
+      !contentType
+        .toLowerCase()
+        .includes(
+          "application/pdf"
+        )
+    ) {
+      throw new Error(
+        "The report response was not a PDF."
+      );
+    }
+
+    const blob =
+      response.data as Blob;
+
+    const fallback =
+      applicantReportFallbackFileName(
+        kind
+      );
+
+    const fileName =
+      applicantReportFileNameFromHeader(
+        response.headers[
+          "content-disposition"
+        ],
+        fallback
+      );
+
+    const objectUrl =
+      URL.createObjectURL(
+        blob
+      );
+
+    const link =
+      window.document
+        .createElement(
+          "a"
+        );
+
+    try {
+      link.href =
+        objectUrl;
+
+      link.download =
+        fileName;
+
+      link.rel =
+        "noopener noreferrer";
+
+      window.document.body
+        .appendChild(
+          link
+        );
+
+      link.click();
+    } finally {
+      link.remove();
+
+      window.setTimeout(
+        () => {
+          URL.revokeObjectURL(
+            objectUrl
+          );
+        },
+        0
+      );
+    }
+  };
+
+
+export const downloadApplicantSummaryReport =
+  async (
+    applicantId: string
+  ): Promise<void> => {
+    await downloadApplicantReportPdf(
+      applicantId,
+      "summary"
+    );
+  };
+
+
+export const downloadApplicantRecruitmentReport =
+  async (
+    applicantId: string
+  ): Promise<void> => {
+    await downloadApplicantReportPdf(
+      applicantId,
+      "recruitment"
+    );
+  };
+
+
 /* =========================
    APPLICANT INTERNAL NOTES,
    TASKS & TAGS

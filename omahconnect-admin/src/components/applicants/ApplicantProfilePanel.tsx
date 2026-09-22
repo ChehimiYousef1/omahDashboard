@@ -62,6 +62,10 @@ import {
 } from "./ApplicantDocumentsPanel";
 
 import {
+  ApplicantReportExportActions,
+} from "./ApplicantReportExportActions";
+
+import {
   applicantManagementActions,
   type ApplicantManagementActionId,
 } from "./applicantManagementActions";
@@ -725,14 +729,22 @@ Enter option number:`,
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
-              aria-label="Close Applicant profile"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            <div className="flex items-start gap-2">
+              <ApplicantReportExportActions
+                applicantId={
+                  applicant._id
+                }
+              />
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+                aria-label="Close Applicant profile"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </header>
 

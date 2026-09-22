@@ -381,6 +381,8 @@ run_node_test \
 run_node_test \
   scripts/testApplicantExternalDocumentFrontend.js
 
+run_node_test "scripts/testApplicantReportExportFrontend.js"
+
 echo ""
 echo "⚪ KNOWN STALE TEST EXCLUDED:"
 echo "   scripts/testApplicantDocumentManagementFrontend.js"
