@@ -3070,3 +3070,145 @@ Object.assign(
     scheduleTalentPoolReview,
   }
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| B5F — Talent Pool Frontend Support
+|--------------------------------------------------------------------------
+*/
+
+function normalizeTalentPoolFrontendOptions(values = []) {
+  const seen = new Set();
+  const result = [];
+  for (const raw of values.flat(Infinity)) {
+    const value = String(raw ?? '').trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+  }
+  return result.sort((a,b)=>a.localeCompare(b));
+}
+
+async function getTalentPoolDiscoveryOptions({
+  ApplicantModel = require('../models/Applicant'),
+  CategoryModel = require('../models/TalentPoolCategory'),
+} = {}) {
+  const filter = {
+    'lifecycle.archived': { $ne: true },
+    'talentPool.active': true,
+  };
+  const distinct = field => ApplicantModel.distinct(field, filter);
+  const skillFields = [
+    'skills.primaryTechnical','skills.otherTechnical','skills.programmingLanguages',
+    'skills.frameworks','skills.databases','skills.cloudDevOps',
+    'skills.developmentTools','skills.softSkills','skills.dataEngineerSkills',
+    'skills.aiMlEngineerSkills','skills.dataAnalystSkills',
+  ];
+  const [categories,roles,experience,tags,owners,countries,cities,tracks,types,statuses,...skills] = await Promise.all([
+    CategoryModel.find({active:true}).sort({sortOrder:1,name:1}).lean(),
+    distinct('talentPool.roles'), distinct('skills.technicalExperienceLevel'),
+    distinct('recruitment.tags'), distinct('talentPool.ownerId'),
+    distinct('identity.country'), distinct('identity.city'),
+    distinct('preferences.positionTrack'), distinct('preferences.positionType'),
+    distinct('recruitment.status'), ...skillFields.map(distinct),
+  ]);
+  return {
+    categories:(categories||[]).map(c=>({
+      _id:String(c._id), name:c.name, slug:c.slug,
+      description:c.description||'', sortOrder:c.sortOrder??0,
+    })),
+    roles:normalizeTalentPoolFrontendOptions(roles),
+    skills:normalizeTalentPoolFrontendOptions(skills),
+    technicalExperienceLevels:normalizeTalentPoolFrontendOptions(experience),
+    tags:normalizeTalentPoolFrontendOptions(tags),
+    priorities:['normal','medium','high'],
+    ownerIds:normalizeTalentPoolFrontendOptions(owners),
+    countries:normalizeTalentPoolFrontendOptions(countries),
+    cities:normalizeTalentPoolFrontendOptions(cities),
+    positionTracks:normalizeTalentPoolFrontendOptions(tracks),
+    positionTypes:normalizeTalentPoolFrontendOptions(types),
+    recruitmentStatuses:normalizeTalentPoolFrontendOptions(statuses),
+    reviewStatuses:['inactive','not_scheduled','scheduled','due','overdue','reviewed'],
+    sortFields:['addedAt','nextReviewAt','lastReviewedAt','fullName','createdAt','updatedAt'],
+  };
+}
+
+function talentPoolBreakdown(values, limit = 20) {
+  const map = new Map();
+  for (const raw of values.flat(Infinity)) {
+    const label = String(raw ?? '').trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    const item = map.get(key) || {label,count:0};
+    item.count += 1;
+    map.set(key,item);
+  }
+  return [...map.values()].sort((a,b)=>b.count-a.count || a.label.localeCompare(b.label)).slice(0,limit);
+}
+
+async function getTalentPoolAnalytics({
+  ApplicantModel = require('../models/Applicant'),
+  CategoryModel = require('../models/TalentPoolCategory'),
+  now = () => new Date(),
+} = {}) {
+  const [applicants,categories] = await Promise.all([
+    ApplicantModel.find({
+      'lifecycle.archived':{$ne:true},
+      'talentPool.addedAt':{$ne:null},
+    }).select({identity:1,preferences:1,skills:1,recruitment:1,talentPool:1}).lean(),
+    CategoryModel.find({}).select({name:1,slug:1}).lean(),
+  ]);
+  const current = new Date(now());
+  const cutoff = new Date(current.getTime() - 30*24*60*60*1000);
+  const names = new Map((categories||[]).map(c=>[String(c._id),c.name||c.slug||'Uncategorized']));
+  const all = applicants || [];
+  const active = all.filter(a=>a?.talentPool?.active===true);
+  const removed = all.filter(a=>a?.talentPool?.active!==true);
+  const review = active.map(a=>deriveReviewStatus(a.talentPool||{},current));
+  const categoryLabels = active.map(a=>a?.talentPool?.categoryId ? (names.get(String(a.talentPool.categoryId))||'Uncategorized') : 'Uncategorized');
+  const skills = a => normalizeTalentPoolFrontendOptions([
+    a?.skills?.primaryTechnical,a?.skills?.otherTechnical,a?.skills?.programmingLanguages,
+    a?.skills?.frameworks,a?.skills?.databases,a?.skills?.cloudDevOps,
+    a?.skills?.developmentTools,a?.skills?.softSkills,a?.skills?.dataEngineerSkills,
+    a?.skills?.aiMlEngineerSkills,a?.skills?.dataAnalystSkills,
+  ]);
+  return {
+    generatedAt:current.toISOString(),
+    summary:{
+      totalMembers:all.length,
+      activeMembers:active.length,
+      removedMembers:removed.length,
+      highPriority:active.filter(a=>a?.talentPool?.priority==='high').length,
+      reviewDue:review.filter(v=>v==='due').length,
+      reviewOverdue:review.filter(v=>v==='overdue').length,
+      scheduledReviews:review.filter(v=>v==='scheduled').length,
+      reviewed:review.filter(v=>v==='reviewed').length,
+      recentlyAdded30:all.filter(a=>a?.talentPool?.addedAt && new Date(a.talentPool.addedAt)>=cutoff).length,
+      recentlyRemoved30:removed.filter(a=>a?.talentPool?.removedAt && new Date(a.talentPool.removedAt)>=cutoff).length,
+      categoriesRepresented:new Set(categoryLabels.filter(v=>v!=='Uncategorized')).size,
+    },
+    breakdowns:{
+      categories:talentPoolBreakdown(categoryLabels),
+      roles:talentPoolBreakdown(active.map(a=>a?.talentPool?.roles||[])),
+      skills:talentPoolBreakdown(active.map(skills)),
+      technicalExperienceLevels:talentPoolBreakdown(active.map(a=>a?.skills?.technicalExperienceLevel||'')),
+      priorities:talentPoolBreakdown(active.map(a=>a?.talentPool?.priority||'normal')),
+      owners:talentPoolBreakdown(active.map(a=>a?.talentPool?.ownerId||'Unassigned')),
+      countries:talentPoolBreakdown(active.map(a=>a?.identity?.country||'')),
+      cities:talentPoolBreakdown(active.map(a=>a?.identity?.city||'')),
+      positionTracks:talentPoolBreakdown(active.map(a=>a?.preferences?.positionTrack||'')),
+      recruitmentStatuses:talentPoolBreakdown(active.map(a=>a?.recruitment?.status||'')),
+      reviewStatuses:talentPoolBreakdown(review),
+    },
+  };
+}
+
+Object.assign(module.exports, {
+  normalizeTalentPoolFrontendOptions,
+  talentPoolBreakdown,
+  getTalentPoolDiscoveryOptions,
+  getTalentPoolAnalytics,
+});

@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('assert');
+const fs=require('fs');
+const {normalizeTalentPoolFrontendOptions,talentPoolBreakdown}=require('../services/applicantTalentPoolService');
+assert.deepStrictEqual(normalizeTalentPoolFrontendOptions(['React','react',' Node.js ','']),['Node.js','React']);
+assert.deepStrictEqual(talentPoolBreakdown(['Backend','Frontend','Backend']),[{label:'Backend',count:2},{label:'Frontend',count:1}]);
+const source=fs.readFileSync(require.resolve('../src/routes/applicantTalentPool.routes'),'utf8');
+const o=source.indexOf("'/options'"); const a=source.indexOf("'/analytics'"); const d=source.indexOf("'/:applicantId'");
+assert.ok(o>=0&&a>=0&&d>=0&&o<d&&a<d,'Static Talent Pool routes must precede /:applicantId');
+const swagger=require('../docs/applicantTalentPoolSwagger');
+assert.ok(swagger.paths['/api/applicants/talent-pool/options']?.get);
+assert.ok(swagger.paths['/api/applicants/talent-pool/analytics']?.get);
+let count=0; for(const path of Object.values(swagger.paths||{})) for(const m of ['get','post','put','patch','delete']) if(path?.[m]) count++;
+assert.strictEqual(count,18);
+console.log('✅ options + analytics helpers');
+console.log('✅ static route ordering');
+console.log('✅ 18 documented Talent Pool operations');
+console.log('\nAPPLICANT TALENT POOL FRONTEND BACKEND CONTRACT TEST PASSED');

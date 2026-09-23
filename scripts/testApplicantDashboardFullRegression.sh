@@ -203,6 +203,14 @@ run_node_test "scripts/testApplicantTalentPoolReviewApiContract.js"
 
 run_node_test "scripts/testApplicantTalentPoolTaskCalendarReuse.js"
 
+run_node_test "scripts/testApplicantTalentPoolFrontendBackendContract.js"
+
+run_node_test "scripts/testApplicantTalentPoolFrontendApi.js"
+
+run_node_test "scripts/testApplicantTalentPoolFrontend.js"
+
+run_node_test "scripts/testApplicantTalentPoolProfileFrontend.js"
+
 
 
 

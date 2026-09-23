@@ -60,6 +60,7 @@ import {
 import {
   ApplicantDocumentsPanel,
 } from "./ApplicantDocumentsPanel";
+import { ApplicantTalentPoolProfilePanel } from "./ApplicantTalentPoolProfilePanel";
 
 import {
   ApplicantReportExportActions,
@@ -74,6 +75,7 @@ type ProfileTab =
   | "overview"
   | "current-profile"
   | "submissions"
+  | "talentPool"
   | "documents"
   | "evaluations"
   | "interviews"
@@ -111,6 +113,10 @@ const tabs: Array<{
     label: "Submissions",
   },
   {
+    id: "talentPool",
+    label: "Talent Pool",
+  },
+{
     id: "documents",
     label: "Documents",
   },
@@ -1195,7 +1201,21 @@ Enter option number:`,
             />
           )}
 
-          {activeTab ===
+                    {activeTab ===
+            "talentPool" && (
+            <ApplicantTalentPoolProfilePanel
+              applicantId={
+                applicant._id
+              }
+              applicantName={
+                applicant.identity?.fullName ||
+                applicant.applicantCode ||
+                "Applicant"
+              }
+            />
+          )}
+
+{activeTab ===
             "documents" && (
             <section className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
               <ApplicantDocumentsPanel

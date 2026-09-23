@@ -1,0 +1,3 @@
+'use strict'; const assert=require('assert'); const fs=require('fs'); const s=fs.readFileSync(require.resolve('../omahconnect-admin/src/services/api.ts'),'utf8');
+for(const x of ['ApplicantTalentPoolQuery','ApplicantTalentPoolOptions','ApplicantTalentPoolAnalytics','fetchApplicantTalentPool','fetchApplicantTalentPoolOptions','fetchApplicantTalentPoolAnalytics','patchApplicantTalentPoolMembership','removeApplicantFromTalentPool','restoreApplicantToTalentPool','completeApplicantTalentPoolReview','scheduleApplicantTalentPoolReview']) assert.ok(s.includes(x),`Missing ${x}`);
+console.log('✅ typed Talent Pool frontend API'); console.log('\nAPPLICANT TALENT POOL FRONTEND API TEST PASSED');

@@ -1401,3 +1401,21 @@ Object.assign(
       },
   }
 );
+
+
+/* B5F — Talent Pool Frontend Support */
+Object.assign(module.exports.paths, {
+  '/api/applicants/talent-pool/options': {
+    get: {
+      tags:[TAG], summary:'Get Talent Pool frontend discovery options', security,
+      responses:{200:{description:'Talent Pool discovery options.'},401:{description:'Authentication required.'},403:{description:'Applicant view permission required.'},500:{description:'Request failed.'}},
+    },
+  },
+  '/api/applicants/talent-pool/analytics': {
+    get: {
+      tags:[TAG], summary:'Get Talent Pool management analytics', security,
+      description:'Returns current-state Talent Pool KPIs and breakdowns without duplicating Applicant data.',
+      responses:{200:{description:'Talent Pool analytics.'},401:{description:'Authentication required.'},403:{description:'Applicant view permission required.'},500:{description:'Request failed.'}},
+    },
+  },
+});

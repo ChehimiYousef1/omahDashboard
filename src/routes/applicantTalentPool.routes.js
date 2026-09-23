@@ -18,6 +18,8 @@ const {
   restoreTalentPoolMembership,
   completeTalentPoolReview,
   scheduleTalentPoolReview,
+  getTalentPoolDiscoveryOptions,
+  getTalentPoolAnalytics,
 } =
   require(
     '../../services/applicantTalentPoolService'
@@ -172,6 +174,8 @@ function createApplicantTalentPoolRouter({
 
     completeTalentPoolReview,
     scheduleTalentPoolReview,
+    getTalentPoolDiscoveryOptions,
+    getTalentPoolAnalytics,
 
     ...services,
   };
@@ -230,6 +234,28 @@ function createApplicantTalentPoolRouter({
    * before future /:applicantId membership routes.
    */
 
+
+  router.get(
+    '/options',
+    requireApplicantPermission('applicant:view'),
+    async (req, res) => {
+      try {
+        const options = await api.getTalentPoolDiscoveryOptions();
+        return res.json({ success: true, options });
+      } catch (error) { return sendTalentPoolError(res, error); }
+    }
+  );
+
+  router.get(
+    '/analytics',
+    requireApplicantPermission('applicant:view'),
+    async (req, res) => {
+      try {
+        const analytics = await api.getTalentPoolAnalytics();
+        return res.json({ success: true, analytics });
+      } catch (error) { return sendTalentPoolError(res, error); }
+    }
+  );
 
   router.get(
     '/categories',

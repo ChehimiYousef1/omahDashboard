@@ -77,6 +77,7 @@ import {
 import {
   ApplicantAnalyticsDrilldownPanel,
 } from "./analytics/ApplicantAnalyticsDrilldownPanel";
+import { TalentPoolAnalytics } from "./analytics/TalentPoolAnalytics";
 
 
 interface ApplicantAnalyticsDashboardProps {
@@ -108,6 +109,7 @@ type AnalyticsTab =
   | "segmentation"
   | "activity"
   | "dataQuality"
+  | "talentPool"
   | "documents"
   | "submissions"
   | "communications";
@@ -389,6 +391,16 @@ export function ApplicantAnalyticsDashboard({
 
     {
       id:
+        "talentPool" as const,
+
+      label:
+        "Talent Pool",
+
+      icon:
+        BriefcaseBusiness,
+    },
+{
+      id:
         "documents" as const,
 
       label:
@@ -653,7 +665,12 @@ export function ApplicantAnalyticsDashboard({
         />
       )}
 
-      {activeTab ===
+            {activeTab ===
+        "talentPool" && (
+        <TalentPoolAnalytics />
+      )}
+
+{activeTab ===
         "documents" && (
         <DocumentAnalytics
           analytics={

@@ -24,6 +24,7 @@ import {
 import { Header } from "../components/layout/Header";
 
 import { ApplicantProfilePanel } from "../components/applicants/ApplicantProfilePanel";
+import { ApplicantTalentPoolDashboard } from "../components/applicants/ApplicantTalentPoolDashboard";
 import { AdvancedApplicantFilters } from "../components/applicants/AdvancedApplicantFilters";
 import { DuplicateReviewPanel } from "../components/applicants/DuplicateReviewPanel";
 import { ApplicantPipelineBoard } from "../components/applicants/ApplicantPipelineBoard";
@@ -160,7 +161,7 @@ export function ApplicationsPage({
     viewMode,
     setViewMode,
   ] = useState<
-    "table" | "pipeline" | "analytics"
+    "table" | "pipeline" | "analytics" | "talentPool"
   >("table");
 
   const [
@@ -414,6 +415,35 @@ export function ApplicationsPage({
       ...DEFAULT_APPLICANT_FILTERS,
     });
   }
+
+
+  useEffect(
+    () => {
+      const openDuplicateReview =
+        () => {
+          setSelectedApplicant(
+            null
+          );
+
+          setDuplicateReviewRequestKey(
+            current =>
+              current + 1
+          );
+        };
+
+      window.addEventListener(
+        "omah:open-duplicate-review",
+        openDuplicateReview
+      );
+
+      return () =>
+        window.removeEventListener(
+          "omah:open-duplicate-review",
+          openDuplicateReview
+        );
+    },
+    []
+  );
 
 
   function openApplicantsFromAnalytics(
@@ -811,6 +841,19 @@ export function ApplicationsPage({
           >
             Analytics View
           </button>
+<button
+            type="button"
+            onClick={() =>
+              setViewMode("talentPool")
+            }
+            className={
+              `rounded-md px-3 py-1.5 text-xs font-semibold ${
+                viewMode === "talentPool"
+                  ? "bg-blue-600 text-white"
+                  : "text-slate-600 hover:bg-slate-50"
+              }`
+            }
+          >Talent Pool</button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -830,8 +873,8 @@ export function ApplicationsPage({
           />
         </div>
       </div>
-
-      <AdvancedApplicantFilters
+      {viewMode !== "talentPool" && (
+        <AdvancedApplicantFilters
         filters={filters}
         options={searchOptions}
         pipeline={pipeline}
@@ -839,6 +882,7 @@ export function ApplicationsPage({
         onChange={setFilters}
         onReset={resetFilters}
       />
+      )}
 
       {optionsError && (
         <p className="-mt-3 text-xs text-amber-600">
@@ -848,7 +892,13 @@ export function ApplicationsPage({
         </p>
       )}
 
-      {viewMode === "analytics" ? (
+      {viewMode === "talentPool" ? (
+        <ApplicantTalentPoolDashboard
+          onOpenApplicant={
+            openApplicantFromAnalytics
+          }
+        />
+      ) : viewMode === "analytics" ? (
         <ApplicantAnalyticsDashboard
           filters={
             requestFilters

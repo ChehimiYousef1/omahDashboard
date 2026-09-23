@@ -22,6 +22,16 @@ const operations = [
     'get',
   ],
 
+  [
+    '/api/applicants/talent-pool/options',
+    'get',
+  ],
+
+  [
+    '/api/applicants/talent-pool/analytics',
+    'get',
+  ],
+
   /*
    * B5C Category CRUD
    */
@@ -111,8 +121,8 @@ const operations = [
 
 assert.strictEqual(
   operations.length,
-  16,
-  'Talent Pool Swagger operation matrix must contain 16 operations'
+  18,
+  'Talent Pool Swagger operation matrix must contain 18 operations'
 );
 
 
@@ -387,7 +397,7 @@ console.log(
 );
 
 console.log(
-  '✅ 16 total Applicant Talent Pool operations'
+  '✅ 18 total Applicant Talent Pool operations'
 );
 
 console.log(

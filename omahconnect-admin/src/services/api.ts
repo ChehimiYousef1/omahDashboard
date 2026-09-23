@@ -4578,3 +4578,226 @@ export const updateApplicantTags =
 
     return response.data.result;
   };
+
+
+/* APPLICANT TALENT POOL FRONTEND API */
+export type ApplicantTalentPoolPriority = "normal" | "medium" | "high";
+export type ApplicantTalentPoolReviewStatus = "inactive" | "not_scheduled" | "scheduled" | "due" | "overdue" | "reviewed";
+export interface ApplicantTalentPoolCategory { _id:string; name:string; slug?:string; description?:string; active?:boolean; sortOrder?:number; }
+export interface ApplicantTalentPoolItem {
+  _id?:string; id?:string; applicantId?:string; applicantCode?:string;
+  identity?:{fullName?:string;email?:string;country?:string;city?:string};
+  skills?:{primaryTechnical?:string[];otherTechnical?:string[];technicalExperienceLevel?:string};
+  preferences?:{positionTrack?:string;positionType?:string}; recruitment?:{status?:string;tags?:string[]};
+  talentPool:{active:boolean;categoryId?:string|null;roles?:string[];priority?:ApplicantTalentPoolPriority;ownerId?:string;reason?:string;addedAt?:string|null;lastReviewedAt?:string|null;lastReviewedBy?:string;nextReviewAt?:string|null;removedAt?:string|null;reviewStatus?:ApplicantTalentPoolReviewStatus};
+  category?:ApplicantTalentPoolCategory|null;
+}
+export interface ApplicantTalentPoolQuery { q?:string;categoryId?:string;role?:string;skill?:string;technicalExperienceLevel?:string;tag?:string;priority?:ApplicantTalentPoolPriority;ownerId?:string;country?:string;city?:string;positionTrack?:string;positionType?:string;status?:string;reviewStatus?:ApplicantTalentPoolReviewStatus;active?:"true"|"false"|"all";page?:number;limit?:number;sortBy?:string;sortOrder?:"asc"|"desc"; }
+export interface ApplicantTalentPoolOptions { categories:ApplicantTalentPoolCategory[];roles:string[];skills:string[];technicalExperienceLevels:string[];tags:string[];priorities:ApplicantTalentPoolPriority[];ownerIds:string[];countries:string[];cities:string[];positionTracks:string[];positionTypes:string[];recruitmentStatuses:string[];reviewStatuses:ApplicantTalentPoolReviewStatus[];sortFields:string[]; }
+export interface ApplicantTalentPoolAnalyticsBreakdown { label:string; count:number; }
+export interface ApplicantTalentPoolAnalytics { generatedAt:string; summary:{totalMembers:number;activeMembers:number;removedMembers:number;highPriority:number;reviewDue:number;reviewOverdue:number;scheduledReviews:number;reviewed:number;recentlyAdded30:number;recentlyRemoved30:number;categoriesRepresented:number}; breakdowns:{categories:ApplicantTalentPoolAnalyticsBreakdown[];roles:ApplicantTalentPoolAnalyticsBreakdown[];skills:ApplicantTalentPoolAnalyticsBreakdown[];technicalExperienceLevels:ApplicantTalentPoolAnalyticsBreakdown[];priorities:ApplicantTalentPoolAnalyticsBreakdown[];owners:ApplicantTalentPoolAnalyticsBreakdown[];countries:ApplicantTalentPoolAnalyticsBreakdown[];cities:ApplicantTalentPoolAnalyticsBreakdown[];positionTracks:ApplicantTalentPoolAnalyticsBreakdown[];recruitmentStatuses:ApplicantTalentPoolAnalyticsBreakdown[];reviewStatuses:ApplicantTalentPoolAnalyticsBreakdown[]}; }
+export const fetchApplicantTalentPool=async(query:ApplicantTalentPoolQuery={})=>{const r=await apiClient.get('/applicants/talent-pool',{params:query});return {talent:r.data.talent||[],pagination:r.data.pagination||{page:1,limit:25,total:0,pages:0},filters:r.data.filters||{}};};
+export const fetchApplicantTalentPoolOptions=async():Promise<ApplicantTalentPoolOptions>=>(await apiClient.get('/applicants/talent-pool/options')).data.options;
+export const fetchApplicantTalentPoolAnalytics=async():Promise<ApplicantTalentPoolAnalytics>=>(await apiClient.get('/applicants/talent-pool/analytics')).data.analytics;
+export const patchApplicantTalentPoolMembership=async(id:string,changes:Record<string,unknown>):Promise<ApplicantTalentPoolItem>=>(await apiClient.patch(`/applicants/talent-pool/${id}`,changes)).data.talent;
+export const removeApplicantFromTalentPool=async(id:string):Promise<ApplicantTalentPoolItem>=>(await apiClient.delete(`/applicants/talent-pool/${id}`)).data.talent;
+export const restoreApplicantToTalentPool=async(id:string):Promise<ApplicantTalentPoolItem>=>(await apiClient.post(`/applicants/talent-pool/${id}/restore`)).data.talent;
+export const completeApplicantTalentPoolReview=async(id:string,nextReviewAt?:string|null):Promise<ApplicantTalentPoolItem>=>(await apiClient.post(`/applicants/talent-pool/${id}/review`,nextReviewAt===undefined?{}:{nextReviewAt})).data.talent;
+export const scheduleApplicantTalentPoolReview=async(id:string,nextReviewAt:string):Promise<ApplicantTalentPoolItem>=>(await apiClient.post(`/applicants/talent-pool/${id}/review/schedule`,{nextReviewAt})).data.talent;
+
+
+
+/*
+   APPLICANT TALENT POOL PROFILE + CATEGORY MANAGEMENT API
+*/
+
+
+export interface ApplicantTalentPoolCreatePayload {
+  categoryId:
+    string;
+
+  roles?:
+    string[];
+
+  priority?:
+    ApplicantTalentPoolPriority;
+
+  ownerId?:
+    string;
+
+  source?:
+    string;
+
+  reason?:
+    string;
+
+  nextReviewAt?:
+    string | null;
+}
+
+
+export interface ApplicantTalentPoolCategoryWritePayload {
+  name:
+    string;
+
+  description?:
+    string;
+
+  sortOrder?:
+    number;
+}
+
+
+export const fetchApplicantTalentPoolMembership =
+  async (
+    applicantId:
+      string
+  ): Promise<
+    ApplicantTalentPoolItem |
+    null
+  > => {
+    try {
+      const response =
+        await apiClient.get(
+          `/applicants/talent-pool/${applicantId}`
+        );
+
+      return (
+        response.data.talent ||
+        response.data.membership ||
+        response.data.applicant ||
+        null
+      );
+    } catch (error) {
+      const status =
+        (
+          error as {
+            response?: {
+              status?: number;
+            };
+          }
+        )
+          ?.response
+          ?.status;
+
+      if (
+        status ===
+        404
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
+  };
+
+
+export const addApplicantToTalentPool =
+  async (
+    applicantId:
+      string,
+
+    payload:
+      ApplicantTalentPoolCreatePayload
+  ): Promise<
+    ApplicantTalentPoolItem
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/talent-pool/${applicantId}`,
+        payload
+      );
+
+    return (
+      response.data.talent ||
+      response.data.membership ||
+      response.data.applicant
+    );
+  };
+
+
+export const fetchApplicantTalentPoolCategories =
+  async (): Promise<
+    ApplicantTalentPoolCategory[]
+  > => {
+    const response =
+      await apiClient.get(
+        "/applicants/talent-pool/categories"
+      );
+
+    return (
+      response.data.categories ||
+      []
+    );
+  };
+
+
+export const createApplicantTalentPoolCategory =
+  async (
+    payload:
+      ApplicantTalentPoolCategoryWritePayload
+  ): Promise<
+    ApplicantTalentPoolCategory
+  > => {
+    const response =
+      await apiClient.post(
+        "/applicants/talent-pool/categories",
+        payload
+      );
+
+    return response.data.category;
+  };
+
+
+export const patchApplicantTalentPoolCategory =
+  async (
+    categoryId:
+      string,
+
+    payload:
+      Partial<
+        ApplicantTalentPoolCategoryWritePayload
+      >
+  ): Promise<
+    ApplicantTalentPoolCategory
+  > => {
+    const response =
+      await apiClient.patch(
+        `/applicants/talent-pool/categories/${categoryId}`,
+        payload
+      );
+
+    return response.data.category;
+  };
+
+
+export const archiveApplicantTalentPoolCategory =
+  async (
+    categoryId:
+      string
+  ): Promise<
+    ApplicantTalentPoolCategory
+  > => {
+    const response =
+      await apiClient.delete(
+        `/applicants/talent-pool/categories/${categoryId}`
+      );
+
+    return response.data.category;
+  };
+
+
+export const restoreApplicantTalentPoolCategory =
+  async (
+    categoryId:
+      string
+  ): Promise<
+    ApplicantTalentPoolCategory
+  > => {
+    const response =
+      await apiClient.post(
+        `/applicants/talent-pool/categories/${categoryId}/restore`
+      );
+
+    return response.data.category;
+  };
