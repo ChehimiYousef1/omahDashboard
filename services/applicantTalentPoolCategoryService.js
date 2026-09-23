@@ -423,3 +423,550 @@ module.exports = {
   assertCategoryId,
   defaultCategoryDocuments,
 };
+
+
+/*
+|--------------------------------------------------------------------------
+| B5C — Talent Pool Category CRUD
+|--------------------------------------------------------------------------
+*/
+
+
+function actorIdentifier(actor = {}) {
+  return cleanText(
+    actor.id ||
+    actor._id ||
+    actor.email ||
+    actor.name
+  );
+}
+
+
+function safeCategoryView(category) {
+  if (!category) {
+    return null;
+  }
+
+  const source =
+    typeof category.toObject === 'function'
+      ? category.toObject({
+          getters: false,
+          virtuals: false,
+        })
+      : category;
+
+  return {
+    id:
+      source._id
+        ? String(source._id)
+        : '',
+
+    name:
+      cleanText(source.name),
+
+    slug:
+      cleanText(source.slug),
+
+    description:
+      cleanText(source.description),
+
+    active:
+      source.active !== false,
+
+    sortOrder:
+      Number(source.sortOrder || 0),
+
+    createdBy:
+      cleanText(source.createdBy),
+
+    updatedBy:
+      cleanText(source.updatedBy),
+
+    archivedAt:
+      source.archivedAt || null,
+
+    archivedBy:
+      cleanText(source.archivedBy),
+
+    createdAt:
+      source.createdAt || null,
+
+    updatedAt:
+      source.updatedAt || null,
+  };
+}
+
+
+async function findCategoryBySlug(
+  slug,
+  {
+    excludeId = null,
+    CategoryModel = TalentPoolCategory,
+  } = {}
+) {
+  const filter = {
+    slug: cleanText(slug).toLowerCase(),
+  };
+
+  if (excludeId) {
+    filter._id = {
+      $ne: excludeId,
+    };
+  }
+
+  let query =
+    CategoryModel.findOne(filter);
+
+  if (
+    query &&
+    typeof query.lean === 'function'
+  ) {
+    query = query.lean();
+  }
+
+  return query;
+}
+
+
+async function assertUniqueCategorySlug(
+  slug,
+  options = {}
+) {
+  const existing =
+    await findCategoryBySlug(
+      slug,
+      options
+    );
+
+  if (existing) {
+    throw serviceError(
+      'TALENT_POOL_CATEGORY_CONFLICT',
+      'A Talent Pool category with this slug already exists.'
+    );
+  }
+}
+
+
+async function listTalentPoolCategories({
+  includeArchived = false,
+  CategoryModel = TalentPoolCategory,
+} = {}) {
+  const filter =
+    includeArchived
+      ? {}
+      : {
+          active: true,
+        };
+
+  let query =
+    CategoryModel.find(filter);
+
+  if (
+    query &&
+    typeof query.sort === 'function'
+  ) {
+    query =
+      query.sort({
+        sortOrder: 1,
+        name: 1,
+      });
+  }
+
+  if (
+    query &&
+    typeof query.lean === 'function'
+  ) {
+    query = query.lean();
+  }
+
+  const categories =
+    await query;
+
+  return Array.from(
+    categories || []
+  ).map(
+    safeCategoryView
+  );
+}
+
+
+async function getTalentPoolCategory({
+  categoryId,
+  includeArchived = true,
+  CategoryModel = TalentPoolCategory,
+} = {}) {
+  const id =
+    assertCategoryId(categoryId);
+
+  let query =
+    CategoryModel.findById(id);
+
+  if (
+    query &&
+    typeof query.lean === 'function'
+  ) {
+    query = query.lean();
+  }
+
+  const category =
+    await query;
+
+  if (
+    !category ||
+    (
+      !includeArchived &&
+      category.active === false
+    )
+  ) {
+    throw serviceError(
+      'TALENT_POOL_CATEGORY_NOT_FOUND',
+      'Talent Pool category was not found.'
+    );
+  }
+
+  return safeCategoryView(category);
+}
+
+
+async function createTalentPoolCategory({
+  input,
+  actor = {},
+  CategoryModel = TalentPoolCategory,
+} = {}) {
+  const normalized =
+    normalizeCategoryInput(
+      input,
+      {
+        partial: false,
+      }
+    );
+
+  await assertUniqueCategorySlug(
+    normalized.slug,
+    {
+      CategoryModel,
+    }
+  );
+
+  const actorId =
+    actorIdentifier(actor);
+
+  const category =
+    new CategoryModel({
+      ...normalized,
+
+      active: true,
+      createdBy: actorId,
+      updatedBy: actorId,
+      archivedAt: null,
+      archivedBy: '',
+    });
+
+  try {
+    await category.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw serviceError(
+        'TALENT_POOL_CATEGORY_CONFLICT',
+        'A Talent Pool category with this slug already exists.'
+      );
+    }
+
+    throw error;
+  }
+
+  return safeCategoryView(category);
+}
+
+
+async function loadMutableCategory(
+  categoryId,
+  {
+    CategoryModel = TalentPoolCategory,
+  } = {}
+) {
+  const id =
+    assertCategoryId(categoryId);
+
+  const category =
+    await CategoryModel.findById(id);
+
+  if (!category) {
+    throw serviceError(
+      'TALENT_POOL_CATEGORY_NOT_FOUND',
+      'Talent Pool category was not found.'
+    );
+  }
+
+  return category;
+}
+
+
+function assertCategoryActive(category) {
+  if (category.active === false) {
+    throw serviceError(
+      'TALENT_POOL_CATEGORY_CONFLICT',
+      'Archived Talent Pool categories cannot be edited. Restore the category first.'
+    );
+  }
+}
+
+
+async function replaceTalentPoolCategory({
+  categoryId,
+  input,
+  actor = {},
+  CategoryModel = TalentPoolCategory,
+} = {}) {
+  const category =
+    await loadMutableCategory(
+      categoryId,
+      {
+        CategoryModel,
+      }
+    );
+
+  assertCategoryActive(category);
+
+  const normalized =
+    normalizeCategoryInput(
+      input,
+      {
+        partial: false,
+      }
+    );
+
+  await assertUniqueCategorySlug(
+    normalized.slug,
+    {
+      excludeId: category._id,
+      CategoryModel,
+    }
+  );
+
+  category.name =
+    normalized.name;
+
+  category.slug =
+    normalized.slug;
+
+  category.description =
+    normalized.description;
+
+  category.sortOrder =
+    normalized.sortOrder;
+
+  category.updatedBy =
+    actorIdentifier(actor);
+
+  try {
+    await category.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw serviceError(
+        'TALENT_POOL_CATEGORY_CONFLICT',
+        'A Talent Pool category with this slug already exists.'
+      );
+    }
+
+    throw error;
+  }
+
+  return safeCategoryView(category);
+}
+
+
+async function patchTalentPoolCategory({
+  categoryId,
+  input,
+  actor = {},
+  CategoryModel = TalentPoolCategory,
+} = {}) {
+  const category =
+    await loadMutableCategory(
+      categoryId,
+      {
+        CategoryModel,
+      }
+    );
+
+  assertCategoryActive(category);
+
+  const normalized =
+    normalizeCategoryInput(
+      input,
+      {
+        partial: true,
+      }
+    );
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      normalized,
+      'slug'
+    )
+  ) {
+    await assertUniqueCategorySlug(
+      normalized.slug,
+      {
+        excludeId: category._id,
+        CategoryModel,
+      }
+    );
+  }
+
+  for (
+    const field
+    of [
+      'name',
+      'slug',
+      'description',
+      'sortOrder',
+    ]
+  ) {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        normalized,
+        field
+      )
+    ) {
+      category[field] =
+        normalized[field];
+    }
+  }
+
+  category.updatedBy =
+    actorIdentifier(actor);
+
+  try {
+    await category.save();
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw serviceError(
+        'TALENT_POOL_CATEGORY_CONFLICT',
+        'A Talent Pool category with this slug already exists.'
+      );
+    }
+
+    throw error;
+  }
+
+  return safeCategoryView(category);
+}
+
+
+async function archiveTalentPoolCategory({
+  categoryId,
+  actor = {},
+  CategoryModel = TalentPoolCategory,
+  ApplicantModel = null,
+  now = () => new Date(),
+} = {}) {
+  const category =
+    await loadMutableCategory(
+      categoryId,
+      {
+        CategoryModel,
+      }
+    );
+
+  if (category.active === false) {
+    throw serviceError(
+      'TALENT_POOL_CATEGORY_CONFLICT',
+      'Talent Pool category is already archived.'
+    );
+  }
+
+  if (
+    ApplicantModel &&
+    typeof ApplicantModel.exists === 'function'
+  ) {
+    const inUse =
+      await ApplicantModel.exists({
+        'talentPool.active': true,
+        'talentPool.categoryId':
+          category._id,
+      });
+
+    if (inUse) {
+      throw serviceError(
+        'TALENT_POOL_CATEGORY_IN_USE',
+        'Talent Pool category cannot be archived while active Applicants use it.'
+      );
+    }
+  }
+
+  const actorId =
+    actorIdentifier(actor);
+
+  category.active = false;
+  category.archivedAt = now();
+  category.archivedBy = actorId;
+  category.updatedBy = actorId;
+
+  await category.save();
+
+  return safeCategoryView(category);
+}
+
+
+async function restoreTalentPoolCategory({
+  categoryId,
+  actor = {},
+  CategoryModel = TalentPoolCategory,
+} = {}) {
+  const category =
+    await loadMutableCategory(
+      categoryId,
+      {
+        CategoryModel,
+      }
+    );
+
+  if (category.active !== false) {
+    throw serviceError(
+      'TALENT_POOL_CATEGORY_CONFLICT',
+      'Talent Pool category is already active.'
+    );
+  }
+
+  await assertUniqueCategorySlug(
+    category.slug,
+    {
+      excludeId: category._id,
+      CategoryModel,
+    }
+  );
+
+  const actorId =
+    actorIdentifier(actor);
+
+  category.active = true;
+  category.archivedAt = null;
+  category.archivedBy = '';
+  category.updatedBy = actorId;
+
+  await category.save();
+
+  return safeCategoryView(category);
+}
+
+
+Object.assign(
+  module.exports,
+  {
+    actorIdentifier,
+    safeCategoryView,
+
+    findCategoryBySlug,
+    assertUniqueCategorySlug,
+
+    listTalentPoolCategories,
+    getTalentPoolCategory,
+    createTalentPoolCategory,
+    replaceTalentPoolCategory,
+    patchTalentPoolCategory,
+    archiveTalentPoolCategory,
+    restoreTalentPoolCategory,
+  }
+);

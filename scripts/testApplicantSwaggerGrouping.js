@@ -14,6 +14,12 @@ const documentSwagger =
   );
 
 
+const talentPoolSwagger =
+  require(
+    '../docs/applicantTalentPoolSwagger'
+  );
+
+
 const HTTP_METHODS =
   new Set([
     'get',
@@ -211,6 +217,72 @@ assert.strictEqual(
   documentOperationCount,
   8,
   'Applicant Document operation count changed'
+);
+
+
+let talentPoolOperationCount =
+  0;
+
+
+for (
+  const [path, pathItem]
+  of Object.entries(
+    talentPoolSwagger.paths ||
+    {}
+  )
+) {
+  for (
+    const [method, operation]
+    of Object.entries(
+      pathItem ||
+      {}
+    )
+  ) {
+    if (
+      !HTTP_METHODS.has(
+        method.toLowerCase()
+      )
+    ) {
+      continue;
+    }
+
+    talentPoolOperationCount++;
+
+    assert.deepStrictEqual(
+      operation.tags,
+      [
+        'Applicant Talent Pool'
+      ],
+      `${method.toUpperCase()} ${path} must remain under Applicant Talent Pool`
+    );
+  }
+}
+
+
+assert.strictEqual(
+  talentPoolOperationCount,
+  7,
+  'Applicant Talent Pool operation count changed'
+);
+
+
+assert.deepStrictEqual(
+  (
+    talentPoolSwagger.tags ||
+    []
+  ).map(
+    tag =>
+      tag.name
+  ),
+  [
+    'Applicant Talent Pool'
+  ],
+  'Applicant Talent Pool tag definition changed'
+);
+
+
+console.log(
+  '✅ Applicant Talent Pool APIs separated'
 );
 
 

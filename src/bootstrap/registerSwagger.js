@@ -21,6 +21,12 @@ const applicantReportSwagger =
   );
 
 
+const applicantTalentPoolSwagger =
+  require(
+    '../../docs/applicantTalentPoolSwagger'
+  );
+
+
 /*
 |--------------------------------------------------------------------------
 | OMAH Applicant API Documentation
@@ -53,6 +59,12 @@ function buildApplicantSwaggerSpec() {
           applicantReportSwagger.paths ||
           {}
         ),
+
+
+        ...(
+          applicantTalentPoolSwagger.paths ||
+          {}
+        ),
     },
 
     tags: [
@@ -68,6 +80,12 @@ function buildApplicantSwaggerSpec() {
 
         ...(
           applicantReportSwagger.tags ||
+          []
+        ),
+
+
+        ...(
+          applicantTalentPoolSwagger.tags ||
           []
         ),
     ],

@@ -185,6 +185,13 @@ echo "----------------------------------------------------"
 
 run_node_test "scripts/testApplicantTalentPoolFoundation.js"
 
+run_node_test "scripts/testApplicantTalentPoolCategoryCrud.js"
+
+run_node_test "scripts/testApplicantTalentPoolCategoryApiContract.js"
+
+run_node_test "scripts/testApplicantTalentPoolSwagger.js"
+
+
 
 echo ""
 echo "===================================================="

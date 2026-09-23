@@ -55,6 +55,12 @@ const createApplicantReportsRouter =
     '../routes/applicantReports.routes'
   );
 
+
+const createApplicantTalentPoolRouter =
+  require(
+    '../routes/applicantTalentPool.routes'
+  );
+
 const createApplicantsRouter =
   require(
     '../routes/applicants.routes'
@@ -319,6 +325,25 @@ function registerApiRoutes(
   /*
    * Applicant master-profile API.
    */
+  /*
+   * Applicant Talent Pool.
+   *
+   * Mounted before the general Applicant router.
+   */
+  app.use(
+    '/api/applicants/talent-pool',
+
+    authenticateToken,
+
+    requireApplicantAccess,
+
+    createApplicantTalentPoolRouter({
+      requireAdmin,
+      requireApplicantPermission,
+    })
+  );
+
+
   app.use(
     '/api/applicants',
 
