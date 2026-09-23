@@ -179,6 +179,14 @@ run_node_test "scripts/testApplicantReportSwagger.js"
 run_node_test "scripts/testApplicantRecruitmentReport.js"
 
 echo ""
+echo "----------------------------------------------------"
+echo " APPLICANT TALENT POOL FOUNDATION"
+echo "----------------------------------------------------"
+
+run_node_test "scripts/testApplicantTalentPoolFoundation.js"
+
+
+echo ""
 echo "===================================================="
 echo " 3. AUDIT FOUNDATION"
 echo "===================================================="

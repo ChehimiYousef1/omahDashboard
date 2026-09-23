@@ -541,6 +541,199 @@ const lifecycleSchema = new Schema(
 |
 */
 
+
+const talentPoolSchema =
+  new Schema(
+    {
+      active: {
+        type:
+          Boolean,
+
+        default:
+          false,
+      },
+
+      categoryId: {
+        type:
+          Schema.Types.ObjectId,
+
+        ref:
+          'TalentPoolCategory',
+
+        default:
+          null,
+      },
+
+      roles: {
+        type: [
+          {
+            type:
+              String,
+
+            trim:
+              true,
+          },
+        ],
+
+        default:
+          [],
+      },
+
+      priority: {
+        type:
+          String,
+
+        enum: [
+          'normal',
+          'medium',
+          'high',
+        ],
+
+        default:
+          'normal',
+      },
+
+      ownerId: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        default:
+          '',
+      },
+
+      source: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        default:
+          'manual',
+      },
+
+      reason: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        maxlength:
+          2000,
+
+        default:
+          '',
+      },
+
+      addedAt: {
+        type:
+          Date,
+
+        default:
+          null,
+      },
+
+      addedBy: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        default:
+          '',
+      },
+
+      lastReviewedAt: {
+        type:
+          Date,
+
+        default:
+          null,
+      },
+
+      lastReviewedBy: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        default:
+          '',
+      },
+
+      nextReviewAt: {
+        type:
+          Date,
+
+        default:
+          null,
+      },
+
+      removedAt: {
+        type:
+          Date,
+
+        default:
+          null,
+      },
+
+      removedBy: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        default:
+          '',
+      },
+
+      removalReason: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        maxlength:
+          2000,
+
+        default:
+          '',
+      },
+
+      restoredAt: {
+        type:
+          Date,
+
+        default:
+          null,
+      },
+
+      restoredBy: {
+        type:
+          String,
+
+        trim:
+          true,
+
+        default:
+          '',
+      },
+    },
+    {
+      _id:
+        false,
+    }
+  );
+
+
 const applicantSchema = new Schema(
   {
     applicantCode: {
@@ -585,6 +778,15 @@ const applicantSchema = new Schema(
       type: lifecycleSchema,
       default: () => ({}),
     },
+
+    talentPool: {
+      type:
+        talentPoolSchema,
+
+      default:
+        () => ({}),
+    },
+
 
     profileVersion: {
       type: Number,
@@ -671,6 +873,32 @@ applicantSchema.index({
 applicantSchema.index({
   'lifecycle.archived': 1,
   createdAt: -1,
+});
+
+
+applicantSchema.index({
+  'talentPool.active': 1,
+  'talentPool.nextReviewAt': 1,
+});
+
+applicantSchema.index({
+  'talentPool.categoryId': 1,
+  'talentPool.active': 1,
+});
+
+applicantSchema.index({
+  'talentPool.roles': 1,
+  'talentPool.active': 1,
+});
+
+applicantSchema.index({
+  'talentPool.priority': 1,
+  'talentPool.active': 1,
+});
+
+applicantSchema.index({
+  'talentPool.ownerId': 1,
+  'talentPool.active': 1,
 });
 
 /*
