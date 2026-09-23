@@ -4583,7 +4583,7 @@ export const updateApplicantTags =
 /* APPLICANT TALENT POOL FRONTEND API */
 export type ApplicantTalentPoolPriority = "normal" | "medium" | "high";
 export type ApplicantTalentPoolReviewStatus = "inactive" | "not_scheduled" | "scheduled" | "due" | "overdue" | "reviewed";
-export interface ApplicantTalentPoolCategory { _id:string; name:string; slug?:string; description?:string; active?:boolean; sortOrder?:number; }
+export interface ApplicantTalentPoolCategory { _id:string; id?:string; name:string; slug?:string; description?:string; active?:boolean; sortOrder?:number; }
 export interface ApplicantTalentPoolItem {
   _id?:string; id?:string; applicantId?:string; applicantCode?:string;
   identity?:{fullName?:string;email?:string;country?:string;city?:string};
@@ -4716,6 +4716,26 @@ export const addApplicantToTalentPool =
   };
 
 
+
+const normalizeApplicantTalentPoolCategory =
+  (
+    category: Record<string, any>
+  ): ApplicantTalentPoolCategory => {
+    const id =
+      String(
+        category?.id ||
+        category?._id ||
+        ""
+      );
+
+    return {
+      ...category,
+      id,
+      _id: id,
+    } as ApplicantTalentPoolCategory;
+  };
+
+
 export const fetchApplicantTalentPoolCategories =
   async (): Promise<
     ApplicantTalentPoolCategory[]
@@ -4728,6 +4748,8 @@ export const fetchApplicantTalentPoolCategories =
     return (
       response.data.categories ||
       []
+    ).map(
+      normalizeApplicantTalentPoolCategory
     );
   };
 
@@ -4745,7 +4767,7 @@ export const createApplicantTalentPoolCategory =
         payload
       );
 
-    return response.data.category;
+    return normalizeApplicantTalentPoolCategory(response.data.category);
   };
 
 
@@ -4767,7 +4789,7 @@ export const patchApplicantTalentPoolCategory =
         payload
       );
 
-    return response.data.category;
+    return normalizeApplicantTalentPoolCategory(response.data.category);
   };
 
 
@@ -4783,7 +4805,7 @@ export const archiveApplicantTalentPoolCategory =
         `/applicants/talent-pool/categories/${categoryId}`
       );
 
-    return response.data.category;
+    return normalizeApplicantTalentPoolCategory(response.data.category);
   };
 
 
@@ -4799,5 +4821,5 @@ export const restoreApplicantTalentPoolCategory =
         `/applicants/talent-pool/categories/${categoryId}/restore`
       );
 
-    return response.data.category;
+    return normalizeApplicantTalentPoolCategory(response.data.category);
   };
