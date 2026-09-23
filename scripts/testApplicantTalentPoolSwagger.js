@@ -93,13 +93,26 @@ const operations = [
     '/api/applicants/talent-pool/{applicantId}/restore',
     'post',
   ],
+
+  /*
+   * B5E Review / Revisit
+   */
+  [
+    '/api/applicants/talent-pool/{applicantId}/review',
+    'post',
+  ],
+
+  [
+    '/api/applicants/talent-pool/{applicantId}/review/schedule',
+    'post',
+  ],
 ];
 
 
 assert.strictEqual(
   operations.length,
-  14,
-  'Talent Pool Swagger operation matrix must contain 14 operations'
+  16,
+  'Talent Pool Swagger operation matrix must contain 16 operations'
 );
 
 
@@ -197,6 +210,118 @@ assert.ok(
 );
 
 
+const reviewWorkflowOperation =
+  talentPoolSwagger
+    ?.paths
+    ?.[
+      '/api/applicants/talent-pool/{applicantId}/review'
+    ]
+    ?.post;
+
+const reviewScheduleOperation =
+  talentPoolSwagger
+    ?.paths
+    ?.[
+      '/api/applicants/talent-pool/{applicantId}/review/schedule'
+    ]
+    ?.post;
+
+
+assert.ok(
+  reviewWorkflowOperation,
+  'Talent Pool review Swagger operation missing'
+);
+
+assert.ok(
+  reviewScheduleOperation,
+  'Talent Pool review scheduling Swagger operation missing'
+);
+
+
+assert.strictEqual(
+  reviewWorkflowOperation
+    ?.requestBody
+    ?.required,
+  false,
+  'Completing a review must allow an empty body'
+);
+
+
+assert.strictEqual(
+  reviewScheduleOperation
+    ?.requestBody
+    ?.required,
+  true,
+  'Review scheduling must require a request body'
+);
+
+
+assert.deepStrictEqual(
+  reviewScheduleOperation
+    ?.requestBody
+    ?.content
+    ?.[
+      'application/json'
+    ]
+    ?.schema
+    ?.required,
+  [
+    'nextReviewAt',
+  ],
+  'Review scheduling must require nextReviewAt'
+);
+
+
+for (
+  const operation
+  of [
+    reviewWorkflowOperation,
+    reviewScheduleOperation,
+  ]
+) {
+  const description =
+    String(
+      operation
+        ?.description ||
+      ''
+    );
+
+  assert.ok(
+    description.includes(
+      'does not create an Applicant Task'
+    ),
+    'Talent Pool review Swagger must document Task separation'
+  );
+
+  assert.ok(
+    description.includes(
+      'does not create or update a Google Calendar event'
+    ),
+    'Talent Pool review Swagger must document Calendar separation'
+  );
+
+  for (
+    const status
+    of [
+      200,
+      400,
+      401,
+      403,
+      404,
+      409,
+      500,
+    ]
+  ) {
+    assert.ok(
+      operation
+        ?.responses
+        ?.[status],
+      `Review Swagger must document HTTP ${status}`
+    );
+  }
+}
+
+
 const merged =
   buildApplicantSwaggerSpec();
 
@@ -262,7 +387,7 @@ console.log(
 );
 
 console.log(
-  '✅ 14 total Applicant Talent Pool operations'
+  '✅ 16 total Applicant Talent Pool operations'
 );
 
 console.log(

@@ -2731,3 +2731,342 @@ Object.assign(
     listTalentPoolMemberships,
   }
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| B5E — Talent Pool Review / Revisit
+|--------------------------------------------------------------------------
+|
+| Review state remains part of the Applicant's Talent Pool membership.
+|
+| Tasks remain Applicant Internal Tasks.
+| Google Calendar synchronization remains explicit.
+|
+*/
+
+
+function normalizeTalentPoolReviewDate(
+  value,
+  {
+    required =
+      false,
+
+    allowPast =
+      false,
+
+    now =
+      new Date(),
+  } = {}
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() ===
+      ''
+  ) {
+    if (required) {
+      throw serviceError(
+        'TALENT_POOL_REVIEW_DATE_REQUIRED',
+        'nextReviewAt is required.'
+      );
+    }
+
+    return null;
+  }
+
+  const date =
+    new Date(
+      value
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    throw serviceError(
+      'INVALID_TALENT_POOL_REVIEW_DATE',
+      'nextReviewAt must be a valid date-time.'
+    );
+  }
+
+  if (
+    allowPast !==
+      true &&
+    date.getTime() <
+      new Date(now).getTime()
+  ) {
+    throw serviceError(
+      'TALENT_POOL_REVIEW_DATE_PAST',
+      'nextReviewAt cannot be in the past.'
+    );
+  }
+
+  return date;
+}
+
+
+function normalizeCompleteReviewInput(
+  input = {},
+  {
+    now =
+      new Date(),
+  } = {}
+) {
+  if (
+    input === null ||
+    typeof input !==
+      'object' ||
+    Array.isArray(input)
+  ) {
+    throw serviceError(
+      'INVALID_TALENT_POOL_REVIEW_INPUT',
+      'Talent Pool review payload must be an object.'
+    );
+  }
+
+  const hasNextReviewAt =
+    Object.prototype
+      .hasOwnProperty
+      .call(
+        input,
+        'nextReviewAt'
+      );
+
+  return {
+    hasNextReviewAt,
+
+    nextReviewAt:
+      hasNextReviewAt
+        ? normalizeTalentPoolReviewDate(
+            input.nextReviewAt,
+            {
+              required:
+                false,
+
+              allowPast:
+                false,
+
+              now,
+            }
+          )
+        : null,
+  };
+}
+
+
+function normalizeReviewScheduleInput(
+  input = {},
+  {
+    now =
+      new Date(),
+  } = {}
+) {
+  if (
+    !input ||
+    typeof input !==
+      'object' ||
+    Array.isArray(input)
+  ) {
+    throw serviceError(
+      'INVALID_TALENT_POOL_REVIEW_INPUT',
+      'Talent Pool review schedule payload must be an object.'
+    );
+  }
+
+  return {
+    nextReviewAt:
+      normalizeTalentPoolReviewDate(
+        input.nextReviewAt,
+        {
+          required:
+            true,
+
+          allowPast:
+            false,
+
+          now,
+        }
+      ),
+  };
+}
+
+
+async function completeTalentPoolReview({
+  applicantId,
+
+  input = {},
+
+  actor = {},
+
+  ApplicantModel =
+    Applicant,
+
+  CategoryModel,
+
+  now =
+    () =>
+      new Date(),
+} = {}) {
+  const applicant =
+    await loadTalentPoolApplicant({
+      applicantId,
+      ApplicantModel,
+    });
+
+  assertApplicantAvailable(
+    applicant
+  );
+
+  assertActiveMembership(
+    applicant
+  );
+
+  const reviewedAt =
+    now();
+
+  const normalized =
+    normalizeCompleteReviewInput(
+      input,
+      {
+        now:
+          reviewedAt,
+      }
+    );
+
+  applicant.talentPool
+    .lastReviewedAt =
+      reviewedAt;
+
+  applicant.talentPool
+    .lastReviewedBy =
+      actorIdentifier(
+        actor
+      );
+
+  /*
+   * Completing a review closes the current
+   * review schedule.
+   *
+   * A new date may be supplied in the same
+   * action to immediately schedule the next
+   * review.
+   */
+  applicant.talentPool
+    .nextReviewAt =
+      normalized.hasNextReviewAt
+        ? normalized.nextReviewAt
+        : null;
+
+  await applicant.save();
+
+  const category =
+    await resolveTalentPoolCategory(
+      applicant,
+      {
+        CategoryModel,
+      }
+    );
+
+  return safeApplicantTalentPoolView(
+    applicant,
+    {
+      category,
+    }
+  );
+}
+
+
+async function scheduleTalentPoolReview({
+  applicantId,
+
+  input = {},
+
+  actor = {},
+
+  ApplicantModel =
+    Applicant,
+
+  CategoryModel,
+
+  now =
+    () =>
+      new Date(),
+} = {}) {
+  const applicant =
+    await loadTalentPoolApplicant({
+      applicantId,
+      ApplicantModel,
+    });
+
+  assertApplicantAvailable(
+    applicant
+  );
+
+  assertActiveMembership(
+    applicant
+  );
+
+  const currentTime =
+    now();
+
+  const normalized =
+    normalizeReviewScheduleInput(
+      input,
+      {
+        now:
+          currentTime,
+      }
+    );
+
+  /*
+   * Scheduling a revisit is not itself a review.
+   *
+   * Therefore:
+   *   - lastReviewedAt is untouched
+   *   - lastReviewedBy is untouched
+   *   - no Task is created here
+   *   - no Google Calendar write occurs here
+   */
+  applicant.talentPool
+    .nextReviewAt =
+      normalized.nextReviewAt;
+
+  /*
+   * Accepted now for symmetry and future B5H
+   * Audit integration. No Audit event is emitted
+   * in B5E.
+   */
+  void actor;
+
+  await applicant.save();
+
+  const category =
+    await resolveTalentPoolCategory(
+      applicant,
+      {
+        CategoryModel,
+      }
+    );
+
+  return safeApplicantTalentPoolView(
+    applicant,
+    {
+      category,
+    }
+  );
+}
+
+
+Object.assign(
+  module.exports,
+  {
+    normalizeTalentPoolReviewDate,
+    normalizeCompleteReviewInput,
+    normalizeReviewScheduleInput,
+
+    completeTalentPoolReview,
+    scheduleTalentPoolReview,
+  }
+);

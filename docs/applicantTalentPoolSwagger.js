@@ -1210,3 +1210,194 @@ Object.assign(
     },
   }
 );
+
+
+/*
+|--------------------------------------------------------------------------
+| B5E — Talent Pool Review / Revisit
+|--------------------------------------------------------------------------
+*/
+
+
+Object.assign(
+  module.exports.paths,
+  {
+    '/api/applicants/talent-pool/{applicantId}/review':
+      {
+        post: {
+          tags: [
+            TAG,
+          ],
+
+          summary:
+            'Complete a Talent Pool review',
+
+          description:
+            'Marks the active Talent Pool membership as reviewed by updating lastReviewedAt and lastReviewedBy. An optional nextReviewAt may immediately schedule the next revisit. This operation does not create an Applicant Task and does not create or update a Google Calendar event.',
+
+          security,
+
+          parameters: [
+            talentPoolApplicantIdParameter,
+          ],
+
+          requestBody: {
+            required:
+              false,
+
+            content: {
+              'application/json': {
+                schema: {
+                  type:
+                    'object',
+
+                  properties: {
+                    nextReviewAt: {
+                      type:
+                        'string',
+
+                      format:
+                        'date-time',
+
+                      nullable:
+                        true,
+
+                      description:
+                        'Optional next revisit date-time. If omitted, the completed review clears the previous nextReviewAt schedule.',
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          responses: {
+            200: {
+              description:
+                'Talent Pool review completed.',
+            },
+
+            400: {
+              description:
+                'Invalid review payload or review date.',
+            },
+
+            401: {
+              description:
+                'Authentication required.',
+            },
+
+            403: {
+              description:
+                'Talent Pool management permission required.',
+            },
+
+            404: {
+              description:
+                'Applicant or Talent Pool membership not found.',
+            },
+
+            409: {
+              description:
+                'Applicant is archived or Talent Pool membership is inactive.',
+            },
+
+            500: {
+              description:
+                'Talent Pool review request failed.',
+            },
+          },
+        },
+      },
+
+
+    '/api/applicants/talent-pool/{applicantId}/review/schedule':
+      {
+        post: {
+          tags: [
+            TAG,
+          ],
+
+          summary:
+            'Schedule the next Talent Pool review',
+
+          description:
+            'Schedules nextReviewAt for an active Talent Pool membership without marking a review as completed. This operation does not create an Applicant Task and does not create or update a Google Calendar event.',
+
+          security,
+
+          parameters: [
+            talentPoolApplicantIdParameter,
+          ],
+
+          requestBody: {
+            required:
+              true,
+
+            content: {
+              'application/json': {
+                schema: {
+                  type:
+                    'object',
+
+                  required: [
+                    'nextReviewAt',
+                  ],
+
+                  properties: {
+                    nextReviewAt: {
+                      type:
+                        'string',
+
+                      format:
+                        'date-time',
+
+                      description:
+                        'Future date-time for the next Talent Pool review.',
+                    },
+                  },
+                },
+              },
+            },
+          },
+
+          responses: {
+            200: {
+              description:
+                'Next Talent Pool review scheduled.',
+            },
+
+            400: {
+              description:
+                'nextReviewAt is missing, invalid, or in the past.',
+            },
+
+            401: {
+              description:
+                'Authentication required.',
+            },
+
+            403: {
+              description:
+                'Talent Pool management permission required.',
+            },
+
+            404: {
+              description:
+                'Applicant or Talent Pool membership not found.',
+            },
+
+            409: {
+              description:
+                'Applicant is archived or Talent Pool membership is inactive.',
+            },
+
+            500: {
+              description:
+                'Talent Pool review scheduling request failed.',
+            },
+          },
+        },
+      },
+  }
+);

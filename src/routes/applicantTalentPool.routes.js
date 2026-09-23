@@ -16,6 +16,8 @@ const {
   patchTalentPoolMembership,
   removeTalentPoolMembership,
   restoreTalentPoolMembership,
+  completeTalentPoolReview,
+  scheduleTalentPoolReview,
 } =
   require(
     '../../services/applicantTalentPoolService'
@@ -48,6 +50,14 @@ function sendTalentPoolError(
       'INVALID_APPLICANT_ID' ||
     code ===
       'INVALID_TALENT_POOL_SEARCH' ||
+    code ===
+      'INVALID_TALENT_POOL_REVIEW_INPUT' ||
+    code ===
+      'INVALID_TALENT_POOL_REVIEW_DATE' ||
+    code ===
+      'TALENT_POOL_REVIEW_DATE_REQUIRED' ||
+    code ===
+      'TALENT_POOL_REVIEW_DATE_PAST' ||
     code ===
       'INVALID_TALENT_POOL_INPUT' ||
     code ===
@@ -159,6 +169,9 @@ function createApplicantTalentPoolRouter({
     patchTalentPoolMembership,
     removeTalentPoolMembership,
     restoreTalentPoolMembership,
+
+    completeTalentPoolReview,
+    scheduleTalentPoolReview,
 
     ...services,
   };
@@ -695,6 +708,116 @@ function createApplicantTalentPoolRouter({
               applicantId:
                 req.params
                   .applicantId,
+
+              actor:
+                req.user,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+
+  /*
+   * ==================================================
+   * Talent Pool Review / Revisit Workflow
+   * ==================================================
+   */
+
+
+  /*
+   * POST
+   * /api/applicants/talent-pool/:applicantId/review
+   *
+   * Marks the Talent Pool review as completed.
+   *
+   * Optional:
+   *   nextReviewAt
+   *
+   * No Task or external Calendar event is created.
+   */
+  router.post(
+    '/:applicantId/review',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .completeTalentPoolReview({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              input:
+                req.body ||
+                {},
+
+              actor:
+                req.user,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/talent-pool/:applicantId/review/schedule
+   *
+   * Explicitly schedules the next Talent Pool review.
+   *
+   * This does NOT:
+   *   - mark the review completed
+   *   - create an Applicant Task
+   *   - create/update Google Calendar
+   */
+  router.post(
+    '/:applicantId/review/schedule',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .scheduleTalentPoolReview({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              input:
+                req.body ||
+                {},
 
               actor:
                 req.user,

@@ -197,6 +197,13 @@ run_node_test "scripts/testApplicantTalentPoolDiscoveryService.js"
 
 run_node_test "scripts/testApplicantTalentPoolDiscoveryApiContract.js"
 
+run_node_test "scripts/testApplicantTalentPoolReviewService.js"
+
+run_node_test "scripts/testApplicantTalentPoolReviewApiContract.js"
+
+run_node_test "scripts/testApplicantTalentPoolTaskCalendarReuse.js"
+
+
 
 
 run_node_test "scripts/testApplicantTalentPoolSwagger.js"
