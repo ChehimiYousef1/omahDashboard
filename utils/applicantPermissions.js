@@ -39,6 +39,7 @@ const APPLICANT_PERMISSIONS =
     'applicant:restore',
     'applicant:delete',
     'applicant:notes:view',
+    'applicant:talent-pool:manage',
     'applicant:notes:manage',
     'applicant:submissions:view',
     'applicant:documents:view',

@@ -9,6 +9,20 @@ const Applicant =
   );
 
 const {
+  listTalentPoolMemberships,
+  getTalentPoolMembership,
+  addTalentPoolMembership,
+  replaceTalentPoolMembership,
+  patchTalentPoolMembership,
+  removeTalentPoolMembership,
+  restoreTalentPoolMembership,
+} =
+  require(
+    '../../services/applicantTalentPoolService'
+  );
+
+
+const {
   listTalentPoolCategories,
   getTalentPoolCategory,
   createTalentPoolCategory,
@@ -31,6 +45,12 @@ function sendTalentPoolError(
 
   if (
     code ===
+      'INVALID_APPLICANT_ID' ||
+    code ===
+      'INVALID_TALENT_POOL_SEARCH' ||
+    code ===
+      'INVALID_TALENT_POOL_INPUT' ||
+    code ===
       'INVALID_TALENT_POOL_CATEGORY_ID' ||
     code ===
       'INVALID_TALENT_POOL_CATEGORY'
@@ -45,6 +65,10 @@ function sendTalentPoolError(
 
   if (
     code ===
+      'APPLICANT_NOT_FOUND' ||
+    code ===
+      'TALENT_POOL_MEMBERSHIP_NOT_FOUND' ||
+    code ===
       'TALENT_POOL_CATEGORY_NOT_FOUND'
   ) {
     return res
@@ -56,6 +80,10 @@ function sendTalentPoolError(
   }
 
   if (
+    code ===
+      'APPLICANT_ARCHIVED' ||
+    code ===
+      'TALENT_POOL_MEMBERSHIP_CONFLICT' ||
     code ===
       'TALENT_POOL_CATEGORY_CONFLICT' ||
     code ===
@@ -124,11 +152,64 @@ function createApplicantTalentPoolRouter({
     archiveTalentPoolCategory,
     restoreTalentPoolCategory,
 
+    listTalentPoolMemberships,
+    getTalentPoolMembership,
+    addTalentPoolMembership,
+    replaceTalentPoolMembership,
+    patchTalentPoolMembership,
+    removeTalentPoolMembership,
+    restoreTalentPoolMembership,
+
     ...services,
   };
 
   const router =
     express.Router();
+
+
+  /*
+   * GET /api/applicants/talent-pool
+   *
+   * Server-side Talent Pool discovery:
+   * search, filtering, sorting, and pagination.
+   */
+  router.get(
+    '/',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const result =
+          await api
+            .listTalentPoolMemberships({
+              query:
+                req.query,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent:
+            result.talent,
+
+          pagination:
+            result.pagination,
+
+          filters:
+            result.filters,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
 
 
   /*
@@ -354,6 +435,276 @@ function createApplicantTalentPoolRouter({
         return res.json({
           success: true,
           category,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+
+  /*
+   * ==================================================
+   * Talent Pool Membership
+   * ==================================================
+   *
+   * Static category routes remain above these
+   * dynamic Applicant routes.
+   */
+
+
+  /*
+   * GET /api/applicants/talent-pool/:applicantId
+   */
+  router.get(
+    '/:applicantId',
+
+    requireApplicantPermission(
+      'applicant:view'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .getTalentPoolMembership({
+              applicantId:
+                req.params
+                  .applicantId,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST /api/applicants/talent-pool/:applicantId
+   *
+   * Add Applicant to Talent Pool.
+   */
+  router.post(
+    '/:applicantId',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .addTalentPoolMembership({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              input:
+                req.body,
+
+              actor:
+                req.user,
+            });
+
+        return res
+          .status(201)
+          .json({
+            success:
+              true,
+
+            talent,
+          });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PUT /api/applicants/talent-pool/:applicantId
+   *
+   * Full editable membership replacement.
+   */
+  router.put(
+    '/:applicantId',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .replaceTalentPoolMembership({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              input:
+                req.body,
+
+              actor:
+                req.user,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * PATCH /api/applicants/talent-pool/:applicantId
+   *
+   * Partial membership update.
+   */
+  router.patch(
+    '/:applicantId',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .patchTalentPoolMembership({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              input:
+                req.body,
+
+              actor:
+                req.user,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * DELETE /api/applicants/talent-pool/:applicantId
+   *
+   * Soft-remove Talent Pool membership only.
+   * NEVER deletes the Applicant.
+   */
+  router.delete(
+    '/:applicantId',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .removeTalentPoolMembership({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              reason:
+                req.body
+                  ?.removalReason ??
+                req.body
+                  ?.reason ??
+                '',
+
+              actor:
+                req.user,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
+        });
+      } catch (error) {
+        return sendTalentPoolError(
+          res,
+          error
+        );
+      }
+    }
+  );
+
+
+  /*
+   * POST
+   * /api/applicants/talent-pool/:applicantId/restore
+   */
+  router.post(
+    '/:applicantId/restore',
+
+    requireApplicantPermission(
+      'applicant:talent-pool:manage'
+    ),
+
+    async (req, res) => {
+      try {
+        const talent =
+          await api
+            .restoreTalentPoolMembership({
+              applicantId:
+                req.params
+                  .applicantId,
+
+              actor:
+                req.user,
+            });
+
+        return res.json({
+          success:
+            true,
+
+          talent,
         });
       } catch (error) {
         return sendTalentPoolError(

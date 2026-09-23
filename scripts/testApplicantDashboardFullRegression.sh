@@ -189,6 +189,16 @@ run_node_test "scripts/testApplicantTalentPoolCategoryCrud.js"
 
 run_node_test "scripts/testApplicantTalentPoolCategoryApiContract.js"
 
+run_node_test "scripts/testApplicantTalentPoolMembershipLifecycle.js"
+
+run_node_test "scripts/testApplicantTalentPoolMembershipApiContract.js"
+
+run_node_test "scripts/testApplicantTalentPoolDiscoveryService.js"
+
+run_node_test "scripts/testApplicantTalentPoolDiscoveryApiContract.js"
+
+
+
 run_node_test "scripts/testApplicantTalentPoolSwagger.js"
 
 

@@ -261,7 +261,7 @@ for (
 
 assert.strictEqual(
   talentPoolOperationCount,
-  7,
+  14,
   'Applicant Talent Pool operation count changed'
 );
 
