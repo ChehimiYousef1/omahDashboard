@@ -3157,7 +3157,7 @@ async function getTalentPoolAnalytics({
   const [applicants,categories] = await Promise.all([
     ApplicantModel.find({
       'lifecycle.archived':{$ne:true},
-      'talentPool.addedAt':{$ne:null},
+      'talentPool.addedAt':{ $exists: true, $ne: null },
     }).select({identity:1,preferences:1,skills:1,recruitment:1,talentPool:1}).lean(),
     CategoryModel.find({}).select({name:1,slug:1}).lean(),
   ]);

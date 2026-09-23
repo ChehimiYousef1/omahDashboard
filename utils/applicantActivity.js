@@ -14,6 +14,7 @@ const APPLICANT_ACTIVITY_CATEGORIES = [
   'duplicate',
   'document',
   'system',
+  'talent_pool',
 ];
 
 
@@ -84,6 +85,12 @@ const APPLICANT_ACTIVITY_TYPES = [
   'document.current_changed',
   'document.archived',
   'document.restored',
+  'talent_pool.added',
+  'talent_pool.updated',
+  'talent_pool.removed',
+  'talent_pool.restored',
+  'talent_pool.review_completed',
+  'talent_pool.review_scheduled',
 ];
 
 

@@ -717,6 +717,9 @@ Object.assign(
                   type:
                     'object',
 
+                  minProperties: 1,
+
+
                   properties: {
                     categoryId: {
                       type:

@@ -211,6 +211,10 @@ run_node_test "scripts/testApplicantTalentPoolFrontend.js"
 
 run_node_test "scripts/testApplicantTalentPoolProfileFrontend.js"
 
+run_node_test "scripts/testApplicantTalentPoolAudit.js"
+
+run_node_test "scripts/testApplicantTalentPoolFinalContracts.js"
+
 
 
 

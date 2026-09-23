@@ -56,7 +56,11 @@ const FILTERS = [
     id: "lifecycle",
     label: "Lifecycle",
   },
-];
+
+  {
+    id: "talent_pool",
+    label: "Talent Pool",
+  },];
 
 
 function errorMessage(
