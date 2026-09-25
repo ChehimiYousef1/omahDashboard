@@ -1,47 +1,146 @@
 # OMAH Connect — Admin Dashboard
 
-Express + MongoDB back end with a React (Vite) admin console.
+OMAH Connect is an internal administration and recruitment platform built with an Express/Node.js backend, MongoDB, and a React + Vite administration frontend.
 
-## Layout
+The repository contains Applicant Management, Talent Pool, interviews, evaluations, documents, analytics, notes/tasks, audit history, reporting, calendar integration, communications, and related administrative workflows.
 
-    server.js              API entry point
-    models/                Mongoose models
-    middleware/            auth
-    data/                  JSON stores (companies, jobs, emails, users…)
-    scripts/               ops: backup, audits, structure, cleanup
-    omahconnect-admin/     React admin front end
-    docs/archive/          historical setup notes
+## Technology
+
+- Node.js 24.x
+- npm 11.x
+- Express
+- MongoDB / Mongoose
+- React
+- TypeScript
+- Vite
+
+Supported runtime versions are defined in `package.json` and `.nvmrc`.
+
+## Project structure
+
+```text
+server.js                 Application entry point
+src/                      Backend bootstrap and routes
+services/                 Business logic and integrations
+models/                   MongoDB/Mongoose models
+middleware/               Authentication and authorization
+config/                   Backend configuration
+utils/                    Shared backend utilities
+docs/                     Current technical and operational documentation
+docs/archive/             Historical documentation only
+integrations/             External integration source/configuration
+scripts/                  Tests, audits and operational utilities
+omahconnect-admin/        React/Vite administration frontend
+data/                     Local/legacy runtime data
+private-storage/          Local private document storage
+```
+
+Runtime data, private documents, environment files and generated build output are intentionally excluded from source control.
 
 ## Requirements
 
-Node 20+, MongoDB 8 running locally (or an Atlas connection string).
+Expected runtime family:
 
-## Setup
+```text
+Node >=24 <25
+npm  >=11 <12
+```
 
-    npm install
-    cp .env.example .env        # then fill it in
-    npm start                   # API on :5000
+With NVM:
 
-    cd omahconnect-admin
-    npm install
-    npm run dev                 # UI on :5173
+```bash
+nvm use
+```
 
-## Environment
+MongoDB must be available through `MONGODB_URI` for normal application operation.
 
-| Variable | Purpose |
-|---|---|
-| `MONGODB_URI` | Mongo connection string (required) |
-| `DISABLE_MONGO` | `true` falls back to JSON files |
-| `JWT_SECRET` | 64 hex chars, required |
-| `PORT` | API port, default 5000 |
-| `SMTP_*` | outbound email |
-| `APPLICANT_SHEET_CSV_URL` | Google Sheet import |
+## Installation
 
-Front end: `VITE_API_URL` in `omahconnect-admin/.env` (and `.env.production`).
+```bash
+npm ci
+npm ci --prefix omahconnect-admin
+cp .env.example .env
+cp omahconnect-admin/.env.example omahconnect-admin/.env
+```
 
-## Useful commands
+Never commit populated environment files.
 
-    npm run backup      # Mongo + data/ snapshot
-    npm run tree        # project structure
-    npm run clean       # remove build junk (dry run first)
-    bash scripts/security-audit.sh
+## Local development
+
+Backend:
+
+```bash
+npm run dev
+```
+
+Default backend port: `5000`.
+
+Frontend:
+
+```bash
+npm run dev --prefix omahconnect-admin
+```
+
+Default Vite development port: `5173`.
+
+## Production build
+
+```bash
+npm run build
+```
+
+Production requires an explicit frontend API base URL through `VITE_API_URL`.
+
+Production source maps are disabled.
+
+Start the Node application with:
+
+```bash
+NODE_ENV=production npm start
+```
+
+The backend can serve the generated frontend from `omahconnect-admin/dist`.
+
+## Validation
+
+Full Applicant regression:
+
+```bash
+npm run test:applicant
+```
+
+Repository safety:
+
+```bash
+git diff --check
+git status --short
+```
+
+Health endpoints:
+
+```text
+GET /health
+GET /ready
+```
+
+Swagger and Developer APIs are disabled by default in production unless explicitly enabled.
+
+## Documentation
+
+Current production documentation:
+
+- [Documentation index](docs/README.md)
+- [Architecture](docs/architecture.md)
+- [Environment configuration](docs/environment.md)
+- [Deployment](docs/deployment.md)
+- [Backup and restore](docs/backup-restore.md)
+- [Security](docs/security.md)
+- [Operations runbook](docs/runbook.md)
+
+Applicant-specific design documentation remains under `docs/`.
+
+Historical setup material is under `docs/archive/` and must not be treated as the current production procedure.
+
+## Important production rule
+
+Production credentials must be supplied through secure environment/secret management. They must never be committed to Git or embedded in frontend `VITE_*` variables.
