@@ -12,6 +12,7 @@ This directory contains the current technical and operational documentation for 
 | `backup-restore.md` | Backup policy and restore-drill requirements |
 | `security.md` | Security configuration and production controls |
 | `runbook.md` | Day-to-day operations and incident procedures |
+| `migrations.md` | Database migration workflow and safety rules |
 
 ## Applicant documentation
 

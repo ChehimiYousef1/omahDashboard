@@ -109,6 +109,21 @@ Full Applicant regression:
 npm run test:applicant
 ```
 
+Database migration validation and status:
+
+```bash
+npm run migrate:check
+npm run migrate:status
+```
+
+Apply migrations only during an approved release step:
+
+```bash
+npm run migrate
+```
+
+Application startup never runs database migrations automatically.
+
 Repository safety:
 
 ```bash

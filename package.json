@@ -8,7 +8,11 @@
     "tree": "bash scripts/tree.sh",
     "clean": "bash scripts/cleanup.sh",
     "organize": "bash scripts/organize.sh",
-    "test:applicant": "bash scripts/testApplicantDashboardFullRegression.sh"
+    "test:applicant": "bash scripts/testApplicantDashboardFullRegression.sh",
+    "migrate": "node scripts/migrate.js up",
+    "migrate:status": "node scripts/migrate.js status",
+    "migrate:check": "node scripts/migrate.js check",
+    "test:migrations": "node scripts/testMigrationSystem.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",
