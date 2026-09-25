@@ -710,8 +710,7 @@ export function ApplicantTalentPoolProfilePanel({
   function openAddForm() {
     setFormCategory(
       options
-        .categories
-        [0]
+        .categories[0]
         ?._id ||
       ""
     );

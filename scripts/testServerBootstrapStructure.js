@@ -111,10 +111,17 @@ const documentStart =
     "'/api/applicants/:applicantId/documents'"
   );
 
+const documentEnd =
+  routes.indexOf(
+    "'/api/applicants/:applicantId/reports'",
+    documentStart + 1
+  );
+
+
 const applicantStart =
   routes.indexOf(
     "'/api/applicants'",
-    documentStart + 1
+    documentEnd + 1
   );
 
 const swaggerStart =
@@ -126,7 +133,7 @@ const swaggerStart =
 const documentBlock =
   routes.slice(
     documentStart,
-    applicantStart
+    documentEnd
   );
 
 

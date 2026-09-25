@@ -360,33 +360,48 @@ function registerApiRoutes(
 
 
   /*
-   * Swagger remains in the same logical position:
-   * after Applicant APIs and before Developer APIs.
+   * Development/support surfaces.
+   *
+   * In production these endpoints are disabled by default.
+   * They may only be exposed through an explicit environment opt-in.
    */
-  registerSwagger(
-    app,
-    {
+  const isProduction =
+    process.env.NODE_ENV === 'production';
+
+  const swaggerEnabled =
+    !isProduction ||
+    process.env.SWAGGER_ENABLED === 'true';
+
+  const devApiEnabled =
+    !isProduction ||
+    process.env.DEV_API_ENABLED === 'true';
+
+
+  if (swaggerEnabled) {
+    registerSwagger(
+      app,
+      {
+        authenticateToken,
+        requireAdmin,
+      }
+    );
+  }
+
+
+  if (devApiEnabled) {
+    app.use(
+      '/api/dev',
+
       authenticateToken,
+
       requireAdmin,
-    }
-  );
 
-
-  /*
-   * Developer APIs remain globally Admin protected.
-   */
-  app.use(
-    '/api/dev',
-
-    authenticateToken,
-
-    requireAdmin,
-
-    createDevRouter({
-      authenticateToken,
-      db,
-    })
-  );
+      createDevRouter({
+        authenticateToken,
+        db,
+      })
+    );
+  }
 }
 
 

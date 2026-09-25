@@ -197,6 +197,33 @@ registerHealthRoutes(
 
 
 /* =========================
+   SUPPORT SURFACE 404 BOUNDARY
+========================= */
+
+/*
+ * API documentation and developer-only APIs are
+ * registered earlier when enabled.
+ *
+ * Any request reaching this point did not match an
+ * enabled support route and must not fall through to
+ * the React SPA.
+ */
+app.use(
+  '/api-docs',
+  (_req, res) => {
+    res.sendStatus(404);
+  }
+);
+
+app.use(
+  '/api/dev',
+  (_req, res) => {
+    res.sendStatus(404);
+  }
+);
+
+
+/* =========================
    SPA FALLBACK
 ========================= */
 

@@ -188,7 +188,7 @@ export function ApplicantAnalyticsDrilldownPanel({
   }, [
     type,
     filters,
-  ]); // eslint-disable-line react-hooks/exhaustive-deps
+  ]);
 
 
   async function openApplicant(

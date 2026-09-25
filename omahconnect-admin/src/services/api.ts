@@ -1,8 +1,27 @@
 import axios from 'axios';
 
-// Create an Axios instance with base URL pointing to the Express backend
+const configuredApiUrl =
+  import.meta.env.VITE_API_URL?.trim();
+
+export const API_BASE_URL =
+  (
+    configuredApiUrl ||
+    (
+      import.meta.env.DEV
+        ? 'http://localhost:5000/api'
+        : ''
+    )
+  ).replace(/\/+$/, '');
+
+if (!API_BASE_URL) {
+  throw new Error(
+    'VITE_API_URL must be configured outside development.'
+  );
+}
+
+// Create an Axios instance with the validated backend base URL.
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
@@ -3543,13 +3562,7 @@ export const applicantDocumentDownloadUrl = (
    * origin. A relative /api URL would be resolved
    * against the frontend Vite/dashboard origin.
    */
-  const apiBaseUrl =
-    (
-      import.meta.env.VITE_API_URL ||
-      "http://localhost:5000/api"
-    ).replace(/\/+$/, "");
-
-  return `${apiBaseUrl}/applicants/${encodeURIComponent(
+  return `${API_BASE_URL}/applicants/${encodeURIComponent(
     applicantId
   )}/documents/${encodeURIComponent(
     documentId
@@ -4719,7 +4732,7 @@ export const addApplicantToTalentPool =
 
 const normalizeApplicantTalentPoolCategory =
   (
-    category: Record<string, any>
+    category: Record<string, unknown>
   ): ApplicantTalentPoolCategory => {
     const id =
       String(

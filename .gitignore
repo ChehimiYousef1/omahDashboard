@@ -1,16 +1,53 @@
+# =============================================================================
+# OMAH Dashboard — repository ignore policy
+# =============================================================================
+
+# Dependencies
 node_modules/
+
+# Environment configuration
 .env
 .env.*
 !.env.example
-node_modules
-backup-mongo/
-backup-before-rebase/
-data-backup-*/
-backup-mongo/
-data/db.json
-data/
+
+# Generated builds / test artifacts
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local database / backup material
+/backup-mongo/
+/backup-before-rebase/
+/data-backup-*/
+
+# Temporary / backup files
 *.bak
 *.bak2
+*.tmp
+*.temp
+
+# Local runtime data
+/data/*
+!/data/.gitkeep
 
 # Private Applicant documents
-private-storage/
+/private-storage/
+
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo

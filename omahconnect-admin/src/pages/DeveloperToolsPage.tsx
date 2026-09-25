@@ -16,6 +16,7 @@ import {
   HardDrive,
   Download,
 } from "lucide-react";
+import { API_BASE_URL } from "../services/api";
 
 interface LogItem {
   id: string;
@@ -210,7 +211,7 @@ export function DeveloperToolsPage() {
     try {
       const response = await axios({
         method: apiMethod,
-        url: `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}${apiEndpoint}`,
+        url: `${API_BASE_URL}${apiEndpoint}`,
         withCredentials: true,
       });
       setApiResponse(JSON.stringify(response.data, null, 2));

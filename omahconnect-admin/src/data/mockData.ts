@@ -211,6 +211,14 @@ export const navItems = [
   { id: "calendar", label: "Calendar", icon: "calendar-days" },
   { id: "reports", label: "Reports", icon: "flag" },
   { id: "analytics", label: "Analytics", icon: "bar-chart-3" },
-  { id: "developer", label: "Developer Tools", icon: "code-2" },
+  ...(import.meta.env.DEV
+    ? [
+        {
+          id: "developer",
+          label: "Developer Tools",
+          icon: "code-2",
+        },
+      ]
+    : []),
   { id: "settings", label: "Settings", icon: "settings" },
 ];

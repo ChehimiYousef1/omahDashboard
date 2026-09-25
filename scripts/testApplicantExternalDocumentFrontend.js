@@ -126,18 +126,39 @@ const downloadUrlSection =
   );
 
 assert.ok(
-  downloadUrlSection.includes(
-    'import.meta.env.VITE_API_URL'
+  api.includes(
+    'import.meta.env.VITE_API_URL?.trim()'
   ),
-  'Browser document navigation must use VITE_API_URL.'
+  'Central API policy must read VITE_API_URL.'
 );
+
+
+assert.ok(
+  api.includes(
+    'import.meta.env.DEV'
+  ) &&
+  api.includes(
+    'http://localhost:5000/api'
+  ),
+  'Central API policy must retain the development-only localhost fallback.'
+);
+
+
+assert.ok(
+  api.includes(
+    'VITE_API_URL must be configured outside development.'
+  ),
+  'Production must require an explicit VITE_API_URL.'
+);
+
 
 assert.ok(
   downloadUrlSection.includes(
-    'http://localhost:5000/api'
+    'API_BASE_URL'
   ),
-  'Browser document navigation must retain the development backend fallback.'
+  'Browser document navigation must use the centralized API_BASE_URL.'
 );
+
 
 assert.ok(
   !downloadUrlSection.includes(

@@ -89,11 +89,10 @@ fi
 
 # --------------------------------------------------------------------------
 group "4. Stray files worth a look (NOT touched automatically)"
-for f in query test-server.js start-server.bat vercel.json; do
+for f in query start-server.bat vercel.json; do
   [ -e "$f" ] && printf "  %-22s %s\n" "$f" "$( [ -f "$f" ] && du -h "$f" | cut -f1 )"
 done
 echo "  'query'        — looks like an accidental shell redirect; open it, then delete"
-echo "  test-server.js — keep only if you actually run it"
 echo "  vercel.json    — you're deploying to AWS now; stale if Vercel is dropped"
 
 if [ -d mongodb ]; then

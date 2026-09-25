@@ -1,8 +1,8 @@
 import { useState } from "react";
 import axios from "axios";
-import type { User } from "../services/api";
+import { API_BASE_URL, type User } from "../services/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API_URL = API_BASE_URL;
 
 export function LoginPage({ onSuccess }: { onSuccess: (user: User) => void }) {
   const [email, setEmail] = useState("");
