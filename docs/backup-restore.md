@@ -77,3 +77,13 @@ Production object storage backup/versioning/retention must be included in the fi
 ## Status
 
 Documentation is complete in P2. A fresh verified backup plus successful restore test remains a separate P4 requirement.
+
+## Verified drill record
+
+The latest repository-recorded restore verification is documented in:
+
+```text
+docs/backupRestoreVerification.md
+```
+
+The verification record contains no database credentials.

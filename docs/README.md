@@ -10,6 +10,7 @@ This directory contains the current technical and operational documentation for 
 | `environment.md` | Backend/frontend environment configuration |
 | `deployment.md` | Production build, deployment and rollback contract |
 | `backup-restore.md` | Backup policy and restore-drill requirements |
+| `backupRestoreVerification.md` | Latest verified backup/restore drill record |
 | `security.md` | Security configuration and production controls |
 | `runbook.md` | Day-to-day operations and incident procedures |
 | `migrations.md` | Database migration workflow and safety rules |
