@@ -130,6 +130,29 @@ async function main() {
     /authCookieClearOptions/
   );
 
+  /*
+   * auth cookie route wiring
+   */
+  assert.strictEqual(
+    (
+      authRoutes.match(
+        /res\.cookie\(\s*AUTH_COOKIE_NAME,\s*token,\s*authCookieOptions\(\)/g
+      ) ||
+      []
+    ).length,
+    2
+  );
+
+  assert.match(
+    authRoutes,
+    /res\.clearCookie\(\s*AUTH_COOKIE_NAME,\s*authCookieClearOptions\(\)/
+  );
+
+  assert.doesNotMatch(
+    authRoutes,
+    /res\.cookie\(['"]auth_token['"]/
+  );
+
   assert.match(
     authMiddleware,
     /JWT_SECRET\.length\s*<\s*32/

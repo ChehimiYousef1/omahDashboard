@@ -107,3 +107,30 @@ P6 adds the following application boundaries:
 The current local integration flags may be enabled for controlled development. Production configuration must start write-capable integrations disabled and enable each one only after its credentials, permissions and target resources are verified.
 
 Historical non-empty `JWT_SECRET`, `MONGODB_URI` and `SMTP_PASS` values detected by P5 must not be reused for production.
+
+## P7 rate limiting and abuse controls
+
+P7 adds layered in-process abuse protection using `express-rate-limit`.
+
+The controls include:
+
+- failed-login throttling
+- signup throttling when signup is explicitly enabled
+- a generous global API burst ceiling
+- a separate mutation ceiling
+- stricter limits for bulk campaigns and outbound communications
+- limits for calls and external-service actions
+- limits for Google Sheet synchronization
+- limits for Applicant document mutations
+- limits for PDF/report generation
+- limits for Calendar/Interview external actions
+- a stricter destructive-action ceiling
+- the existing Applicant Form webhook limiter remains active
+
+All rate-limit responses use HTTP `429` and a generic `RATE_LIMITED` response without exposing internal identifiers.
+
+These application-level limiters use the default in-memory store and therefore protect one Node.js process. They are not a replacement for edge/distributed controls. Before horizontal production scaling, enforce a second layer through AWS WAF/CloudFront (or an equivalent trusted edge) and use a shared limiter store if application-level counters must span multiple instances.
+
+P7 also closes a post-P6 verification gap: signup/login/logout now actually use the shared hardened authentication-cookie policy that P6 introduced.
+
+Outbound campaign email is fail-closed in production when SMTP credentials are absent, and SMTP provider error text is not returned directly to API clients.

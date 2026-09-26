@@ -90,12 +90,11 @@ module.exports = (deps) => {
             algorithm: 'HS256',
           }
         );
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
+      res.cookie(
+          AUTH_COOKIE_NAME,
+          token,
+          authCookieOptions()
+        );
   
       return res.status(201).json({
         success: true,
@@ -139,12 +138,11 @@ module.exports = (deps) => {
             algorithm: 'HS256',
           }
         );
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
+      res.cookie(
+          AUTH_COOKIE_NAME,
+          token,
+          authCookieOptions()
+        );
   
       return res.json({
         success: true,
@@ -167,9 +165,17 @@ module.exports = (deps) => {
     }
   });
 
-  router.post('/logout', (req, res) => {
-    res.clearCookie('auth_token');
-    return res.json({ success: true, message: 'Logged out successfully' });
+  router.post('/logout', (_req, res) => {
+    res.clearCookie(
+      AUTH_COOKIE_NAME,
+      authCookieClearOptions()
+    );
+
+    return res.json({
+      success: true,
+      message:
+        'Logged out successfully',
+    });
   });
 
   router.get('/me', authenticateToken, (req, res) => {

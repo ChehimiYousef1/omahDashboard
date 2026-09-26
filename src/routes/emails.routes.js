@@ -102,13 +102,28 @@ module.exports = (deps) => {
           }
           console.log(`✅ SMTP Mail sent successfully to ${recipients.length} recipients.`);
         } catch (smtpError) {
-          console.error('❌ SMTP Mail delivery failed:', smtpError.message);
-          return res.status(500).json({
+          console.error(
+            'SMTP mail delivery failed:',
+            smtpError?.code ||
+              smtpError?.name ||
+              'SMTP_ERROR'
+          );
+
+          return res.status(502).json({
             success: false,
-            error: `Real email sending failed: ${smtpError.message}. If using Gmail, make sure you are using a 16-character App Password (not your regular password) and that 2-Step Verification is enabled.`
+            error:
+              'Email delivery failed.',
           });
         }
       } else {
+        if (process.env.NODE_ENV === 'production') {
+          return res.status(503).json({
+            success: false,
+            error:
+              'Email delivery is not configured.',
+          });
+        }
+
         // Simulate sending in the console log
         console.log(`\n========================================`);
         console.log(`📧 SIMULATING EMAIL CAMPAIGN: [${campaignType.toUpperCase()}]`);

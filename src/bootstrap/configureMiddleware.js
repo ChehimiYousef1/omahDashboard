@@ -307,7 +307,15 @@ function configureMiddleware(
           req.method ===
           'OPTIONS',
 
+      skipSuccessfulRequests:
+        true,
+
       message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
         error:
           'Too many attempts, try again in 15 minutes',
       },
@@ -318,6 +326,428 @@ function configureMiddleware(
     '/api/auth/login',
     loginLimiter
   );
+
+  /* P7 TIERED ABUSE PROTECTION */
+
+  const signupLimiter =
+    rateLimit({
+      windowMs:
+        60 * 60 * 1000,
+
+      max:
+        5,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          req.method ===
+          'OPTIONS',
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many signup attempts. Try again later.',
+      },
+    });
+
+
+  const apiBurstLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        1200,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          req.method ===
+          'OPTIONS',
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many API requests. Try again later.',
+      },
+    });
+
+
+  const apiMutationLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        600,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many write requests. Try again later.',
+      },
+    });
+
+
+  const outboundCommunicationLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        30,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many communication requests. Try again later.',
+      },
+    });
+
+
+  const bulkCampaignLimiter =
+    rateLimit({
+      windowMs:
+        60 * 60 * 1000,
+
+      max:
+        10,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many campaign requests. Try again later.',
+      },
+    });
+
+
+  const externalActionLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        60,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many external-service actions. Try again later.',
+      },
+    });
+
+
+  const documentMutationLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        60,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many document changes. Try again later.',
+      },
+    });
+
+
+  const reportGenerationLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        30,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          req.method ===
+          'OPTIONS',
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many report requests. Try again later.',
+      },
+    });
+
+
+  const sheetSyncLimiter =
+    rateLimit({
+      windowMs:
+        60 * 60 * 1000,
+
+      max:
+        6,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many synchronization requests. Try again later.',
+      },
+    });
+
+
+  const destructiveActionLimiter =
+    rateLimit({
+      windowMs:
+        60 * 60 * 1000,
+
+      max:
+        10,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          [
+            'GET',
+            'HEAD',
+            'OPTIONS',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'RATE_LIMITED',
+
+        error:
+          'Too many destructive actions. Try again later.',
+      },
+    });
+
+
+  app.use(
+    '/api/auth/signup',
+    signupLimiter
+  );
+
+
+  app.use(
+    '/api',
+    apiBurstLimiter,
+    apiMutationLimiter
+  );
+
+
+  app.use(
+    '/api/emails',
+    bulkCampaignLimiter
+  );
+
+  app.use(
+    '/api/companies/communications',
+    bulkCampaignLimiter
+  );
+
+  app.use(
+    '/api/notifications',
+    outboundCommunicationLimiter
+  );
+
+  app.use(
+    '/api/messages/send',
+    outboundCommunicationLimiter
+  );
+
+  app.use(
+    '/api/calls/initiate',
+    externalActionLimiter
+  );
+
+  app.use(
+    '/api/applications/sync-sheet',
+    sheetSyncLimiter
+  );
+
+
+  app.use(
+    '/api/applicants/:applicantId/documents',
+    documentMutationLimiter
+  );
+
+  app.use(
+    '/api/applicants/:applicantId/reports',
+    reportGenerationLimiter
+  );
+
+  app.use(
+    '/api/applicants/:id/communications',
+    outboundCommunicationLimiter
+  );
+
+  app.use(
+    '/api/applicants/:id/notes/:noteId/calendar',
+    externalActionLimiter
+  );
+
+  app.use(
+    '/api/applicants/:id/interviews',
+    externalActionLimiter
+  );
+
+  app.use(
+    '/api/applicants/:id/permanent',
+    destructiveActionLimiter
+  );
+
 
 
   /*
