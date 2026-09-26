@@ -23,6 +23,7 @@ Frontend variables beginning with `VITE_` are public build-time values and must 
 - `DISABLE_MONGO`: legacy/local database mode control.
 - `JWT_SECRET`: authentication signing secret; highly sensitive.
 - `ALLOWED_ORIGINS`: approved browser origins for CORS.
+- `ALLOW_SIGNUP`: public signup gate; production/default should remain `false`.
 
 ## Applicant ingestion
 
@@ -66,6 +67,17 @@ OAuth secrets and refresh tokens must be stored only in backend secret configura
 
 - `COMPANY_WHATSAPP_NUMBER`
 - `TEST_APPLICANT_EMAIL`
+
+## Applicant document storage
+
+- `DOCUMENT_STORAGE_PROVIDER`: explicit production provider (`local`, `external`, or `s3` as supported by the storage factory).
+- `DOCUMENT_LOCAL_STORAGE_DIR`: local private storage path for development/local deployments.
+- `DOCUMENT_S3_BUCKET`: private S3 bucket for managed Applicant documents.
+- `AWS_REGION`: AWS region used by the S3 adapter.
+- `DOCUMENT_S3_ENDPOINT`: optional custom S3-compatible endpoint.
+- `DOCUMENT_S3_FORCE_PATH_STYLE`: optional S3 path-style compatibility flag.
+
+Production on AWS should prefer IAM roles rather than static AWS access keys in environment files.
 
 ## Support surfaces
 

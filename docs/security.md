@@ -85,3 +85,25 @@ The repository ignores environment files, dependencies, generated builds, logs, 
 ## Later security phases
 
 P2 documents the security contract. Later phases still require active verification of dependency vulnerabilities, Git secret history, auth/authz, CORS, cookies/tokens, request validation, injection, XSS, CSRF exposure, uploads, rate limits, abuse controls, bot/crawler behavior, scraping deterrence, TLS, production exposure, cloud permissions, logging and monitoring.
+
+## P5/P6 verified hardening
+
+The P5 local audit is recorded in `securityAuditP5.md`.
+
+P6 adds the following application boundaries:
+
+- production Content-Security-Policy through Helmet
+- production CORS/Origin allowlisting with HTTPS-only configured browser origins
+- localhost browser origins only in development
+- `X-Powered-By` disabled
+- explicit `HS256` JWT signing and verification
+- production JWT secret minimum length
+- authentication responses marked `no-store`
+- consistent authentication cookie scope on set/clear
+- local private document directories created as `0700`
+- local private document files created as `0600`
+- public signup disabled by default in the environment template
+
+The current local integration flags may be enabled for controlled development. Production configuration must start write-capable integrations disabled and enable each one only after its credentials, permissions and target resources are verified.
+
+Historical non-empty `JWT_SECRET`, `MONGODB_URI` and `SMTP_PASS` values detected by P5 must not be reused for production.

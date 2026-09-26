@@ -288,6 +288,7 @@ function createLocalStorageProvider({
         ),
         {
           recursive: true,
+          mode: 0o700,
         }
       );
 
@@ -297,6 +298,7 @@ function createLocalStorageProvider({
           buffer,
           {
             flag: 'wx',
+            mode: 0o600,
           }
         );
       } catch (error) {

@@ -97,13 +97,90 @@ function configureMiddleware(
       : [];
 
 
+  const isProduction =
+    env.NODE_ENV ===
+    'production';
+
+
+  /*
+   * Production origin configuration is fail-closed.
+   *
+   * Browser credential traffic must use explicitly
+   * configured HTTPS origins. Development keeps its
+   * localhost convenience separately below.
+   */
+  if (isProduction) {
+    if (
+      allowedOrigins.length === 0
+    ) {
+      throw new Error(
+        'ALLOWED_ORIGINS must contain at least one HTTPS origin in production.'
+      );
+    }
+
+    for (
+      const configuredOrigin
+      of allowedOrigins
+    ) {
+      if (
+        configuredOrigin ===
+        '*'
+      ) {
+        throw new Error(
+          'ALLOWED_ORIGINS must not contain * in production.'
+        );
+      }
+
+      let parsedOrigin;
+
+      try {
+        parsedOrigin =
+          new URL(
+            configuredOrigin
+          );
+      } catch {
+        throw new Error(
+          `Invalid production origin: ${configuredOrigin}`
+        );
+      }
+
+      if (
+        parsedOrigin.protocol !==
+        'https:'
+      ) {
+        throw new Error(
+          `Production origin must use HTTPS: ${configuredOrigin}`
+        );
+      }
+
+      if (
+        [
+          'localhost',
+          '127.0.0.1',
+          '::1',
+        ].includes(
+          parsedOrigin.hostname
+        )
+      ) {
+        throw new Error(
+          `Production origin must not target localhost: ${configuredOrigin}`
+        );
+      }
+    }
+  }
+
+
+  app.disable(
+    'x-powered-by'
+  );
+
+
   /*
    * Reverse-proxy awareness is enabled
    * only in production.
    */
   if (
-    env.NODE_ENV ===
-    'production'
+    isProduction
   ) {
     app.set(
       'trust proxy',
@@ -115,13 +192,95 @@ function configureMiddleware(
   /*
    * Security headers.
    *
-   * Existing CSP behavior is intentionally
-   * preserved here.
+   * Development keeps CSP disabled so Vite/Swagger
+   * tooling remains usable. Production enables a
+   * restrictive CSP for the deployed SPA/API.
    */
+  const productionCspDirectives = {
+    defaultSrc: [
+      "'self'",
+    ],
+
+    baseUri: [
+      "'self'",
+    ],
+
+    objectSrc: [
+      "'none'",
+    ],
+
+    frameAncestors: [
+      "'none'",
+    ],
+
+    formAction: [
+      "'self'",
+    ],
+
+    scriptSrc: [
+      "'self'",
+    ],
+
+    scriptSrcAttr: [
+      "'none'",
+    ],
+
+    styleSrc: [
+      "'self'",
+      "'unsafe-inline'",
+      'https:',
+    ],
+
+    imgSrc: [
+      "'self'",
+      'data:',
+      'blob:',
+      'https:',
+    ],
+
+    fontSrc: [
+      "'self'",
+      'data:',
+      'https:',
+    ],
+
+    connectSrc: [
+      "'self'",
+      'https:',
+    ],
+
+    frameSrc: [
+      "'self'",
+      'blob:',
+      'https:',
+    ],
+
+    workerSrc: [
+      "'self'",
+      'blob:',
+    ],
+
+    mediaSrc: [
+      "'self'",
+      'blob:',
+      'data:',
+      'https:',
+    ],
+
+    upgradeInsecureRequests:
+      [],
+  };
+
+
   app.use(
     helmet({
       contentSecurityPolicy:
-        false,
+        isProduction
+          ? {
+              directives:
+                productionCspDirectives,
+            }
+          : false,
     })
   );
 
@@ -162,6 +321,43 @@ function configureMiddleware(
 
 
   /*
+   * Production Origin boundary.
+   *
+   * CORS headers alone are a browser response policy;
+   * reject credentialed browser requests from unknown
+   * origins before they reach application routes.
+   * Requests without Origin remain valid for trusted
+   * server-to-server clients and health infrastructure.
+   */
+  app.use(
+    (req, res, next) => {
+      const requestOrigin =
+        req.get(
+          'Origin'
+        );
+
+      if (
+        isProduction &&
+        requestOrigin &&
+        !allowedOrigins.includes(
+          requestOrigin
+        )
+      ) {
+        return res
+          .status(403)
+          .json({
+            success: false,
+            error:
+              'Origin is not allowed.',
+          });
+      }
+
+      return next();
+    }
+  );
+
+
+  /*
    * CORS.
    */
   app.use(
@@ -180,8 +376,11 @@ function configureMiddleware(
            */
           if (
             !origin ||
-            /^http:\/\/localhost:\d+$/.test(
-              origin
+            (
+              !isProduction &&
+              /^http:\/\/(?:localhost|127\.0\.0\.1):\d+$/.test(
+                origin
+              )
             ) ||
             allowedOrigins.includes(
               origin

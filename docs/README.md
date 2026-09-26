@@ -12,6 +12,7 @@ This directory contains the current technical and operational documentation for 
 | `backup-restore.md` | Backup policy and restore-drill requirements |
 | `backupRestoreVerification.md` | Latest verified backup/restore drill record |
 | `security.md` | Security configuration and production controls |
+| `securityAuditP5.md` | P5 local security audit findings and rotation requirements |
 | `runbook.md` | Day-to-day operations and incident procedures |
 | `migrations.md` | Database migration workflow and safety rules |
 

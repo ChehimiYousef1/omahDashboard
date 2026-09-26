@@ -6,16 +6,64 @@ const {
   '../../utils/applicantPermissions'
 );
 
+
+const AUTH_COOKIE_NAME =
+  'auth_token';
+
+const AUTH_COOKIE_MAX_AGE_MS =
+  7 * 24 * 60 * 60 * 1000;
+
+
+function authCookieOptions() {
+  return {
+    httpOnly: true,
+    secure:
+      process.env.NODE_ENV ===
+      'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge:
+      AUTH_COOKIE_MAX_AGE_MS,
+  };
+}
+
+
+function authCookieClearOptions() {
+  const {
+    maxAge: _maxAge,
+    ...options
+  } = authCookieOptions();
+
+  return options;
+}
+
+
 module.exports = (deps) => {
   const router = express.Router();
   const { JWT_SECRET, authenticateToken, bcrypt, db, jwt } = deps;
+
+  router.use(
+    (_req, res, next) => {
+      res.set(
+        'Cache-Control',
+        'no-store'
+      );
+
+      res.set(
+        'Pragma',
+        'no-cache'
+      );
+
+      next();
+    }
+  );
 
   router.post('/signup', async (req, res) => {
     if (process.env.ALLOW_SIGNUP !== 'true') {
       return res.status(403).json({ success: false, error: 'Signup is disabled' });
     }
     try {
-      const { name, email, password, role } = req.body;
+      const { name, email, password } = req.body;
       if (!name || !email || !password) {
         return res.status(400).json({ success: false, error: 'Please enter all fields' });
       }
@@ -34,7 +82,14 @@ module.exports = (deps) => {
         role: 'User'
       });
   
-      const token = jwt.sign({ userId: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(
+          { userId: newUser.id },
+          JWT_SECRET,
+          {
+            expiresIn: '7d',
+            algorithm: 'HS256',
+          }
+        );
       res.cookie('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -76,7 +131,14 @@ module.exports = (deps) => {
         return res.status(400).json({ success: false, error: 'Invalid email or password' });
       }
   
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign(
+          { userId: user.id },
+          JWT_SECRET,
+          {
+            expiresIn: '7d',
+            algorithm: 'HS256',
+          }
+        );
       res.cookie('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
