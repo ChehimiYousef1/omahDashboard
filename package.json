@@ -16,7 +16,9 @@
     "test:security-hardening": "node scripts/testProductionSecurityHardening.js",
     "test:abuse-protection": "node scripts/testAbuseProtection.js",
     "test:crawler-controls": "node scripts/testCrawlerControls.js",
-    "test:scraping-deterrence": "node scripts/testScrapingDeterrence.js"
+    "test:scraping-deterrence": "node scripts/testScrapingDeterrence.js",
+    "validate:production-env": "node -r dotenv/config scripts/validateProductionEnvironment.js",
+    "test:production-environment": "node scripts/testProductionEnvironmentDesign.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",

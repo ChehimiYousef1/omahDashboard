@@ -109,3 +109,102 @@ VITE_API_URL configured
 ```
 
 Write-capable integrations should remain disabled until their production credentials and behavior have been individually validated.
+
+## P10 production classification
+
+The selected production target is documented in
+`docs/productionEnvironmentDesign.md`.
+
+### Secrets Manager
+
+Treat these as production secrets:
+
+```text
+MONGODB_URI
+JWT_SECRET
+SMTP_PASS
+APPLICANT_FORM_WEBHOOK_SECRET
+GOOGLE_CLIENT_SECRET
+GOOGLE_REFRESH_TOKEN
+WHATSAPP_CLOUD_ACCESS_TOKEN
+```
+
+Provider identifiers such as a Google client id or WhatsApp phone-number id are
+configuration, but should still be changed only through controlled environment
+configuration.
+
+### AWS runtime configuration
+
+```text
+NODE_ENV=production
+PORT=5000
+ALLOWED_ORIGINS=https://dashboard.<production-domain>
+ALLOW_SIGNUP=false
+SWAGGER_ENABLED=false
+DEV_API_ENABLED=false
+DISABLE_MONGO=false
+
+DOCUMENT_STORAGE_PROVIDER=s3
+DOCUMENT_S3_BUCKET=<private-production-bucket>
+AWS_REGION=<selected-region>
+DOCUMENT_S3_ENDPOINT=
+DOCUMENT_S3_FORCE_PATH_STYLE=false
+```
+
+Do not add static AWS access keys to the application environment. The ECS task
+uses IAM roles.
+
+### Applicant email sender overrides
+
+Optional sender configuration used by Applicant communication flows:
+
+```text
+APPLICANT_EMAIL_FROM=
+APPLICANT_EMAIL_FROM_NAME=
+```
+
+### WhatsApp Cloud
+
+```text
+WHATSAPP_CLOUD_ENABLED=false
+WHATSAPP_CLOUD_API_VERSION=
+WHATSAPP_CLOUD_PHONE_NUMBER_ID=
+WHATSAPP_CLOUD_ACCESS_TOKEN=
+WHATSAPP_CLOUD_API_BASE_URL=https://graph.facebook.com
+```
+
+`WHATSAPP_CLOUD_ACCESS_TOKEN` is secret.
+
+### First-deployment feature gates
+
+The initial production release keeps write-capable integrations disabled until
+staging verification:
+
+```text
+APPLICANT_AUTO_SYNC_ENABLED=false
+APPLICANT_SYNC_WRITE_ENABLED=false
+GOOGLE_CALENDAR_ENABLED=false
+GOOGLE_CALENDAR_WRITE_ENABLED=false
+GOOGLE_DRIVE_DOCUMENT_IMPORT_ENABLED=false
+INTERVIEW_EMAIL_ENABLED=false
+WHATSAPP_CLOUD_ENABLED=false
+```
+
+### Frontend build
+
+```text
+VITE_API_URL=https://dashboard.<production-domain>/api
+```
+
+This is a public build-time value, not a secret.
+
+### Validation
+
+Before staging/production deployment, validate the backend runtime environment:
+
+```bash
+npm run validate:production-env
+```
+
+The validator reports key names and policy failures. It must never print secret
+values.

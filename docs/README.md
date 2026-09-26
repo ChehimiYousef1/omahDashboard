@@ -40,3 +40,14 @@ For current operations use this order:
 2. production documents in `docs/`
 3. integration-specific documentation in `integrations/`
 4. historical documentation only when investigating legacy behavior
+
+## Production environment design
+
+The selected production/staging infrastructure design and P10 acceptance
+decisions are documented in:
+
+```text
+docs/productionEnvironmentDesign.md
+```
+
+AWS provisioning starts only in P11.

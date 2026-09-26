@@ -100,3 +100,64 @@ Use a known Git checkpoint/tag or previously verified deployment artifact.
 Do not automatically roll a database backward merely because application code is rolled back.
 
 Database rollback/restore must follow the verified migration and backup procedure.
+
+## P10 selected production target
+
+The first production deployment target is:
+
+```text
+GoDaddy domain/DNS
+        |
+        v
+AWS Application Load Balancer + ACM + AWS WAF
+        |
+        v
+ECS Fargate
+        |
+        +--> Node 24 / Express / React production bundle
+        +--> MongoDB Atlas
+        +--> private S3 Applicant documents
+        +--> Secrets Manager
+        +--> CloudWatch
+```
+
+The application remains single-origin for the first release. The Node
+application serves both the Vite production bundle and the API.
+
+Target public origin:
+
+```text
+https://dashboard.<production-domain>
+```
+
+Target frontend API value:
+
+```text
+VITE_API_URL=https://dashboard.<production-domain>/api
+```
+
+Target browser origin:
+
+```text
+ALLOWED_ORIGINS=https://dashboard.<production-domain>
+```
+
+Initial ECS desired count is one because application rate-limit counters are
+currently in-memory. WAF provides the next distributed abuse layer; shared
+application rate-limit state is a scaling prerequisite when exact cross-task
+counters are required.
+
+Managed Applicant documents use a private S3 bucket. MongoDB remains MongoDB and
+the selected managed production database target is MongoDB Atlas.
+
+Production secrets use AWS Secrets Manager. AWS runtime access uses IAM task
+roles rather than static access keys.
+
+P10 creates no AWS resources and changes no DNS. P11 provisions the AWS
+foundation; P12 deploys staging before production.
+
+The complete design and phase gates are documented in:
+
+```text
+docs/productionEnvironmentDesign.md
+```
