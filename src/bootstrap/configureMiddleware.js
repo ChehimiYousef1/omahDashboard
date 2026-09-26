@@ -285,6 +285,101 @@ function configureMiddleware(
   );
 
 
+  /* P8 BOT / AI CRAWLER CONTROLS */
+
+  /*
+   * OMAHCONNECT is a private administrative application.
+   * Prevent indexing at the HTTP layer in addition to the
+   * frontend robots meta tag and robots.txt.
+   */
+  app.use(
+    (req, res, next) => {
+      res.setHeader(
+        'X-Robots-Tag',
+        'noindex, nofollow, noarchive, nosnippet, noimageindex'
+      );
+
+      return next();
+    }
+  );
+
+
+  /*
+   * User-Agent blocking is an application-level deterrent.
+   * It intentionally targets known crawler identities rather
+   * than generic words such as "bot", which would create
+   * unnecessary false positives.
+   *
+   * robots.txt remains reachable so compliant crawlers can
+   * read the explicit site-wide Disallow directive.
+   */
+  const blockedCrawlerUserAgents = [
+    'gptbot',
+    'oai-searchbot',
+    'oai-adsbot',
+    'chatgpt-user',
+    'claudebot',
+    'claude-user',
+    'claude-searchbot',
+    'ccbot',
+    'perplexitybot',
+    'bytespider',
+    'googlebot',
+    'bingbot',
+    'duckduckbot',
+    'baiduspider',
+    'yandexbot',
+    'amazonbot',
+    'applebot',
+    'facebookbot',
+    'meta-externalagent',
+  ];
+
+
+  app.use(
+    (req, res, next) => {
+      if (
+        !isProduction ||
+        req.path ===
+          '/robots.txt'
+      ) {
+        return next();
+      }
+
+      const userAgent =
+        String(
+          req.get(
+            'user-agent'
+          ) ||
+          ''
+        ).toLowerCase();
+
+      const blocked =
+        blockedCrawlerUserAgents
+          .some(
+            crawler =>
+              userAgent.includes(
+                crawler
+              )
+          );
+
+      if (!blocked) {
+        return next();
+      }
+
+      return res
+        .status(403)
+        .json({
+          success: false,
+          code:
+            'CRAWLER_BLOCKED',
+          error:
+            'Automated crawler access is not allowed.',
+        });
+    }
+  );
+
+
   /*
    * Authentication rate limit.
    */

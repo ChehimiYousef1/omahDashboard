@@ -134,3 +134,20 @@ These application-level limiters use the default in-memory store and therefore p
 P7 also closes a post-P6 verification gap: signup/login/logout now actually use the shared hardened authentication-cookie policy that P6 introduced.
 
 Outbound campaign email is fail-closed in production when SMTP credentials are absent, and SMTP provider error text is not returned directly to API clients.
+
+## P8 bot and AI crawler controls
+
+OMAHCONNECT is a private administrative application and is not intended for public search discovery.
+
+P8 adds defense in depth:
+
+- `robots.txt` denies crawling across the entire frontend
+- the SPA HTML includes `noindex`, `nofollow`, `noarchive`, `nosnippet`, and `noimageindex`
+- application responses include the equivalent `X-Robots-Tag`
+- production rejects known search and AI crawler User-Agent identities
+- `robots.txt` itself remains reachable so compliant crawlers can read the deny policy
+- production source maps remain disabled
+
+The runtime block includes known crawler identities from OpenAI, Anthropic, Common Crawl, major search engines, and several other automated indexing services.
+
+These controls are deterrence, not an authentication boundary. `robots.txt` is advisory and User-Agent strings can be spoofed. Authentication and authorization remain the protection for private application data. P9 adds scraping deterrence, and the AWS production phases must add edge/WAF bot controls where appropriate.
