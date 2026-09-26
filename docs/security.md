@@ -151,3 +151,29 @@ P8 adds defense in depth:
 The runtime block includes known crawler identities from OpenAI, Anthropic, Common Crawl, major search engines, and several other automated indexing services.
 
 These controls are deterrence, not an authentication boundary. `robots.txt` is advisory and User-Agent strings can be spoofed. Authentication and authorization remain the protection for private application data. P9 adds scraping deterrence, and the AWS production phases must add edge/WAF bot controls where appropriate.
+
+## P9 scraping deterrence
+
+P9 addresses automated clients that imitate normal browsers rather than identifying themselves as crawlers.
+
+The application now uses several layers:
+
+- all `/api` responses are marked `private, no-store` and `Surrogate-Control: no-store`
+- safe/read API requests have an additional IP-based ceiling
+- sensitive authenticated read surfaces also have a per-user ceiling
+- the previously anonymous `/api/posts` read endpoint now requires authentication
+- Applicant, Talent Pool, document, report, company, user and legacy application reads share authenticated-user deterrence
+- P7 mutation and side-effect rate limits remain separate and unchanged
+- P8 crawler and indexing controls remain active
+
+The per-user limiter is mounted only after `authenticateToken` and uses the authenticated account identifier as its key. This means multiple accounts behind one office/NAT address do not share the same per-user bucket, while the broader IP limiter still provides a second abuse boundary.
+
+Pagination remains bounded by the existing service contracts. P9 does not intentionally reduce normal dashboard page sizes because the API already enforces maximums and changing established page-size contracts would create avoidable UX/regression risk.
+
+Applicant PDF exports already use `private, no-store`, and Applicant document downloads remain permission-protected. The global `/api` no-store policy now also covers document download responses and redirects.
+
+Persistent external document URLs remain a transitional storage surface. Production should prefer OMAH-managed private storage and short-lived S3 signed URLs. Exact S3 URL lifetime and edge/WAF controls are finalized with production environment/AWS configuration.
+
+These controls deter bulk harvesting but cannot make authorized data impossible to copy. A user who is legitimately permitted to view information can still manually copy or automate some of it. Authentication, least-privilege authorization, monitoring, audit trails, edge/WAF controls, and operational response remain part of the production security boundary.
+
+The application-level rate-limit stores are currently in-memory. Multi-instance deployment must add an edge/distributed layer and, if application counters must span instances, a shared limiter store.

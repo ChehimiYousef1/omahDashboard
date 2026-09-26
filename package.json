@@ -15,7 +15,8 @@
     "test:migrations": "node scripts/testMigrationSystem.js",
     "test:security-hardening": "node scripts/testProductionSecurityHardening.js",
     "test:abuse-protection": "node scripts/testAbuseProtection.js",
-    "test:crawler-controls": "node scripts/testCrawlerControls.js"
+    "test:crawler-controls": "node scripts/testCrawlerControls.js",
+    "test:scraping-deterrence": "node scripts/testScrapingDeterrence.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1131.0",

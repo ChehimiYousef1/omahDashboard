@@ -422,6 +422,41 @@ function configureMiddleware(
     loginLimiter
   );
 
+  /* P9 SCRAPING DETERRENCE */
+
+  /*
+   * Private API responses must not be retained by browser,
+   * intermediary, or CDN caches. This also covers document
+   * download redirects and authorization failures.
+   */
+  app.use(
+    '/api',
+    (_req, res, next) => {
+      res.setHeader(
+        'Cache-Control',
+        'private, no-store'
+      );
+
+      res.setHeader(
+        'Pragma',
+        'no-cache'
+      );
+
+      res.setHeader(
+        'Expires',
+        '0'
+      );
+
+      res.setHeader(
+        'Surrogate-Control',
+        'no-store'
+      );
+
+      return next();
+    }
+  );
+
+
   /* P7 TIERED ABUSE PROTECTION */
 
   const signupLimiter =
@@ -769,6 +804,46 @@ function configureMiddleware(
     });
 
 
+  /*
+   * Browser-like scrapers can avoid crawler User-Agent
+   * detection, so safe/read requests receive a separate
+   * IP ceiling in addition to the broad P7 API limiter.
+   */
+  const apiReadLimiter =
+    rateLimit({
+      windowMs:
+        15 * 60 * 1000,
+
+      max:
+        600,
+
+      standardHeaders:
+        true,
+
+      legacyHeaders:
+        false,
+
+      skip:
+        req =>
+          ![
+            'GET',
+            'HEAD',
+          ].includes(
+            req.method
+          ),
+
+      message: {
+        success: false,
+
+        code:
+          'SCRAPING_RATE_LIMITED',
+
+        error:
+          'Too many read requests. Try again later.',
+      },
+    });
+
+
   app.use(
     '/api/auth/signup',
     signupLimiter
@@ -778,7 +853,8 @@ function configureMiddleware(
   app.use(
     '/api',
     apiBurstLimiter,
-    apiMutationLimiter
+    apiMutationLimiter,
+    apiReadLimiter
   );
 
 

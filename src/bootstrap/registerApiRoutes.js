@@ -1,3 +1,5 @@
+const { authenticatedReadLimiter } = require('../../middleware/scrapingDeterrence');
+
 'use strict';
 
 const createAuthRouter =
@@ -146,6 +148,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireAdmin,
 
     createUsersRouter({
@@ -164,6 +167,9 @@ function registerApiRoutes(
   app.use(
     '/api/posts',
 
+    authenticateToken,
+
+    authenticatedReadLimiter,
     createPostsRouter({
       db,
     })
@@ -248,6 +254,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireAdmin,
 
     createCompaniesRouter({
@@ -268,6 +275,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireAdmin,
 
     createApplicationsRouter({
@@ -292,6 +300,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireApplicantAccess,
 
     createApplicantDocumentsRouter({
@@ -314,6 +323,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireApplicantAccess,
 
     createApplicantReportsRouter({
@@ -335,6 +345,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireApplicantAccess,
 
     createApplicantTalentPoolRouter({
@@ -349,6 +360,7 @@ function registerApiRoutes(
 
     authenticateToken,
 
+    authenticatedReadLimiter,
     requireApplicantAccess,
 
     createApplicantsRouter({
