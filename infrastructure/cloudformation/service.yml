@@ -1,0 +1,279 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  OMAH Dashboard ECS Fargate application service. The service runs in private
+  subnets, mounts EFS only for transitional legacy JSON state, uses S3 for
+  managed Applicant documents, reads core secrets from Secrets Manager, and
+  exposes only /health and /ready through the temporary HTTP listener. Full
+  application forwarding waits for ACM/HTTPS.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: omah-dashboard
+    AllowedPattern: '^[a-z0-9-]+$'
+
+  EnvironmentName:
+    Type: String
+    AllowedValues:
+      - staging
+      - production
+
+  ClusterArn:
+    Type: String
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+  EcsServiceSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  TaskExecutionRoleArn:
+    Type: String
+
+  TaskRoleArn:
+    Type: String
+
+  LegacyDataFileSystemId:
+    Type: String
+
+  LegacyDataAccessPointId:
+    Type: String
+
+  ApplicationLogGroupName:
+    Type: String
+
+  BootstrapHttpListenerArn:
+    Type: String
+
+  ImageUri:
+    Type: String
+    Description: Immutable ECR image URI, normally tagged with the Git commit SHA.
+
+  AppOrigin:
+    Type: String
+    AllowedPattern: '^https://.+'
+    Description: Final HTTPS browser origin allowed by the production CORS policy.
+
+  DocumentBucketName:
+    Type: String
+
+  ApplicationSecretArn:
+    Type: String
+    Description: >
+      Secrets Manager JSON secret under
+      omah-dashboard/<environment>/... containing MONGODB_URI and JWT_SECRET.
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 0
+    MaxValue: 4
+
+  ContainerPort:
+    Type: Number
+    Default: 5000
+
+Resources:
+  ApplicationTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /ready
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Matcher:
+        HttpCode: '200'
+      Port: !Ref ContainerPort
+      Protocol: HTTP
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvironmentName}-app-tg'
+
+  BootstrapHealthListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ApplicationTargetGroup
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - /health
+              - /ready
+      ListenerArn: !Ref BootstrapHttpListenerArn
+      Priority: 100
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: '512'
+      Memory: '1024'
+      Family: !Sub '${ProjectName}-${EnvironmentName}'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+
+      Volumes:
+        - Name: legacy-data
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref LegacyDataFileSystemId
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref LegacyDataAccessPointId
+              IAM: ENABLED
+
+        - Name: temp-space
+
+      ContainerDefinitions:
+        - Name: app
+          Image: !Ref ImageUri
+          Essential: true
+          ReadonlyRootFilesystem: true
+          LinuxParameters:
+            InitProcessEnabled: true
+
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+
+          MountPoints:
+            - SourceVolume: legacy-data
+              ContainerPath: /app/data
+              ReadOnly: false
+            - SourceVolume: temp-space
+              ContainerPath: /tmp
+              ReadOnly: false
+
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: PORT
+              Value: !Ref ContainerPort
+            - Name: ALLOWED_ORIGINS
+              Value: !Ref AppOrigin
+            - Name: ALLOW_SIGNUP
+              Value: 'false'
+            - Name: SWAGGER_ENABLED
+              Value: 'false'
+            - Name: DEV_API_ENABLED
+              Value: 'false'
+            - Name: DISABLE_MONGO
+              Value: 'false'
+
+            - Name: DOCUMENT_STORAGE_PROVIDER
+              Value: s3
+            - Name: DOCUMENT_S3_BUCKET
+              Value: !Ref DocumentBucketName
+            - Name: DOCUMENT_S3_FORCE_PATH_STYLE
+              Value: 'false'
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+
+            - Name: APPLICANT_AUTO_SYNC_ENABLED
+              Value: 'false'
+            - Name: APPLICANT_SYNC_WRITE_ENABLED
+              Value: 'false'
+
+            - Name: GOOGLE_CALENDAR_ENABLED
+              Value: 'false'
+            - Name: GOOGLE_CALENDAR_WRITE_ENABLED
+              Value: 'false'
+            - Name: GOOGLE_CALENDAR_SEND_UPDATES
+              Value: none
+            - Name: GOOGLE_DRIVE_DOCUMENT_IMPORT_ENABLED
+              Value: 'false'
+
+            - Name: INTERVIEW_EMAIL_ENABLED
+              Value: 'false'
+            - Name: WHATSAPP_CLOUD_ENABLED
+              Value: 'false'
+
+          Secrets:
+            - Name: MONGODB_URI
+              ValueFrom: !Sub '${ApplicationSecretArn}:MONGODB_URI::'
+            - Name: JWT_SECRET
+              ValueFrom: !Sub '${ApplicationSecretArn}:JWT_SECRET::'
+
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - >-
+                node -e "fetch('http://127.0.0.1:'+(process.env.PORT||'5000')+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 30
+
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApplicationLogGroupName
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: application
+              mode: non-blocking
+              max-buffer-size: 10m
+
+  ApplicationService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - BootstrapHealthListenerRule
+    Properties:
+      Cluster: !Ref ClusterArn
+      DesiredCount: !Ref DesiredCount
+      EnableECSManagedTags: true
+      HealthCheckGracePeriodSeconds: 60
+      LaunchType: FARGATE
+      PlatformVersion: LATEST
+      PropagateTags: SERVICE
+      TaskDefinition: !Ref TaskDefinition
+
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+
+      LoadBalancers:
+        - ContainerName: app
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref ApplicationTargetGroup
+
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups:
+            - !Ref EcsServiceSecurityGroupId
+          Subnets: !Ref PrivateSubnetIds
+
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+Outputs:
+  ServiceArn:
+    Value: !Ref ApplicationService
+
+  TaskDefinitionArn:
+    Value: !Ref TaskDefinition
+
+  TargetGroupArn:
+    Value: !Ref ApplicationTargetGroup

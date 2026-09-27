@@ -1,0 +1,50 @@
+# Version control / repository history
+.git
+.gitattributes
+
+# Local dependencies and generated frontend
+node_modules/
+**/node_modules/
+omahconnect-admin/dist/
+coverage/
+**/coverage/
+
+# Runtime configuration / credentials
+.env
+.env.*
+**/.env
+**/.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data must never be baked into the application image.
+# Production legacy JSON state is mounted separately through EFS.
+data/
+private-storage/
+backup-mongo/
+backup-before-rebase/
+data-backup-*/
+*.dump
+*.bson
+*.archive
+
+# Local/editor/temp/log material
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Documentation/history that is not required by the runtime
+docs/archive/
+
+# Local test outputs
+results/
+tmp/
+temp/

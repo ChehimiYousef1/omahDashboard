@@ -51,3 +51,8 @@ docs/productionEnvironmentDesign.md
 ```
 
 AWS provisioning starts only in P11.
+
+## Deployment infrastructure
+
+- [Production containerization](containerization.md)
+- [AWS infrastructure as code](awsInfrastructure.md)
