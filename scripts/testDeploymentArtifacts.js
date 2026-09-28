@@ -116,6 +116,53 @@ for (const token of [
 
 console.log('✅ AWS foundation contract present');
 
+const legacyAccessPointMatch = foundation.match(
+  /  LegacyDataAccessPoint:\n([\s\S]*?)\n  LegacyDataMountTarget1:/
+);
+
+assert(
+  legacyAccessPointMatch,
+  'LegacyDataAccessPoint block missing from foundation.yml'
+);
+
+const legacyAccessPoint = legacyAccessPointMatch[1];
+
+assert(
+  legacyAccessPoint.includes('AccessPointTags:'),
+  'EFS AccessPoint must use AccessPointTags.'
+);
+
+assert(
+  !legacyAccessPoint.includes('\n      Tags:\n'),
+  'EFS AccessPoint must not use unsupported Tags property.'
+);
+
+const ecsServiceSecurityGroupMatch = foundation.match(
+  /  EcsServiceSecurityGroup:\n([\s\S]*?)\n  EcsFromAlbIngress:/
+);
+
+assert(
+  ecsServiceSecurityGroupMatch,
+  'EcsServiceSecurityGroup block missing from foundation.yml'
+);
+
+const ecsServiceSecurityGroup =
+  ecsServiceSecurityGroupMatch[1];
+
+assert(
+  !ecsServiceSecurityGroup.includes('Description: >'),
+  'EC2 security-group rule descriptions must not use folded multiline YAML.'
+);
+
+assert(
+  ecsServiceSecurityGroup.includes(
+    'Description: Egress is constrained by private-subnet routing.'
+  ),
+  'Expected single-line ECS security-group egress description missing.'
+);
+
+console.log('✅ AWS deploy-time schema regression guards present');
+
 const service = read(
   'infrastructure/cloudformation/service.yml'
 );

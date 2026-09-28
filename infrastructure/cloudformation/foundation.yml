@@ -267,9 +267,7 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: '-1'
           CidrIp: 0.0.0.0/0
-          Description: >
-            Egress is constrained by private-subnet routing. Without NAT,
-            traffic is limited to VPC/VPC-endpoint reachable destinations.
+          Description: Egress is constrained by private-subnet routing. Without NAT, traffic is limited to VPC/VPC-endpoint reachable destinations.
       Tags:
         - Key: Name
           Value: !Sub '${ProjectName}-${EnvironmentName}-ecs-sg'
@@ -485,7 +483,7 @@ Resources:
           OwnerUid: '10001'
           Permissions: '0750'
         Path: /omah-data
-      Tags:
+      AccessPointTags:
         - Key: Name
           Value: !Sub '${ProjectName}-${EnvironmentName}-legacy-data-ap'
 
