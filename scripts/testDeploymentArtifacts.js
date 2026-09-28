@@ -161,6 +161,18 @@ assert(
   'Expected single-line ECS security-group egress description missing.'
 );
 
+assert(
+  foundation.includes('HttpsApplicationListener:') &&
+  foundation.includes('Protocol: HTTPS') &&
+  foundation.includes('TlsCertificateArn:') &&
+  foundation.includes('PublicDomainAlias:') &&
+  foundation.includes('Type: redirect') &&
+  foundation.includes('StatusCode: HTTP_301'),
+  'Foundation must define HTTPS, DNS alias, and HTTP-to-HTTPS redirect.'
+);
+
+console.log('✅ HTTPS/DNS foundation contract present');
+
 console.log('✅ AWS deploy-time schema regression guards present');
 
 const service = read(
@@ -183,8 +195,9 @@ for (const token of [
   'Name: MONGODB_URI',
   'Name: JWT_SECRET',
   'HealthCheckPath: /ready',
-  '- /health',
-  '- /ready',
+  'HttpsListenerArn',
+  'HttpsApplicationListenerRule',
+  '- /*',
 ]) {
   assert(
     service.includes(token),

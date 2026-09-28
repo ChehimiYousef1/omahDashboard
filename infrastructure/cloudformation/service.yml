@@ -48,6 +48,11 @@ Parameters:
 
   BootstrapHttpListenerArn:
     Type: String
+    Description: Deprecated bootstrap HTTP listener retained for stack compatibility.
+
+  HttpsListenerArn:
+    Type: String
+    Description: HTTPS listener that forwards the full application.
 
   ImageUri:
     Type: String
@@ -101,7 +106,7 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${EnvironmentName}-app-tg'
 
-  BootstrapHealthListenerRule:
+  HttpsApplicationListenerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
     Properties:
       Actions:
@@ -111,9 +116,8 @@ Resources:
         - Field: path-pattern
           PathPatternConfig:
             Values:
-              - /health
-              - /ready
-      ListenerArn: !Ref BootstrapHttpListenerArn
+              - /*
+      ListenerArn: !Ref HttpsListenerArn
       Priority: 100
 
   TaskDefinition:
@@ -234,7 +238,7 @@ Resources:
   ApplicationService:
     Type: AWS::ECS::Service
     DependsOn:
-      - BootstrapHealthListenerRule
+      - HttpsApplicationListenerRule
     Properties:
       Cluster: !Ref ClusterArn
       DesiredCount: !Ref DesiredCount
