@@ -171,6 +171,21 @@ assert(
   'Foundation must define HTTPS, DNS alias, and HTTP-to-HTTPS redirect.'
 );
 
+assert(
+  foundation.includes('ManagePublicDns:') &&
+  foundation.includes('ManagePublicDnsEnabled:') &&
+  foundation.includes('Condition: ManagePublicDnsEnabled'),
+  'Foundation must support external DNS without creating a Route53 record.'
+);
+
+assert(
+  foundation.includes('NatGatewayEnabled: !Equals') &&
+  foundation.includes('ManagePublicDnsEnabled: !Equals'),
+  'Foundation must preserve NAT and external-DNS conditions together.'
+);
+
+console.log('✅ external DNS production contract present');
+
 console.log('✅ HTTPS/DNS foundation contract present');
 
 console.log('✅ AWS deploy-time schema regression guards present');

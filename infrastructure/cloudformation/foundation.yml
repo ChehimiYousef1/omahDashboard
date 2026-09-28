@@ -26,9 +26,18 @@ Parameters:
     AllowedPattern: '^[A-Za-z0-9.-]+$'
     Description: Public DNS name for this environment.
 
+  ManagePublicDns:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Set false when public DNS is managed outside Route53.
+
   PublicHostedZoneId:
     Type: String
-    Description: Route53 hosted-zone ID that owns PublicDomainName.
+    Default: ''
+    Description: Route53 hosted-zone ID that owns PublicDomainName when ManagePublicDns is true.
 
   VpcCidr:
     Type: String
@@ -82,6 +91,10 @@ Parameters:
 Conditions:
   NatGatewayEnabled: !Equals
     - !Ref EnableNatGateway
+    - 'true'
+
+  ManagePublicDnsEnabled: !Equals
+    - !Ref ManagePublicDns
     - 'true'
 
 Resources:
@@ -644,6 +657,7 @@ Resources:
 
   PublicDomainAlias:
     Type: AWS::Route53::RecordSet
+    Condition: ManagePublicDnsEnabled
     Properties:
       AliasTarget:
         DNSName: !GetAtt PublicLoadBalancer.DNSName
