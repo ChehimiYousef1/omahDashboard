@@ -116,6 +116,39 @@ for (const token of [
 
 console.log('✅ AWS foundation contract present');
 
+assert(
+  foundation.includes('AWS::SNS::Topic') &&
+    foundation.includes('AWS::SNS::Subscription') &&
+    foundation.includes('AWS::WAFv2::LoggingConfiguration') &&
+    foundation.includes('aws-waf-logs-') &&
+    foundation.includes('MonitoringTopicArn') &&
+    foundation.includes('LoadBalancerFullName'),
+  'foundation.yml missing monitoring, alerting, or WAF logging contract.'
+);
+
+console.log('✅ monitoring foundation contract present');
+
+assert(
+  foundation.includes('CloudWatchLogsKmsKey:') &&
+    foundation.includes('Type: AWS::KMS::Key') &&
+    foundation.includes('EnableKeyRotation: true') &&
+    foundation.includes(
+      "Service: !Sub 'logs.${AWS::Region}.amazonaws.com'"
+    ) &&
+    foundation.includes(
+      "'kms:EncryptionContext:aws:logs:arn':"
+    ) &&
+    (
+      foundation.match(
+        /KmsKeyId: !GetAtt CloudWatchLogsKmsKey\.Arn/g
+      ) || []
+    ).length === 2 &&
+    foundation.includes('CloudWatchLogsKmsKeyArn:'),
+  'foundation.yml missing CloudWatch Logs customer KMS encryption contract.'
+);
+
+console.log('✅ CloudWatch Logs customer KMS encryption contract present');
+
 const legacyAccessPointMatch = foundation.match(
   /  LegacyDataAccessPoint:\n([\s\S]*?)\n  LegacyDataMountTarget1:/
 );
@@ -227,6 +260,32 @@ assert(
 );
 
 console.log('✅ ECS service security/runtime contract present');
+
+assert(
+  service.includes('AWS::CloudWatch::Alarm') &&
+    service.includes('CPUUtilization') &&
+    service.includes('MemoryUtilization') &&
+    service.includes('HealthyHostCount') &&
+    service.includes('HTTPCode_Target_5XX_Count') &&
+    service.includes('HTTPCode_ELB_5XX_Count'),
+  'service.yml missing CloudWatch production alarm contract.'
+);
+
+console.log('✅ production CloudWatch alarm contract present');
+
+assert(
+  service.includes('MongoBackupTaskDefinition:') &&
+    service.includes('MongoBackupSchedule:') &&
+    service.includes('AWS::Events::Rule') &&
+    service.includes('MongoBackupSchedulerRole:') &&
+    service.includes('mongodump --uri=') &&
+    service.includes('mongorestore --uri=') &&
+    service.includes('--dryRun') &&
+    service.includes('MongoBackupTaskDefinitionArn'),
+  'service.yml missing scheduled MongoDB backup/recovery-validation contract.'
+);
+
+console.log('✅ scheduled MongoDB backup contract present');
 
 const allDeploymentText = [
   dockerfile,

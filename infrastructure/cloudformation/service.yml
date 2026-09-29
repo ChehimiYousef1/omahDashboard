@@ -43,6 +43,9 @@ Parameters:
   LegacyDataAccessPointId:
     Type: String
 
+  MongoBackupAccessPointId:
+    Type: String
+
   ApplicationLogGroupName:
     Type: String
 
@@ -71,6 +74,30 @@ Parameters:
     Description: >
       Secrets Manager JSON secret under
       omah-dashboard/<environment>/... containing MONGODB_URI and JWT_SECRET.
+
+  MonitoringTopicArn:
+    Type: String
+    Description: SNS topic ARN used by CloudWatch production alarms.
+
+  LoadBalancerFullName:
+    Type: String
+    Description: Application Load Balancer full name used by AWS/ApplicationELB metrics.
+
+  BackupImageUri:
+    Type: String
+    Description: Immutable container image URI providing mongodump and mongorestore.
+
+  BackupScheduleExpression:
+    Type: String
+    Default: 'cron(0 2 * * ? *)'
+    Description: Daily EventBridge schedule for the production MongoDB archive task.
+
+  MongoBackupRetentionDays:
+    Type: Number
+    Default: 14
+    MinValue: 1
+    MaxValue: 35
+    Description: Number of days raw MongoDB archives remain on EFS before task-side cleanup.
 
   DesiredCount:
     Type: Number
@@ -272,6 +299,261 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
+  EcsCpuHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvironmentName}-ecs-cpu-high'
+      AlarmDescription: ECS service average CPU utilization is persistently high.
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Sub '${ProjectName}-${EnvironmentName}'
+        - Name: ServiceName
+          Value: !GetAtt ApplicationService.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringTopicArn
+      OKActions:
+        - !Ref MonitoringTopicArn
+
+  EcsMemoryHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvironmentName}-ecs-memory-high'
+      AlarmDescription: ECS service average memory utilization is persistently high.
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Sub '${ProjectName}-${EnvironmentName}'
+        - Name: ServiceName
+          Value: !GetAtt ApplicationService.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 2
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringTopicArn
+      OKActions:
+        - !Ref MonitoringTopicArn
+
+  HealthyHostCountLowAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvironmentName}-healthy-host-count-low'
+      AlarmDescription: Production target group has no healthy application target.
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt ApplicationTargetGroup.TargetGroupFullName
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions:
+        - !Ref MonitoringTopicArn
+      OKActions:
+        - !Ref MonitoringTopicArn
+
+  Target5xxHighAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvironmentName}-target-5xx-high'
+      AlarmDescription: Application targets are returning an elevated number of HTTP 5xx responses.
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt ApplicationTargetGroup.TargetGroupFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringTopicArn
+      OKActions:
+        - !Ref MonitoringTopicArn
+
+  Alb5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${ProjectName}-${EnvironmentName}-alb-5xx'
+      AlarmDescription: Application Load Balancer is returning HTTP 5xx responses.
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref MonitoringTopicArn
+      OKActions:
+        - !Ref MonitoringTopicArn
+
+  MongoBackupTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Cpu: '256'
+      Memory: '512'
+      Family: !Sub '${ProjectName}-${EnvironmentName}-mongodb-backup'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      TaskRoleArn: !Ref TaskRoleArn
+      Volumes:
+        - Name: legacy-data
+          EFSVolumeConfiguration:
+            FilesystemId: !Ref LegacyDataFileSystemId
+            TransitEncryption: ENABLED
+            AuthorizationConfig:
+              AccessPointId: !Ref MongoBackupAccessPointId
+              IAM: ENABLED
+        - Name: temp-space
+      ContainerDefinitions:
+        - Name: mongodb-backup
+          Image: !Ref BackupImageUri
+          Essential: true
+          ReadonlyRootFilesystem: true
+          EntryPoint:
+            - /bin/bash
+            - -lc
+          Command:
+            - |
+              set -Eeuo pipefail
+              umask 077
+              STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+              BACKUP_DIR="/backup/backups/mongodb"
+              ARCHIVE="${BACKUP_DIR}/${MONGODB_DATABASE}-${STAMP}.archive.gz"
+              mkdir -p "$BACKUP_DIR"
+              echo "MongoDB backup starting: ${MONGODB_DATABASE} -> ${ARCHIVE}"
+              mongodump --uri="$MONGODB_URI" --db="$MONGODB_DATABASE" --archive="$ARCHIVE" --gzip
+              test -s "$ARCHIVE"
+              echo "Archive created; validating with mongorestore --dryRun"
+              mongorestore --uri="$MONGODB_URI" --archive="$ARCHIVE" --gzip --dryRun --nsInclude="${MONGODB_DATABASE}.*"
+              sha256sum "$ARCHIVE" > "${ARCHIVE}.sha256"
+              find "$BACKUP_DIR" -type f -mtime +"$BACKUP_RETENTION_DAYS" \( -name '*.archive.gz' -o -name '*.archive.gz.sha256' \) -delete
+              echo "MongoDB backup validated successfully"
+              echo "Archive: ${ARCHIVE}"
+              echo "Bytes: $(stat -c %s "$ARCHIVE")"
+              echo "SHA256: $(cut -d' ' -f1 "${ARCHIVE}.sha256")"
+          Environment:
+            - Name: MONGODB_DATABASE
+              Value: !Sub 'omahconnect_${EnvironmentName}'
+            - Name: BACKUP_RETENTION_DAYS
+              Value: !Ref MongoBackupRetentionDays
+          Secrets:
+            - Name: MONGODB_URI
+              ValueFrom: !Sub '${ApplicationSecretArn}:MONGODB_URI::'
+          MountPoints:
+            - SourceVolume: legacy-data
+              ContainerPath: /backup
+              ReadOnly: false
+            - SourceVolume: temp-space
+              ContainerPath: /tmp
+              ReadOnly: false
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ApplicationLogGroupName
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: mongodb-backup
+              mode: non-blocking
+              max-buffer-size: 10m
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - command -v mongodump >/dev/null && command -v mongorestore >/dev/null || exit 1
+            Interval: 30
+            Timeout: 5
+            Retries: 2
+            StartPeriod: 5
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: mongodb-backup
+
+  MongoBackupSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: RunMongoBackupTask
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                Resource: !Ref MongoBackupTaskDefinition
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Ref TaskExecutionRoleArn
+                  - !Ref TaskRoleArn
+
+  MongoBackupSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: !Sub 'Daily MongoDB archive backup for ${ProjectName}-${EnvironmentName}'
+      ScheduleExpression: !Ref BackupScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !Ref ClusterArn
+          Id: MongoBackupTarget
+          RoleArn: !GetAtt MongoBackupSchedulerRole.Arn
+          EcsParameters:
+            LaunchType: FARGATE
+            PlatformVersion: LATEST
+            TaskCount: 1
+            TaskDefinitionArn: !Ref MongoBackupTaskDefinition
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                AssignPublicIp: DISABLED
+                SecurityGroups:
+                  - !Ref EcsServiceSecurityGroupId
+                Subnets: !Ref PrivateSubnetIds
+
 Outputs:
   ServiceArn:
     Value: !Ref ApplicationService
@@ -281,3 +563,9 @@ Outputs:
 
   TargetGroupArn:
     Value: !Ref ApplicationTargetGroup
+
+  MongoBackupTaskDefinitionArn:
+    Value: !Ref MongoBackupTaskDefinition
+
+  MongoBackupScheduleName:
+    Value: !Ref MongoBackupSchedule

@@ -88,6 +88,11 @@ Parameters:
     MinValue: 100
     Description: Aggregate requests per source IP within the WAF rate window.
 
+  AlarmEmail:
+    Type: String
+    Default: ''
+    Description: Optional email endpoint subscribed to the environment monitoring SNS topic.
+
 Conditions:
   NatGatewayEnabled: !Equals
     - !Ref EnableNatGateway
@@ -96,6 +101,11 @@ Conditions:
   ManagePublicDnsEnabled: !Equals
     - !Ref ManagePublicDns
     - 'true'
+
+  AlarmEmailConfigured: !Not
+    - !Equals
+      - !Ref AlarmEmail
+      - ''
 
 Resources:
   Vpc:
@@ -513,6 +523,23 @@ Resources:
         - Key: Name
           Value: !Sub '${ProjectName}-${EnvironmentName}-legacy-data-ap'
 
+  MongoBackupAccessPoint:
+    Type: AWS::EFS::AccessPoint
+    Properties:
+      FileSystemId: !Ref LegacyDataFileSystem
+      PosixUser:
+        Gid: '10001'
+        Uid: '10001'
+      RootDirectory:
+        CreationInfo:
+          OwnerGid: '10001'
+          OwnerUid: '10001'
+          Permissions: '0750'
+        Path: /omah-backups
+      AccessPointTags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-${EnvironmentName}-mongodb-backup-ap'
+
   LegacyDataMountTarget1:
     Type: AWS::EFS::MountTarget
     Properties:
@@ -540,11 +567,72 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
+  CloudWatchLogsKmsKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub '${ProjectName}-${EnvironmentName} CloudWatch Logs encryption key'
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableAccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: AllowCloudWatchLogsUse
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: '*'
+            Condition:
+              ArnLike:
+                'kms:EncryptionContext:aws:logs:arn':
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/omah/${EnvironmentName}/application'
+                  - !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws-waf-logs-${ProjectName}-${EnvironmentName}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
   ApplicationLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub '/omah/${EnvironmentName}/application'
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !GetAtt CloudWatchLogsKmsKey.Arn
+
+  WafLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub 'aws-waf-logs-${ProjectName}-${EnvironmentName}'
+      RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !GetAtt CloudWatchLogsKmsKey.Arn
+
+  MonitoringTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub '${ProjectName}-${EnvironmentName}-alerts'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  MonitoringEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: AlarmEmailConfigured
+    Properties:
+      Endpoint: !Ref AlarmEmail
+      Protocol: email
+      TopicArn: !Ref MonitoringTopic
 
   TaskExecutionRole:
     Type: AWS::IAM::Role
@@ -609,6 +697,18 @@ Resources:
                 Condition:
                   StringEquals:
                     'elasticfilesystem:AccessPointArn': !GetAtt LegacyDataAccessPoint.Arn
+        - PolicyName: MongoBackupEfsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - elasticfilesystem:ClientMount
+                  - elasticfilesystem:ClientWrite
+                Resource: !GetAtt LegacyDataFileSystem.Arn
+                Condition:
+                  StringEquals:
+                    'elasticfilesystem:AccessPointArn': !GetAtt MongoBackupAccessPoint.Arn
   PublicLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -727,6 +827,19 @@ Resources:
       ResourceArn: !Ref PublicLoadBalancer
       WebACLArn: !GetAtt WebAcl.Arn
 
+  WafLoggingConfiguration:
+    Type: AWS::WAFv2::LoggingConfiguration
+    Properties:
+      LogDestinationConfigs:
+        - !GetAtt WafLogGroup.Arn
+      RedactedFields:
+        - SingleHeader:
+            Name: authorization
+        - SingleHeader:
+            Name: cookie
+        - QueryString: {}
+      ResourceArn: !GetAtt WebAcl.Arn
+
 Outputs:
   VpcId:
     Value: !Ref Vpc
@@ -761,6 +874,12 @@ Outputs:
   LegacyDataAccessPointId:
     Value: !Ref LegacyDataAccessPoint
 
+  MongoBackupAccessPointId:
+    Value: !Ref MongoBackupAccessPoint
+
+  CloudWatchLogsKmsKeyArn:
+    Value: !GetAtt CloudWatchLogsKmsKey.Arn
+
   ApplicationLogGroupName:
     Value: !Ref ApplicationLogGroup
 
@@ -787,6 +906,15 @@ Outputs:
 
   WebAclArn:
     Value: !GetAtt WebAcl.Arn
+
+  WafLogGroupName:
+    Value: !Ref WafLogGroup
+
+  MonitoringTopicArn:
+    Value: !Ref MonitoringTopic
+
+  LoadBalancerFullName:
+    Value: !GetAtt PublicLoadBalancer.LoadBalancerFullName
 
   NatGatewayEnabled:
     Value: !Ref EnableNatGateway

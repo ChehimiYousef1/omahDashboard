@@ -29,7 +29,7 @@
   },
   {
     "ParameterKey": "EnableNatGateway",
-    "ParameterValue": "false"
+    "ParameterValue": "true"
   },
   {
     "ParameterKey": "LogRetentionDays",
