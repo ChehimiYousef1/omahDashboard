@@ -285,6 +285,26 @@ function configureMiddleware(
   );
 
 
+  /*
+   * P18 browser capability hardening.
+   *
+   * OMAHCONNECT does not use these browser capabilities.
+   * Deny them in production to reduce unnecessary browser attack surface.
+   */
+  if (isProduction) {
+    app.use(
+      (_req, res, next) => {
+        res.setHeader(
+          'Permissions-Policy',
+          'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+        );
+
+        return next();
+      }
+    );
+  }
+
+
   /* P8 BOT / AI CRAWLER CONTROLS */
 
   /*
